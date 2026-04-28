@@ -1,160 +1,731 @@
 <!DOCTYPE html>
+
 <html lang="id">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Proserva — Reservation Engine</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Proserva — Reservation Engine</title>
 
-<!-- Fonts -->
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <!-- Fonts -->
 
-<!-- Icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Satoshi:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Chart -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- App Styles -->
 
-<!-- CSS -->
-<link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.css"/>
 </head>
-
 <body>
 
-<!-- SETUP WIZARD -->
+<!-- ============================================================
+     TRIAL BANNER
+     ============================================================ -->
+
+<div id="trial-banner">
+  <div class="tb-inner">
+    <span class="tb-icon"><i class="fas fa-clock"></i></span>
+    <span class="tb-text">Mode Demo Aktif — Data akan direset otomatis dalam <strong id="trial-countdown">7 hari</strong></span>
+    <span class="tb-badge">TRIAL</span>
+  </div>
+</div>
+
+<!-- ============================================================
+     SETUP WIZARD
+     ============================================================ -->
+
 <div id="setup-wizard">
+
+  <!-- Step 1: Welcome -->
+
   <div class="wizard-step active" id="wizard-1">
+    <div class="wz-bg-art">
+      <div class="wz-orb wz-orb-1"></div>
+      <div class="wz-orb wz-orb-2"></div>
+      <div class="wz-orb wz-orb-3"></div>
+    </div>
     <div class="wizard-card">
-      <h2>Selamat Datang di Proserva</h2>
-      <input id="wz-biz-name" placeholder="Nama usaha"/>
-      <button onclick="wizardNext(2)">Lanjut</button>
+      <div class="wz-logo-mark">
+        <i class="fas fa-calendar-check"></i>
+      </div>
+      <div class="wz-step-indicator">
+        <div class="wz-step-dot active"></div>
+        <div class="wz-step-line"></div>
+        <div class="wz-step-dot"></div>
+        <div class="wz-step-line"></div>
+        <div class="wz-step-dot"></div>
+      </div>
+      <div class="wz-eyebrow">Langkah 1 dari 3</div>
+      <h1 class="wz-title">Selamat Datang<br/><em>di Proserva</em></h1>
+      <p class="wz-subtitle">Platform reservasi cerdas untuk restoran, café, dan tempat wisata. Setup hanya butuh 2 menit.</p>
+      <div class="wz-form">
+        <div class="wz-field">
+          <label>Nama Usaha Anda <span class="req">*</span></label>
+          <div class="input-wrap">
+            <i class="fas fa-store"></i>
+            <input type="text" id="wz-biz-name" placeholder="Contoh: Warung Sawah Indah"/>
+          </div>
+        </div>
+        <div class="wz-field">
+          <label>Tipe Usaha</label>
+          <div class="input-wrap">
+            <i class="fas fa-tag"></i>
+            <select id="wz-biz-type">
+              <option value="restoran">🍽️ Restoran / Warung</option>
+              <option value="cafe">☕ Café / Coffee Shop</option>
+              <option value="wisata">🏞️ Tempat Wisata</option>
+              <option value="villa">🏡 Villa / Resort</option>
+              <option value="lainnya">✨ Lainnya</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button class="wz-btn-primary" onclick="wizardNext(2)">
+        Lanjutkan <i class="fas fa-arrow-right"></i>
+      </button>
     </div>
   </div>
+
+  <!-- Step 2: Locations -->
 
   <div class="wizard-step" id="wizard-2">
-    <div class="wizard-card">
-      <h2>Tambah Lokasi</h2>
-      <input id="wz-loc-name" placeholder="Nama lokasi"/>
-      <input id="wz-loc-cap" type="number" placeholder="Kapasitas"/>
-      <button onclick="wizardAddLocation()">Tambah</button>
-      <button onclick="wizardNext(3)">Lanjut</button>
+    <div class="wz-bg-art">
+      <div class="wz-orb wz-orb-1" style="background:var(--teal-glow);"></div>
+      <div class="wz-orb wz-orb-2"></div>
     </div>
+    <div class="wizard-card wizard-card-wide">
+      <div class="wz-logo-mark" style="background:linear-gradient(135deg,#0d9488,#0891b2);">
+        <i class="fas fa-map-marker-alt"></i>
+      </div>
+      <div class="wz-step-indicator">
+        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
+        <div class="wz-step-line active"></div>
+        <div class="wz-step-dot active"></div>
+        <div class="wz-step-line"></div>
+        <div class="wz-step-dot"></div>
+      </div>
+      <div class="wz-eyebrow">Langkah 2 dari 3</div>
+      <h2 class="wz-title-sm">Tambah Lokasi <em>& Area</em></h2>
+      <p class="wz-subtitle">Tentukan tempat, meja, atau gazebo yang bisa dipesan tamu Anda.</p>
+
+```
+  <div id="wz-locations-list" class="wz-added-list"></div>
+
+  <div class="wz-inline-form">
+    <div class="input-wrap">
+      <i class="fas fa-map-pin"></i>
+      <input type="text" id="wz-loc-name" placeholder="Nama lokasi (Gazebo A, VIP Room…)"/>
+    </div>
+    <div class="input-wrap input-wrap-sm">
+      <i class="fas fa-users"></i>
+      <input type="number" id="wz-loc-cap" min="1" placeholder="Kapasitas"/>
+    </div>
+    <button class="wz-btn-add" onclick="wizardAddLocation()">
+      <i class="fas fa-plus"></i>
+    </button>
   </div>
+
+  <div class="wz-nav">
+    <button class="wz-btn-ghost" onclick="wizardNext(1)"><i class="fas fa-arrow-left"></i> Kembali</button>
+    <button class="wz-btn-primary" onclick="wizardNext(3)">Lanjutkan <i class="fas fa-arrow-right"></i></button>
+  </div>
+</div>
+```
+
+  </div>
+
+  <!-- Step 3: Menus -->
 
   <div class="wizard-step" id="wizard-3">
-    <div class="wizard-card">
-      <h2>Tambah Menu</h2>
-      <input id="wz-menu-name" placeholder="Nama menu"/>
-      <input id="wz-menu-price" type="number" placeholder="Harga"/>
-      <button onclick="wizardAddMenu()">Tambah</button>
-      <button onclick="wizardFinish()">Mulai</button>
+    <div class="wz-bg-art">
+      <div class="wz-orb wz-orb-3" style="background:var(--amber-glow);"></div>
+      <div class="wz-orb wz-orb-1"></div>
     </div>
+    <div class="wizard-card wizard-card-wide">
+      <div class="wz-logo-mark" style="background:linear-gradient(135deg,#d97706,#ea580c);">
+        <i class="fas fa-utensils"></i>
+      </div>
+      <div class="wz-step-indicator">
+        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
+        <div class="wz-step-line active"></div>
+        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
+        <div class="wz-step-line active"></div>
+        <div class="wz-step-dot active"></div>
+      </div>
+      <div class="wz-eyebrow">Langkah 3 dari 3</div>
+      <h2 class="wz-title-sm">Tambah Menu <em>& Paket</em></h2>
+      <p class="wz-subtitle">Opsional: Menu atau paket yang bisa dipilih saat tamu melakukan reservasi.</p>
+
+```
+  <div id="wz-menus-list" class="wz-added-list"></div>
+
+  <div class="wz-menu-form">
+    <div class="input-wrap">
+      <i class="fas fa-bowl-food"></i>
+      <input type="text" id="wz-menu-name" placeholder="Nama paket (Paket Keluarga…)"/>
+    </div>
+    <div class="wz-form-row2">
+      <div class="input-wrap">
+        <span class="input-prefix">Rp</span>
+        <input type="number" id="wz-menu-price" min="0" placeholder="Harga"/>
+      </div>
+      <div class="input-wrap">
+        <i class="fas fa-list"></i>
+        <input type="text" id="wz-menu-detail" placeholder="Detail (pisahkan koma)"/>
+      </div>
+    </div>
+    <button class="wz-btn-add-full" onclick="wizardAddMenu()">
+      <i class="fas fa-plus"></i> Tambah Menu
+    </button>
+  </div>
+
+  <div class="wz-nav">
+    <button class="wz-btn-ghost" onclick="wizardNext(2)"><i class="fas fa-arrow-left"></i> Kembali</button>
+    <button class="wz-btn-finish" onclick="wizardFinish()">
+      <i class="fas fa-rocket"></i> Mulai Gunakan Proserva!
+    </button>
   </div>
 </div>
+```
 
-<!-- APP -->
-<div id="app-shell" style="display:none;">
+  </div>
+
+</div><!-- /setup-wizard -->
+
+<!-- ============================================================
+     APP SHELL
+     ============================================================ -->
+
+<div id="app-shell">
+
+  <!-- SIDEBAR -->
+
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="fas fa-calendar-check"></i></div>
+      <div class="brand-text">
+        <span class="brand-name">Proserva</span>
+        <span class="brand-sub">Reservation Engine</span>
+      </div>
+    </div>
+
+```
+<div class="sidebar-biz" id="sidebar-biz-name">—</div>
+
+<nav class="sidebar-nav">
+  <div class="nav-group-label">Utama</div>
+  <div class="nav-item active" data-view="calendar" onclick="showView('calendar')">
+    <span class="nav-icon"><i class="fas fa-calendar-alt"></i></span>
+    <span class="nav-label">Kalender</span>
+  </div>
+  <div class="nav-item" data-view="customers" onclick="showView('customers')">
+    <span class="nav-icon"><i class="fas fa-users"></i></span>
+    <span class="nav-label">Pelanggan</span>
+  </div>
+  <div class="nav-item" data-view="analysis" onclick="showView('analysis')">
+    <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+    <span class="nav-label">Analisis</span>
+  </div>
+  <div class="nav-item" data-view="broadcast" onclick="showView('broadcast')">
+    <span class="nav-icon"><i class="fas fa-bullhorn"></i></span>
+    <span class="nav-label">Broadcast</span>
+  </div>
+
+  <div class="nav-group-label" style="margin-top:16px;">Pengaturan</div>
+  <div class="nav-item" data-view="menus" onclick="showView('menus')">
+    <span class="nav-icon"><i class="fas fa-book-open"></i></span>
+    <span class="nav-label">Menu & Paket</span>
+  </div>
+  <div class="nav-item" data-view="locations" onclick="showView('locations')">
+    <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span>
+    <span class="nav-label">Lokasi</span>
+  </div>
+</nav>
+
+<div class="sidebar-footer">
+  <div class="trial-pill">
+    <i class="fas fa-clock"></i>
+    <span id="sidebar-trial-days">7 hari tersisa</span>
+  </div>
+  <div class="sidebar-ver">Proserva v2.0 · Demo Mode</div>
+</div>
+```
+
+  </aside>
 
   <!-- TOPBAR -->
-  <div id="topbar">
-    <div class="brand">
-      <div class="brand-logo"><i class="fas fa-calendar-check"></i></div>
-      <div>
-        <div class="brand-name">Proserva</div>
-        <span class="brand-tag">Reservation Engine</span>
-      </div>
-    </div>
 
-    <div>
-      <button onclick="handleExport()">Export</button>
-      <button onclick="forceSync()">Sync</button>
+  <header id="topbar">
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
+      <i class="fas fa-bars"></i>
+    </button>
+
+```
+<div class="topbar-center" id="topbar-breadcrumb">
+  <span class="tb-page-name">Kalender</span>
+</div>
+
+<div class="topbar-actions">
+  <!-- Notif Bell -->
+  <div class="topbar-btn icon-btn" id="notif-btn" onclick="toggleNotifDropdown(event)" title="Pengingat">
+    <i class="fas fa-bell"></i>
+    <span class="notif-dot" id="notif-dot" style="display:none;"></span>
+    <div id="notif-dropdown">
+      <div class="nd-header">
+        <i class="fas fa-bell"></i> Pengingat Ucapan Terima Kasih
+      </div>
+      <div id="notif-list">
+        <div class="nd-empty"><i class="fas fa-check-circle"></i><br/>Semua beres!</div>
+      </div>
     </div>
   </div>
 
-  <div id="app">
+  <button class="topbar-btn" onclick="handleExport()" title="Export Data">
+    <i class="fas fa-upload"></i>
+    <span class="btn-label">Export</span>
+  </button>
 
-    <!-- SIDEBAR -->
-    <nav id="sidebar">
-      <div class="nav-item active" onclick="showView('calendar')" data-view="calendar">Kalender</div>
-      <div class="nav-item" onclick="showView('customers')" data-view="customers">Pelanggan</div>
-      <div class="nav-item" onclick="showView('analysis')" data-view="analysis">Analisis</div>
-      <div class="nav-item" onclick="showView('broadcast')" data-view="broadcast">Broadcast</div>
+  <button class="topbar-btn topbar-btn-accent" onclick="openAddReservationModal()" id="btn-add-res" title="Tambah Reservasi">
+    <i class="fas fa-plus"></i>
+    <span class="btn-label">Reservasi Baru</span>
+  </button>
+</div>
+```
 
-      <div class="nav-item" onclick="showView('menus')" data-view="menus">Menu</div>
-      <div class="nav-item" onclick="showView('locations')" data-view="locations">Lokasi</div>
-    </nav>
+  </header>
 
-    <!-- CONTENT -->
-    <main id="content">
+  <!-- MAIN CONTENT -->
 
-      <!-- CALENDAR -->
-      <div id="view-calendar">
-        <h1 id="cal-biz-name"></h1>
-        <p id="cal-subtitle"></p>
+  <main id="content">
 
-        <button onclick="navMonth(-1)">◀</button>
-        <span id="cal-month-label"></span>
-        <button onclick="navMonth(1)">▶</button>
+```
+<!-- ────────────────────────────────────────
+     VIEW: CALENDAR
+──────────────────────────────────────── -->
+<div id="view-calendar" class="view active-view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title" id="cal-biz-name">Dashboard Reservasi</h1>
+      <p class="view-sub" id="cal-subtitle">Kelola semua reservasi dengan mudah</p>
+    </div>
+    <div class="cal-nav-controls">
+      <button class="cal-arrow" onclick="navMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+      <span class="cal-month-label" id="cal-month-label">—</span>
+      <button class="cal-arrow" onclick="navMonth(1)"><i class="fas fa-chevron-right"></i></button>
+      <button class="btn-today" onclick="goToToday()">Hari Ini</button>
+    </div>
+  </div>
 
-        <div id="cal-days"></div>
-      </div>
+  <!-- Stats Row -->
+  <div class="stats-row" id="cal-stats-row">
+    <div class="stat-card">
+      <div class="stat-icon stat-orange"><i class="fas fa-calendar-check"></i></div>
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-label">Reservasi Bulan Ini</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-green"><i class="fas fa-users"></i></div>
+      <div class="stat-value" id="stat-pax">0</div>
+      <div class="stat-label">Total Tamu</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-blue"><i class="fas fa-money-bill-wave"></i></div>
+      <div class="stat-value" id="stat-dp">Rp0</div>
+      <div class="stat-label">Omzet DP</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-amber"><i class="fas fa-fire"></i></div>
+      <div class="stat-value" id="stat-busiest">—</div>
+      <div class="stat-label">Hari Tersibuk</div>
+    </div>
+  </div>
 
-      <!-- DETAIL -->
-      <div id="view-detail" style="display:none;">
-        <h2 id="detail-title"></h2>
-        <button onclick="openAddReservationModal()">Tambah</button>
-        <div id="detail-list"></div>
-      </div>
-
-      <!-- MENUS -->
-      <div id="view-menus" style="display:none;">
-        <button onclick="openMenuModal()">Tambah Menu</button>
-        <table>
-          <tbody id="menus-tbody"></tbody>
-        </table>
-      </div>
-
-      <!-- LOCATIONS -->
-      <div id="view-locations" style="display:none;">
-        <button onclick="openLocationModal()">Tambah Lokasi</button>
-        <table>
-          <tbody id="locations-tbody"></tbody>
-        </table>
-      </div>
-
-      <!-- CUSTOMERS -->
-      <div id="view-customers" style="display:none;">
-        <input id="customer-search" placeholder="Cari..." oninput="filterCustomers(this.value)"/>
-        <table>
-          <tbody id="customers-tbody"></tbody>
-        </table>
-      </div>
-
-      <!-- ANALYSIS -->
-      <div id="view-analysis" style="display:none;">
-        <canvas id="anl-chart"></canvas>
-        <div id="anl-stats"></div>
-        <div id="anl-insight"></div>
-      </div>
-
-      <!-- BROADCAST -->
-      <div id="view-broadcast" style="display:none;">
-        <textarea id="broadcast-msg"></textarea>
-        <button onclick="saveBroadcastMsg()">Simpan</button>
-        <div id="bc-list"></div>
-      </div>
-
-    </main>
+  <!-- Calendar Grid -->
+  <div class="calendar-card">
+    <div class="cal-weekdays">
+      <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
+    </div>
+    <div class="cal-grid" id="cal-days"></div>
   </div>
 </div>
 
-<!-- MODALS -->
-<div id="modal-root"></div>
 
-<!-- TOAST -->
+<!-- ────────────────────────────────────────
+     VIEW: DETAIL (per tanggal)
+──────────────────────────────────────── -->
+<div id="view-detail" class="view">
+  <div class="view-header detail-view-header">
+    <button class="back-btn" onclick="backToCalendar()">
+      <i class="fas fa-arrow-left"></i> Kalender
+    </button>
+    <div class="detail-title-wrap">
+      <h2 class="view-title" id="detail-title"></h2>
+    </div>
+    <div class="detail-actions">
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="text" id="detail-search" placeholder="Cari reservasi…" oninput="filterDetailList(this.value)"/>
+      </div>
+      <button class="icon-action-btn" onclick="shareWA('day')" title="Share ke WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+      </button>
+      <button class="icon-action-btn" onclick="showPrintOptions()" title="Cetak">
+        <i class="fas fa-print"></i>
+      </button>
+      <button class="btn-accent-sm" onclick="openAddReservationModal()">
+        <i class="fas fa-plus"></i> Tambah
+      </button>
+    </div>
+  </div>
+  <div id="detail-list" class="res-grid"></div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: MENUS
+──────────────────────────────────────── -->
+<div id="view-menus" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Menu & Paket</h1>
+      <p class="view-sub">Kelola semua paket yang tersedia untuk dipesan</p>
+    </div>
+    <button class="btn-accent" onclick="openMenuModal()"><i class="fas fa-plus"></i> Tambah Menu</button>
+  </div>
+  <div class="data-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
+        <tbody id="menus-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: LOCATIONS
+──────────────────────────────────────── -->
+<div id="view-locations" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Manajemen Lokasi</h1>
+      <p class="view-sub">Atur tempat duduk, gazebo, atau area yang bisa dipesan</p>
+    </div>
+    <button class="btn-accent" onclick="openLocationModal()"><i class="fas fa-plus"></i> Tambah Lokasi</button>
+  </div>
+  <div class="data-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nama Lokasi</th><th>Kapasitas</th><th>Aksi</th></tr></thead>
+        <tbody id="locations-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: CUSTOMERS
+──────────────────────────────────────── -->
+<div id="view-customers" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Data Pelanggan</h1>
+      <p class="view-sub">Semua pelanggan yang pernah melakukan reservasi</p>
+    </div>
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="customer-search" placeholder="Cari nama atau HP…" oninput="filterCustomers(this.value)"/>
+    </div>
+  </div>
+  <div class="data-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Reservasi</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead>
+        <tbody id="customers-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: ANALYSIS
+──────────────────────────────────────── -->
+<div id="view-analysis" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Analisis Bisnis</h1>
+      <p class="view-sub">Wawasan mendalam tentang performa reservasi Anda</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select class="form-select-sm" id="anl-year" onchange="runAnalysis()"></select>
+      <select class="form-select-sm" id="anl-month" style="width:160px;" onchange="runAnalysis()"></select>
+    </div>
+  </div>
+  <div class="anl-stats-row" id="anl-stats"></div>
+  <div class="chart-card"><canvas id="anl-chart"></canvas></div>
+  <div class="insight-card" id="anl-insight"></div>
+  <div class="anl-bottom-grid">
+    <div class="data-card">
+      <div class="data-card-header"><i class="fas fa-crown"></i> Pelanggan Setia</div>
+      <ul class="rank-list" id="anl-frequent"></ul>
+    </div>
+    <div class="data-card">
+      <div class="data-card-header"><i class="fas fa-fire"></i> Menu Terlaris</div>
+      <ul class="rank-list" id="anl-menus"></ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: BROADCAST
+──────────────────────────────────────── -->
+<div id="view-broadcast" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Broadcast Promo</h1>
+      <p class="view-sub">Kirim pesan promosi ke semua pelanggan via WhatsApp</p>
+    </div>
+  </div>
+  <div class="broadcast-layout">
+    <div class="data-card bc-compose-card">
+      <div class="data-card-header"><i class="fas fa-pen-nib"></i> Tulis Pesan</div>
+      <div class="bc-compose-body">
+        <div class="form-group">
+          <label class="form-label">Template Pesan Broadcast</label>
+          <textarea class="form-textarea" id="broadcast-msg" placeholder="Halo Kak! Ada promo spesial di tempat kami ✨…"></textarea>
+          <p class="form-hint">Gunakan kata "kak" untuk diganti otomatis dengan nama pelanggan.</p>
+        </div>
+        <button class="btn-accent" style="width:100%;" onclick="saveBroadcastMsg()">
+          <i class="fas fa-save"></i> Simpan Pesan
+        </button>
+      </div>
+    </div>
+    <div class="data-card bc-list-card">
+      <div class="data-card-header bc-list-header">
+        <span><i class="fas fa-users"></i> Daftar Penerima</span>
+        <div class="search-wrap search-sm">
+          <i class="fas fa-search"></i>
+          <input type="text" id="bc-search" placeholder="Cari…" oninput="filterBcList(this.value)"/>
+        </div>
+      </div>
+      <div id="bc-list" class="bc-list-body"></div>
+    </div>
+  </div>
+</div>
+```
+
+  </main><!-- /content -->
+
+</div><!-- /app-shell -->
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
+<!-- Reservation Modal -->
+
+<div class="modal-overlay" id="modal-reservation">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3>
+      <button class="modal-close" onclick="closeModal('modal-reservation')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="res-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Tamu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div>
+          <div class="form-error" id="err-nama"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor HP</label>
+          <div class="input-wrap"><i class="fas fa-phone"></i><input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/></div>
+          <div class="form-error" id="err-hp"></div>
+        </div>
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label class="form-label">Jam <span class="req">*</span></label>
+          <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="res-jam" type="time"/></div>
+          <div class="form-error" id="err-jam"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jumlah Tamu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10"/></div>
+          <div class="form-error" id="err-jumlah"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lokasi <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-map-pin"></i><select class="form-input" id="res-tempat" onchange="onLocationChange()"></select></div>
+          <div class="form-error" id="err-tempat"></div>
+          <div class="form-hint" id="res-cap-hint"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">DP (Rp)</label>
+          <div class="input-wrap"><span class="input-prefix">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Metode Pembayaran DP</label>
+          <div class="input-wrap"><i class="fas fa-credit-card"></i>
+            <select class="form-input" id="res-tipe-dp">
+              <option value="">— Tanpa DP —</option>
+              <option>Cash</option><option>QRIS</option>
+              <option>Transfer BCA</option><option>Transfer Mandiri</option>
+              <option>Transfer BRI</option><option>Transfer BNI</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Menu & Paket Dipesan</label>
+        <div class="form-error" id="err-menus"></div>
+        <div id="res-menus-container" class="menus-container"></div>
+        <button class="add-menu-row-btn" onclick="addMenuRow('res-menus-container')">
+          <i class="fas fa-plus"></i> Tambah Paket
+        </button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catatan / Request Tambahan</label>
+        <textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-reservation')">Batal</button>
+      <button class="btn-accent" onclick="saveReservation()"><i class="fas fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Menu Modal -->
+
+<div class="modal-overlay" id="modal-menu">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3>
+      <button class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="menu-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Menu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-bowl-food"></i><input class="form-input" id="menu-name" placeholder="Paket Keluarga"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga (Rp)</label>
+          <div class="input-wrap"><span class="input-prefix">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Detail Menu</label>
+        <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
+        <p class="form-hint">Pisahkan dengan koma untuk setiap item</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-menu')">Batal</button>
+      <button class="btn-accent" onclick="saveMenu()"><i class="fas fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Location Modal -->
+
+<div class="modal-overlay" id="modal-location">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3>
+      <button class="modal-close" onclick="closeModal('modal-location')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="loc-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Lokasi <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-map-pin"></i><input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room…"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kapasitas (orang) <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-location')">Batal</button>
+      <button class="btn-accent" onclick="saveLocation()"><i class="fas fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Print Modal -->
+
+<div class="modal-overlay" id="modal-print">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-print"></i> Opsi Cetak</h3>
+      <button class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="form-hint" style="margin-bottom:14px;">Pilih informasi yang ingin ditampilkan saat mencetak:</p>
+      <div class="print-options-grid">
+        <label class="print-option"><input type="checkbox" id="po-menu" checked/> <i class="fas fa-utensils"></i> Detail Menu</label>
+        <label class="print-option"><input type="checkbox" id="po-hp" checked/> <i class="fas fa-phone"></i> Nomor HP</label>
+        <label class="print-option"><input type="checkbox" id="po-dp" checked/> <i class="fas fa-money-bill"></i> Info DP</label>
+        <label class="print-option"><input type="checkbox" id="po-tambahan" checked/> <i class="fas fa-comment-dots"></i> Catatan</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-print')">Batal</button>
+      <button class="btn-accent" onclick="executePrint()"><i class="fas fa-print"></i> Cetak Sekarang</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+
+<div class="modal-overlay" id="modal-export">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-upload"></i> Export & Backup Data</h3>
+      <button class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Kode Backup</label>
+        <textarea class="form-textarea code-textarea" id="export-output" readonly placeholder="Klik Export untuk menghasilkan kode…"></textarea>
+        <p class="form-hint">Salin kode ini untuk backup atau transfer ke perangkat lain.</p>
+      </div>
+      <div class="modal-divider"><span>atau import data</span></div>
+      <div class="form-group">
+        <label class="form-label">Import dari Backup</label>
+        <textarea class="form-textarea code-textarea" id="import-input" placeholder="Tempel kode backup di sini…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
+      <button class="btn-secondary" onclick="importData()"><i class="fas fa-download"></i> Import</button>
+      <button class="btn-accent" onclick="copyExport()"><i class="fas fa-copy"></i> Salin Kode</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+
 <div id="toast-container"></div>
 
-<!-- JS -->
+<!-- Scripts -->
+
 <script src="modules.js"></script>
+
 <script src="app.js"></script>
 
 </body>
