@@ -1,77 +1,159 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Proserva — Reservation Engine</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Proserva — Reservation Engine</title>
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 
-  <!-- Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<!-- Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 
-  <!-- Chart -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- Main CSS -->
-  <link rel="stylesheet" href="style.css"/>
+<!-- CSS -->
+<link rel="stylesheet" href="style.css"/>
 </head>
 
 <body>
 
 <!-- SETUP WIZARD -->
-<div id="setup-wizard" style="display:none;">
-  <div id="wizard-root"></div>
+<div id="setup-wizard">
+  <div class="wizard-step active" id="wizard-1">
+    <div class="wizard-card">
+      <h2>Selamat Datang di Proserva</h2>
+      <input id="wz-biz-name" placeholder="Nama usaha"/>
+      <button onclick="wizardNext(2)">Lanjut</button>
+    </div>
+  </div>
+
+  <div class="wizard-step" id="wizard-2">
+    <div class="wizard-card">
+      <h2>Tambah Lokasi</h2>
+      <input id="wz-loc-name" placeholder="Nama lokasi"/>
+      <input id="wz-loc-cap" type="number" placeholder="Kapasitas"/>
+      <button onclick="wizardAddLocation()">Tambah</button>
+      <button onclick="wizardNext(3)">Lanjut</button>
+    </div>
+  </div>
+
+  <div class="wizard-step" id="wizard-3">
+    <div class="wizard-card">
+      <h2>Tambah Menu</h2>
+      <input id="wz-menu-name" placeholder="Nama menu"/>
+      <input id="wz-menu-price" type="number" placeholder="Harga"/>
+      <button onclick="wizardAddMenu()">Tambah</button>
+      <button onclick="wizardFinish()">Mulai</button>
+    </div>
+  </div>
 </div>
 
-<!-- APP SHELL -->
+<!-- APP -->
 <div id="app-shell" style="display:none;">
-  
+
   <!-- TOPBAR -->
-  <div id="topbar"></div>
+  <div id="topbar">
+    <div class="brand">
+      <div class="brand-logo"><i class="fas fa-calendar-check"></i></div>
+      <div>
+        <div class="brand-name">Proserva</div>
+        <span class="brand-tag">Reservation Engine</span>
+      </div>
+    </div>
+
+    <div>
+      <button onclick="handleExport()">Export</button>
+      <button onclick="forceSync()">Sync</button>
+    </div>
+  </div>
 
   <div id="app">
-    
+
     <!-- SIDEBAR -->
-    <nav id="sidebar"></nav>
+    <nav id="sidebar">
+      <div class="nav-item active" onclick="showView('calendar')" data-view="calendar">Kalender</div>
+      <div class="nav-item" onclick="showView('customers')" data-view="customers">Pelanggan</div>
+      <div class="nav-item" onclick="showView('analysis')" data-view="analysis">Analisis</div>
+      <div class="nav-item" onclick="showView('broadcast')" data-view="broadcast">Broadcast</div>
+
+      <div class="nav-item" onclick="showView('menus')" data-view="menus">Menu</div>
+      <div class="nav-item" onclick="showView('locations')" data-view="locations">Lokasi</div>
+    </nav>
 
     <!-- CONTENT -->
     <main id="content">
 
-      <!-- CALENDAR VIEW -->
-      <div id="view-calendar"></div>
+      <!-- CALENDAR -->
+      <div id="view-calendar">
+        <h1 id="cal-biz-name"></h1>
+        <p id="cal-subtitle"></p>
 
-      <!-- DETAIL VIEW -->
-      <div id="view-detail"></div>
+        <button onclick="navMonth(-1)">◀</button>
+        <span id="cal-month-label"></span>
+        <button onclick="navMonth(1)">▶</button>
 
-      <!-- MENUS VIEW -->
-      <div id="view-menus"></div>
+        <div id="cal-days"></div>
+      </div>
 
-      <!-- LOCATIONS VIEW -->
-      <div id="view-locations"></div>
+      <!-- DETAIL -->
+      <div id="view-detail" style="display:none;">
+        <h2 id="detail-title"></h2>
+        <button onclick="openAddReservationModal()">Tambah</button>
+        <div id="detail-list"></div>
+      </div>
 
-      <!-- CUSTOMERS VIEW -->
-      <div id="view-customers"></div>
+      <!-- MENUS -->
+      <div id="view-menus" style="display:none;">
+        <button onclick="openMenuModal()">Tambah Menu</button>
+        <table>
+          <tbody id="menus-tbody"></tbody>
+        </table>
+      </div>
 
-      <!-- ANALYSIS VIEW -->
-      <div id="view-analysis"></div>
+      <!-- LOCATIONS -->
+      <div id="view-locations" style="display:none;">
+        <button onclick="openLocationModal()">Tambah Lokasi</button>
+        <table>
+          <tbody id="locations-tbody"></tbody>
+        </table>
+      </div>
 
-      <!-- BROADCAST VIEW -->
-      <div id="view-broadcast"></div>
+      <!-- CUSTOMERS -->
+      <div id="view-customers" style="display:none;">
+        <input id="customer-search" placeholder="Cari..." oninput="filterCustomers(this.value)"/>
+        <table>
+          <tbody id="customers-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- ANALYSIS -->
+      <div id="view-analysis" style="display:none;">
+        <canvas id="anl-chart"></canvas>
+        <div id="anl-stats"></div>
+        <div id="anl-insight"></div>
+      </div>
+
+      <!-- BROADCAST -->
+      <div id="view-broadcast" style="display:none;">
+        <textarea id="broadcast-msg"></textarea>
+        <button onclick="saveBroadcastMsg()">Simpan</button>
+        <div id="bc-list"></div>
+      </div>
 
     </main>
-
   </div>
 </div>
 
-<!-- MODALS ROOT -->
+<!-- MODALS -->
 <div id="modal-root"></div>
 
 <!-- TOAST -->
 <div id="toast-container"></div>
 
-<!-- MAIN JS -->
+<!-- JS -->
 <script src="modules.js"></script>
 <script src="app.js"></script>
 
