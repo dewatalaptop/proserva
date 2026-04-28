@@ -4,61 +4,51 @@
 document.addEventListener('DOMContentLoaded', boot);
 
 function boot() {
-  if (DB.get(KEYS.SETUP_DONE)) {
-    document.getElementById('setup-wizard').style.display = 'none';
-    document.getElementById('app-shell').style.display = 'block';
-    initApp();
-  } else {
-    renderSetupWizard();
-    document.getElementById('setup-wizard').style.display = 'block';
+  try {
+    if (DB.get(KEYS.SETUP_DONE)) {
+      document.getElementById('setup-wizard').style.display = 'none';
+      document.getElementById('app-shell').style.display = 'block';
+      initApp();
+    } else {
+      document.getElementById('setup-wizard').style.display = 'block';
+    }
+  } catch (e) {
+    console.error('Boot error:', e);
   }
 }
 
 // ==========================================
-// INIT APP
+// INIT
 // ==========================================
 function initApp() {
   loadState();
+  bindGlobals();
 
   renderTopbar();
-  renderSidebar();
-  renderCalendarView();
-
-  showView('calendar');
+  renderCalendar();
+  renderMenusTable();
+  renderLocationsTable();
+  renderCustomersTable();
+  renderBroadcastList();
+  runAnalysis();
 }
 
-// ==========================================
-// RENDER COMPONENTS
-// ==========================================
-function renderTopbar() {
-  document.getElementById('topbar').innerHTML = `
-    <div class="brand">
-      <div class="brand-logo"><i class="fas fa-calendar-check"></i></div>
-      <div>
-        <div class="brand-name">${state.biz.name}</div>
-        <span class="brand-tag">Reservation Engine</span>
-      </div>
-    </div>
-    <div>
-      <button class="topbar-btn" onclick="forceSync()">
-        <i class="fas fa-sync"></i> Sync
-      </button>
-    </div>
-  `;
-}
-
-function renderSidebar() {
-  document.getElementById('sidebar').innerHTML = `
-    <div class="nav-item active" onclick="showView('calendar')" data-view="calendar">
-      <i class="fas fa-calendar-alt"></i> Kalender
-    </div>
-    <div class="nav-item" onclick="showView('menus')" data-view="menus">
-      <i class="fas fa-book"></i> Menu
-    </div>
-    <div class="nav-item" onclick="showView('locations')" data-view="locations">
-      <i class="fas fa-map-marker-alt"></i> Lokasi
-    </div>
-  `;
+// expose ke global (fix inline onclick)
+function bindGlobals() {
+  window.showView = showView;
+  window.navMonth = navMonth;
+  window.selectDate = selectDate;
+  window.openAddReservationModal = openAddReservationModal;
+  window.saveReservation = saveReservation;
+  window.deleteRes = deleteRes;
+  window.openMenuModal = openMenuModal;
+  window.openLocationModal = openLocationModal;
+  window.saveMenu = saveMenu;
+  window.saveLocation = saveLocation;
+  window.filterCustomers = filterCustomers;
+  window.saveBroadcastMsg = saveBroadcastMsg;
+  window.handleExport = handleExport;
+  window.forceSync = forceSync;
 }
 
 // ==========================================
@@ -66,67 +56,34 @@ function renderSidebar() {
 // ==========================================
 function showView(name) {
   document.querySelectorAll('#content > div').forEach(v => v.style.display = 'none');
-  const el = document.getElementById(`view-${name}`);
-  if (el) el.style.display = 'block';
+  document.getElementById('view-' + name).style.display = 'block';
 
   document.querySelectorAll('.nav-item').forEach(n => {
     n.classList.toggle('active', n.dataset.view === name);
   });
 
-  if (name === 'calendar') renderCalendarView();
-  if (name === 'menus') renderMenusView();
-  if (name === 'locations') renderLocationsView();
+  if (name === 'menus') renderMenusTable();
+  if (name === 'locations') renderLocationsTable();
+  if (name === 'customers') renderCustomersTable();
+  if (name === 'analysis') runAnalysis();
+  if (name === 'broadcast') renderBroadcastList();
 }
 
 // ==========================================
-// CALENDAR VIEW
+// TOPBAR
 // ==========================================
-function renderCalendarView() {
-  const el = document.getElementById('view-calendar');
-
-  const m = state.currentMonth;
-  const y = state.currentYear;
-
-  const monthRes = getResForMonth(y, m);
-
-  el.innerHTML = `
-    <h1>${MONTHS[m]} ${y}</h1>
-    <p>Total reservasi: ${monthRes.length}</p>
-
-    <button onclick="navMonth(-1)">◀</button>
-    <button onclick="navMonth(1)">▶</button>
-
-    <div id="calendar-days"></div>
-  `;
-
-  renderCalendarDays();
+function renderTopbar() {
+  document.getElementById('cal-biz-name').textContent = state.biz.name;
+  document.getElementById('cal-subtitle').textContent =
+    'Kelola reservasi dengan mudah';
 }
 
-function renderCalendarDays() {
-  const el = document.getElementById('calendar-days');
-  const m = state.currentMonth;
-  const y = state.currentYear;
-
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-  let html = '';
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${y}-${String(m + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const count = getResForDate(dateStr).length;
-
-    html += `
-      <div class="cal-day" onclick="selectDate('${dateStr}')">
-        <b>${d}</b><br/>
-        ${count ? count + ' reservasi' : ''}
-      </div>
-    `;
-  }
-
-  el.innerHTML = html;
-}
-
+// ==========================================
+// CALENDAR
+// ==========================================
 function navMonth(dir) {
   state.currentMonth += dir;
+
   if (state.currentMonth < 0) {
     state.currentMonth = 11;
     state.currentYear--;
@@ -135,89 +92,227 @@ function navMonth(dir) {
     state.currentMonth = 0;
     state.currentYear++;
   }
-  renderCalendarView();
+
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const m = state.currentMonth;
+  const y = state.currentYear;
+
+  document.getElementById('cal-month-label').textContent =
+    MONTHS[m] + ' ' + y;
+
+  const daysEl = document.getElementById('cal-days');
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  let html = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr =
+      `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const count = getResForDate(dateStr).length;
+
+    html += `
+      <div class="cal-day" onclick="selectDate('${dateStr}')">
+        <div>${d}</div>
+        ${count ? `<small>${count} reservasi</small>` : ''}
+      </div>
+    `;
+  }
+
+  daysEl.innerHTML = html;
 }
 
 function selectDate(dateStr) {
   state.selectedDate = dateStr;
-  showToast('Tanggal dipilih: ' + formatDateDisplay(dateStr));
+
+  document.getElementById('view-calendar').style.display = 'none';
+  document.getElementById('view-detail').style.display = 'block';
+
+  document.getElementById('detail-title').textContent =
+    formatDateDisplay(dateStr);
+
+  renderDetailList(getResForDate(dateStr));
 }
 
 // ==========================================
-// MENUS VIEW
+// DETAIL LIST
 // ==========================================
-function renderMenusView() {
-  const el = document.getElementById('view-menus');
+function renderDetailList(list) {
+  const el = document.getElementById('detail-list');
 
-  const menus = Object.values(state.menus);
-
-  el.innerHTML = `
-    <h2>Menu</h2>
-    <button onclick="addDummyMenu()">+ Tambah</button>
-    <ul>
-      ${menus.map(m => `<li>${m.name} - Rp${formatRupiah(m.price)}</li>`).join('')}
-    </ul>
-  `;
-}
-
-function addDummyMenu() {
-  const id = genId();
-  state.menus[id] = { name: 'Menu Baru', price: 10000, details: [] };
-  saveMenus();
-  renderMenusView();
-}
-
-// ==========================================
-// LOCATIONS VIEW
-// ==========================================
-function renderLocationsView() {
-  const el = document.getElementById('view-locations');
-
-  const locs = Object.values(state.locations);
-
-  el.innerHTML = `
-    <h2>Lokasi</h2>
-    <button onclick="addDummyLocation()">+ Tambah</button>
-    <ul>
-      ${locs.map(l => `<li>${l.name} (${l.capacity} orang)</li>`).join('')}
-    </ul>
-  `;
-}
-
-function addDummyLocation() {
-  const id = genId();
-  state.locations[id] = { name: 'Tempat Baru', capacity: 10 };
-  saveLocations();
-  renderLocationsView();
-}
-
-// ==========================================
-// SETUP WIZARD (MINIMAL)
-// ==========================================
-function renderSetupWizard() {
-  document.getElementById('wizard-root').innerHTML = `
-    <h2>Setup Awal</h2>
-    <input id="biz-name" placeholder="Nama usaha"/>
-    <button onclick="finishSetup()">Mulai</button>
-  `;
-}
-
-function finishSetup() {
-  const name = document.getElementById('biz-name').value.trim();
-  if (!name) {
-    showToast('Isi nama usaha!', 'error');
+  if (!list.length) {
+    el.innerHTML = '<p>Tidak ada reservasi</p>';
     return;
   }
 
-  state.biz.name = name;
-  saveBiz();
+  el.innerHTML = list.map(r => `
+    <div class="res-card">
+      <b>${r.nama}</b><br/>
+      ${r.jam} • ${r.tempat} • ${r.jumlah} org
+      <br/>
+      <button onclick="deleteRes('${r.id}')">Hapus</button>
+    </div>
+  `).join('');
+}
 
-  DB.set(KEYS.SETUP_DONE, true);
+// ==========================================
+// RESERVATION CRUD
+// ==========================================
+function openAddReservationModal() {
+  const nama = prompt('Nama tamu:');
+  if (!nama) return;
 
-  document.getElementById('setup-wizard').style.display = 'none';
-  document.getElementById('app-shell').style.display = 'block';
+  const jumlah = parseInt(prompt('Jumlah tamu:')) || 1;
 
-  initApp();
+  const res = {
+    id: genId(),
+    date: state.selectedDate,
+    nama,
+    jumlah,
+    jam: '18:00',
+    tempat: '-'
+  };
+
+  addReservation(res);
+  renderDetailList(getResForDate(state.selectedDate));
+  renderCalendar();
+}
+
+function saveReservation() {
+  // sudah handled di prompt version
+}
+
+function deleteRes(id) {
+  if (!confirm('Hapus?')) return;
+
+  deleteReservation(id);
+  renderDetailList(getResForDate(state.selectedDate));
+  renderCalendar();
+}
+
+// ==========================================
+// MENUS
+// ==========================================
+function renderMenusTable() {
+  const tbody = document.getElementById('menus-tbody');
+  const arr = Object.entries(state.menus);
+
+  if (!arr.length) {
+    tbody.innerHTML = '<tr><td>Belum ada menu</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = arr.map(([id, m]) => `
+    <tr>
+      <td>${m.name}</td>
+      <td>Rp${formatRupiah(m.price)}</td>
+    </tr>
+  `).join('');
+}
+
+function openMenuModal() {
+  const name = prompt('Nama menu:');
+  if (!name) return;
+
+  state.menus[genId()] = { name, price: 10000, details: [] };
+  saveAll();
+  renderMenusTable();
+}
+
+// ==========================================
+// LOCATIONS
+// ==========================================
+function renderLocationsTable() {
+  const tbody = document.getElementById('locations-tbody');
+  const arr = Object.entries(state.locations);
+
+  if (!arr.length) {
+    tbody.innerHTML = '<tr><td>Belum ada lokasi</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = arr.map(([id, l]) => `
+    <tr>
+      <td>${l.name}</td>
+      <td>${l.capacity}</td>
+    </tr>
+  `).join('');
+}
+
+function openLocationModal() {
+  const name = prompt('Nama lokasi:');
+  const cap = parseInt(prompt('Kapasitas:'));
+
+  if (!name || !cap) return;
+
+  state.locations[genId()] = { name, capacity: cap };
+  saveAll();
+  renderLocationsTable();
+}
+
+// ==========================================
+// CUSTOMERS
+// ==========================================
+function renderCustomersTable(filter = '') {
+  const list = buildCustomerList();
+  const tbody = document.getElementById('customers-tbody');
+
+  const filtered = filter
+    ? list.filter(c =>
+        c.nama.toLowerCase().includes(filter.toLowerCase())
+      )
+    : list;
+
+  tbody.innerHTML = filtered.map(c => `
+    <tr>
+      <td>${c.nama}</td>
+      <td>${c.nomorHp || '-'}</td>
+      <td>${c.count}x</td>
+    </tr>
+  `).join('');
+}
+
+function filterCustomers(q) {
+  renderCustomersTable(q);
+}
+
+// ==========================================
+// BROADCAST
+// ==========================================
+function renderBroadcastList() {
+  const el = document.getElementById('bc-list');
+  const list = buildCustomerList();
+
+  el.innerHTML = list.map(c => `
+    <div>
+      ${c.nama}
+      ${c.nomorHp ? `<button onclick="openWhatsApp('${c.nomorHp}','Halo ${c.nama}')">WA</button>` : ''}
+    </div>
+  `).join('');
+}
+
+// ==========================================
+// ANALYSIS
+// ==========================================
+function runAnalysis() {
+  const all = getAllReservations();
+
+  document.getElementById('anl-stats').innerHTML =
+    `Total Reservasi: ${all.length}`;
+
+  const ctx = document.getElementById('anl-chart');
+  if (!ctx) return;
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Reservasi'],
+      datasets: [{
+        data: [all.length]
+      }]
+    }
+  });
 }
 
 // ==========================================
@@ -225,6 +320,6 @@ function finishSetup() {
 // ==========================================
 function forceSync() {
   loadState();
-  renderCalendarView();
-  showToast('Data disinkronkan', 'info');
+  renderCalendar();
+  showToast('Data diperbarui', 'info');
 }
