@@ -62,10 +62,8 @@ function initApp () {
   NOTIF.start();
 
   // Close notif dropdown on outside click
-  if (!window._notifBound) {
-  document.addEventListener('click', closeNotifHandler);
-  window._notifBound = true;
-}
+  document.removeEventListener('click', closeNotifHandler);
+document.addEventListener('click', closeNotifHandler);
 
 }
 /* ============================================================
@@ -278,7 +276,7 @@ function wizardRemoveItem (containerId, index) {
   if (containerId === 'wz-locations-list') {
     wizardData.locations.splice(index, 1);
     _renderWizardLocations();
-  } else {
+  } else if (containerId === 'wz-menus-list') {
     wizardData.menus.splice(index, 1);
     _renderWizardMenus();
   }
@@ -330,7 +328,7 @@ function wizardFinish () {
 
   showToast('Selamat datang di Proserva! 🎉', 'success', 4000);
 }
-window.wizardFinish = wizardFinish
+window.wizardFinish = wizardFinish;
 /* ============================================================
 5. CALENDAR VIEW
 ============================================================ */
@@ -933,16 +931,24 @@ function addMenuRow (containerId, menuName, qty) {
   var menus = getMenusSorted();
 
   if (menus.length === 0) {
-    container.innerHTML =
-      '<div style="padding:12px;text-align:center;color:var(--ink-4);font-size:0.82rem;">' +
-'Belum ada menu. <a onclick="showView(\'menus\')" style="color:var(--accent);cursor:pointer;">Tambah menu dulu</a>' +
+  container.innerHTML = `
+    <div style="padding:12px;text-align:center;color:var(--ink-4);font-size:0.82rem;">
+      Belum ada menu. 
+      <a onclick="showView('menus')" style="color:var(--accent);cursor:pointer;">
+        Tambah menu dulu
+      </a>
+    </div>
+  `;
+  return;
+}
+}
 '</div>';
     return;
   }
 
   var opts = menus.map(function (m) {
     var sel   = m.name === menuName ? ' selected' : '';
-    var price = m.price ? ' — Rp' + formatRupiah(m.price) : '';
+    var price = m.price ? ' - Rp' + formatRupiah(m.price) : '';
 
     return '<option value="' + escapeHtml(m.name) + '"' + sel + '>' +
            escapeHtml(m.name) + price +
@@ -1036,14 +1042,15 @@ function renderMenusTable () {
   var menus = getMenusSorted();
 
   if (menus.length === 0) {
-    tbody.innerHTML =
-      '<tr>' +
-        '<td colspan="4" style="text-align:center;padding:36px;color:var(--ink-4);">' +
-          'Belum ada menu. Klik <strong>Tambah Menu</strong> untuk mulai.' +
-        '</td>' +
-      '</tr>';
-    return;
-  }
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="4" style="text-align:center;padding:24px;color:var(--ink-4);">
+        Belum ada menu. Tambahkan menu pertama kamu.
+      </td>
+    </tr>
+  `;
+  return;
+}
 
   tbody.innerHTML = menus.map(function (m) {
     return (
