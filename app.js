@@ -935,8 +935,8 @@ function addMenuRow (containerId, menuName, qty) {
   if (menus.length === 0) {
     container.innerHTML =
       '<div style="padding:12px;text-align:center;color:var(--ink-4);font-size:0.82rem;">' +
-      'Belum ada menu. <a onclick="showView(\\'menus\\')" style="color:var(--accent);cursor:pointer;">Tambah menu dulu</a>' +
-      '</div>';
+'Belum ada menu. <a onclick="showView(\'menus\')" style="color:var(--accent);cursor:pointer;">Tambah menu dulu</a>' +
+'</div>';
     return;
   }
 
