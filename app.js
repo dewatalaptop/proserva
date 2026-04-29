@@ -151,7 +151,7 @@ function wizardNext (step) {
   var next = document.getElementById('wizard-' + step);
   if (next) next.classList.add('active');
 }
-
+window.wizardNext = wizardNext;
 /* ===================== LOCATION ===================== */
 
 function wizardAddLocation () {
@@ -196,7 +196,7 @@ function _renderWizardLocations () {
     }
   );
 }
-
+window.wizardAddLocation = wizardAddLocation;
 /* ===================== MENU ===================== */
 
 function wizardAddMenu () {
@@ -248,7 +248,7 @@ function _renderWizardMenus () {
     }
   );
 }
-
+window.wizardAddMenu = wizardAddMenu;
 /* ===================== GENERIC LIST ===================== */
 
 function renderWizardList (containerId, arr, onRemove, labelFn) {
@@ -330,6 +330,7 @@ function wizardFinish () {
 
   showToast('Selamat datang di Proserva! 🎉', 'success', 4000);
 }
+window.wizardFinish = wizardFinish
 /* ============================================================
 5. CALENDAR VIEW
 ============================================================ */
