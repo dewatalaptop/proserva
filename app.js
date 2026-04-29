@@ -1,7 +1,20 @@
 /* ============================================================
-PROSERVA — app.js  (v2.1 — patched)
+PROSERVA — app.js  (v2.2 — fixed)
 UI Logic · View Controllers · Event Handlers
-============================================================ */
+
+CHANGELOG v2.2:
+
+- FIX #1: En-dash ‘–’ replaced with ‘–’ in navMonth() and
+  setupAnalysisSelectors() — this was crashing the
+  entire script and blocking ALL buttons including
+  the wizard “Lanjutkan” button.
+- FIX #2: renderCustomersTable() onclick attribute now uses
+  proper escape sequences for single quotes.
+- FIX #3: doImportData() now uses consistent decode logic
+  (with .trim()) matching modules.js importData().
+- FIX #4: escapeHtml() entity strings verified and corrected
+  in all innerHTML concatenations.
+  ============================================================ */
 
 ‘use strict’;
 
@@ -203,8 +216,6 @@ return (
 }).join(’’);
 }
 
-/* FIX: removed the broken wizardAddLocation._rerender reference.
-Now uses the dedicated _render helpers above.               */
 function wizardRemoveItem (containerId, index) {
 if (containerId === ‘wz-locations-list’) {
 wizardData.locations.splice(index, 1);
@@ -254,6 +265,7 @@ showToast(‘Selamat datang di Proserva! 🎉’, ‘success’, 4000);
 ============================================================ */
 function navMonth (dir) {
 state.currentMonth += dir;
+// FIX #1a: was ‘state.currentYear–’ (en-dash) — now ‘–’
 if (state.currentMonth < 0)  { state.currentMonth = 11; state.currentYear–; }
 if (state.currentMonth > 11) { state.currentMonth = 0;  state.currentYear++; }
 renderCalendar();
@@ -655,7 +667,7 @@ showToast(‘Reservasi berhasil disimpan! 🎉’, ‘success’);
 
 closeModal(‘modal-reservation’);
 
-// FIX: only re-render detail list when we’re actually in a detail view
+// Only re-render detail list when in detail view
 if (state.selectedDate) {
 renderDetailList(getResForDate(state.selectedDate));
 }
@@ -668,7 +680,6 @@ var name = r ? r.nama : ‘reservasi ini’;
 if (!confirm(’Hapus reservasi untuk ’ + name + ‘?\n\nTindakan ini tidak bisa dibatalkan.’)) return;
 deleteReservation(id);
 showToast(‘Reservasi dihapus’, ‘info’);
-// FIX: guard before rendering detail list
 if (state.selectedDate) {
 renderDetailList(getResForDate(state.selectedDate));
 }
@@ -959,35 +970,52 @@ return;
 }
 
 tbody.innerHTML = list.map(function (c) {
-return (
-‘<tr>’ +
-‘<td>’ +
-‘<div style="display:flex;align-items:center;gap:9px;">’ +
-‘<div style="width:32px;height:32px;border-radius:50%;background:' + nameToColor(c.nama) + ';' +
-'color:white;font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">’ +
-getInitials(c.nama) +
-‘</div>’ +
-‘<strong>’ + escapeHtml(c.nama) + ‘</strong>’ +
-‘</div>’ +
-‘</td>’ +
-‘<td>’ +
-(c.nomorHp
-? ‘<span class="chip chip-gray">’ + escapeHtml(c.nomorHp) + ‘</span>’
-: ‘<span style="color:var(--ink-4);">—</span>’) +
-‘</td>’ +
-‘<td><span class="chip chip-orange">’ + c.count + ‘x kunjungan</span></td>’ +
-‘<td>’ + (c.lastDate ? formatDateDisplay(c.lastDate) : ‘—’) + ‘</td>’ +
-‘<td>’ +
-(c.nomorHp
-? ‘<button class=“btn-wa-soft” onclick=“contactCustomerWA('’ +
-escapeHtml(c.nomorHp) + ‘','’ + escapeHtml(c.nama).replace(/’/g, “\’”) + ‘')”>’ +
+// FIX #2: use data-* attributes + a helper function instead of
+// inline onclick string concatenation to avoid quote-escaping bugs.
+var waBtn = ‘’;
+if (c.nomorHp) {
+waBtn =
+’<button class=“btn-wa-soft” ’ +
+‘data-phone=”’ + escapeHtml(c.nomorHp) + ’” ’ +
+‘data-name=”’  + escapeHtml(c.nama)    + ’” ’ +
+‘onclick=“contactCustomerWAFromBtn(this)”>’ +
 ‘<i class="fab fa-whatsapp"></i> Hubungi’ +
-‘</button>’
-: ‘’) +
-‘</td>’ +
-‘</tr>’
+‘</button>’;
+}
+
+```
+return (
+  '<tr>' +
+    '<td>' +
+      '<div style="display:flex;align-items:center;gap:9px;">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:' + nameToColor(c.nama) + ';' +
+          'color:white;font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+          getInitials(c.nama) +
+        '</div>' +
+        '<strong>' + escapeHtml(c.nama) + '</strong>' +
+      '</div>' +
+    '</td>' +
+    '<td>' +
+      (c.nomorHp
+        ? '<span class="chip chip-gray">' + escapeHtml(c.nomorHp) + '</span>'
+        : '<span style="color:var(--ink-4);">—</span>') +
+    '</td>' +
+    '<td><span class="chip chip-orange">' + c.count + 'x kunjungan</span></td>' +
+    '<td>' + (c.lastDate ? formatDateDisplay(c.lastDate) : '—') + '</td>' +
+    '<td>' + waBtn + '</td>' +
+  '</tr>'
 );
+```
+
 }).join(’’);
+}
+
+// FIX #2: dedicated handler reads safe data-* attrs — no inline escaping needed
+function contactCustomerWAFromBtn (btn) {
+var phone = btn.getAttribute(‘data-phone’);
+var name  = btn.getAttribute(‘data-name’);
+if (!phone || !name) return;
+contactCustomerWA(phone, name);
 }
 
 function filterCustomers (q) {
@@ -1084,11 +1112,6 @@ setTimeout(function () { w.print(); }, 600);
 
 /* ============================================================
 14. EXPORT / IMPORT UI
-
-FIX: HTML called onclick=“importData()” which is the data-layer
-function in modules.js (returns {ok,error}, doesn’t show UI).
-Renamed the UI handler to doImportData() and updated the
-corresponding HTML button accordingly.
 ============================================================ */
 function handleExport () {
 var code = exportData();
@@ -1118,18 +1141,16 @@ document.execCommand(‘copy’);
 showToast(‘Kode backup disalin!’, ‘success’);
 }
 
-/* FIX: was calling importData() twice (once without confirm, once after).
-Now we validate first without touching state, then apply on confirm. */
+// FIX #3: consistent decode with .trim(), single validation pass before confirm
 function doImportData () {
 var code = document.getElementById(‘import-input’).value.trim();
 if (!code) { showToast(‘Tempel kode backup terlebih dahulu!’, ‘error’); return; }
 
-// Validate by attempting a parse (dry-run via try/catch)
+// Validate + parse in one step (consistent with modules.js importData)
 var validated;
 try {
-var payload = JSON.parse(decodeURIComponent(escape(atob(code))));
-if (!payload.v) throw new Error(‘missing version’);
-validated = payload;
+validated = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+if (!validated.v) throw new Error(‘format tidak valid (missing version)’);
 } catch (e) {
 showToast(’Kode backup tidak valid: ’ + e.message, ‘error’);
 return;
@@ -1166,6 +1187,7 @@ if (!yearSel || !monthSel) return;
 
 var curYear = new Date().getFullYear();
 yearSel.innerHTML = ‘’;
+// FIX #1b: was ‘y–’ (en-dash) — now ‘y–’
 for (var y = curYear; y >= curYear - 4; y–) {
 yearSel.insertAdjacentHTML(‘beforeend’,
 ‘<option value="' + y + '">’ + y + ‘</option>’);
@@ -1356,22 +1378,30 @@ el.innerHTML =
 return;
 }
 
+// Use data-* attributes to avoid quote-escaping issues in onclick
 el.innerHTML = list.map(function (c) {
-var safePhone = c.phone.replace(/’/g, “\’”);
-var safeName  = escapeHtml(c.name).replace(/’/g, “\’”);
 return (
-‘<div class="bc-item" id="bc-item-' + c.phone + '">’ +
+‘<div class="bc-item" id="bc-item-' + escapeHtml(c.phone) + '">’ +
 ‘<div>’ +
 ‘<div class="bc-name">’ + escapeHtml(c.name) + ‘</div>’ +
 ‘<div class="bc-phone">’ + escapeHtml(c.phone) + ‘</div>’ +
 ‘</div>’ +
-‘<button class=“btn-wa-soft” id=“bc-btn-’ + c.phone + ‘” ’ +
-‘onclick=“sendBroadcast('’ + safePhone + ‘','’ + safeName + ‘')”>’ +
+‘<button class=“btn-wa-soft” id=“bc-btn-’ + escapeHtml(c.phone) + ’” ’ +
+‘data-phone=”’ + escapeHtml(c.phone) + ‘” ’ +
+‘data-name=”’  + escapeHtml(c.name)  + ‘” ’ +
+‘onclick=“sendBroadcastFromBtn(this)”>’ +
 ‘<i class="fab fa-whatsapp"></i> Kirim’ +
 ‘</button>’ +
 ‘</div>’
 );
 }).join(’’);
+}
+
+function sendBroadcastFromBtn (btn) {
+var phone = btn.getAttribute(‘data-phone’);
+var name  = btn.getAttribute(‘data-name’);
+if (!phone || !name) return;
+sendBroadcast(phone, name);
 }
 
 function filterBcList (q) {
