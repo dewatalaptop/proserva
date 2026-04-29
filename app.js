@@ -272,7 +272,7 @@ function renderWizardList (containerId, arr, onRemove, labelFn) {
   }).join('');
 }
 
-function wizardRemoveItem (containerId, index) {
+function wizardRemoveItem(containerId, index) {
   if (containerId === 'wz-locations-list') {
     wizardData.locations.splice(index, 1);
     _renderWizardLocations();
@@ -941,20 +941,15 @@ function addMenuRow (containerId, menuName, qty) {
   `;
   return;
 }
-}
-'</div>';
-    return;
-  }
 
-  var opts = menus.map(function (m) {
-    var sel   = m.name === menuName ? ' selected' : '';
-    var price = m.price ? ' - Rp' + formatRupiah(m.price) : '';
+var opts = menus.map(function (m) {
+  var sel   = m.name === menuName ? ' selected' : '';
+  var price = m.price ? ' - Rp' + formatRupiah(m.price) : '';
 
-    return '<option value="' + escapeHtml(m.name) + '"' + sel + '>' +
-           escapeHtml(m.name) + price +
-           '</option>';
-  }).join('');
-
+  return '<option value="' + escapeHtml(m.name) + '"' + sel + '>' +
+         escapeHtml(m.name) + price +
+         '</option>';
+}).join('');
   var uid = genId();
 
   var div = document.createElement('div');
