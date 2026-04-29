@@ -591,7 +591,7 @@ var tambahan = document.getElementById(‘res-tambahan’).value.trim();
 var valid = true;
 
 if (!nama)                    { showFieldError(‘err-nama’,   ‘Nama wajib diisi’); valid = false; }
-if (hp && !validatePhone(hp)) { showFieldError(‘err-hp’,     ‘Nomor HP tidak valid (10–13 digit)’); valid = false; }
+if (hp && !validatePhone(hp)) { showFieldError(‘err-hp’,     ‘Nomor HP tidak valid (10-13 digit)’); valid = false; }
 if (!jam)                     { showFieldError(‘err-jam’,    ‘Jam wajib diisi’); valid = false; }
 if (!jumlah || jumlah < 1)    { showFieldError(‘err-jumlah’, ‘Jumlah tamu minimal 1’); valid = false; }
 if (!tempat)                  { showFieldError(‘err-tempat’, ‘Lokasi wajib dipilih’); valid = false; }
