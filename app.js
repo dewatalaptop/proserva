@@ -2388,6 +2388,64 @@ function computeStats (arr) {
     avgPax:   arr.length ? Math.round(totalPax / arr.length) : 0
   };
 }
+
+function buildChartData(arr, mode, year, monthIdx) {
+
+  var labels = [];
+
+  var data   = [];
+
+  if (mode === 'month') {
+
+    var counts = Array(12).fill(0);
+
+    arr.forEach(function (r) {
+
+      if (!r.date) return;
+
+      var parts = r.date.split('-');
+
+      var m = parseInt(parts[1], 10) - 1;
+
+      counts[m]++;
+
+    });
+
+    labels = MONTHS_SHORT;
+
+    data   = counts;
+
+  } else {
+
+    var daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+
+    var counts = Array(daysInMonth).fill(0);
+
+    arr.forEach(function (r) {
+
+      if (!r.date) return;
+
+      var parts = r.date.split('-');
+
+      var d = parseInt(parts[2], 10) - 1;
+
+      counts[d]++;
+
+    });
+
+    labels = counts.map(function (_, i) {
+
+      return String(i + 1);
+
+    });
+
+    data = counts;
+
+  }
+
+  return { labels: labels, data: data };
+
+}
 /* ============================================================
 21. FINALIZATION & SAFETY GUARD
 ============================================================ */
