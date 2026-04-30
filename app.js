@@ -64,6 +64,7 @@ function initApp () {
   // Close notif dropdown on outside click
   document.removeEventListener('click', closeNotifHandler);
 document.addEventListener('click', closeNotifHandler);
+initDebugTap();
 
 }
 /* ============================================================
@@ -2469,3 +2470,32 @@ function buildChartData(arr, mode, year, monthIdx) {
     console.error('[Proserva] Init check error:', e);
   }
 })();
+/* ============================================================
+DEBUG TRIGGER (5x TAP HEADER)
+============================================================ */
+
+function initDebugTap() {
+  var header = document.getElementById('topbar') 
+            || document.querySelector('.topbar');
+
+  if (!header) return;
+
+  var tapCount = 0;
+  var lastTap  = 0;
+
+  header.addEventListener('click', function () {
+    var now = Date.now();
+
+    if (now - lastTap > 1000) {
+      tapCount = 0;
+    }
+
+    tapCount++;
+    lastTap = now;
+
+    if (tapCount >= 5) {
+      tapCount = 0;
+      debugToggle();
+    }
+  });
+}
