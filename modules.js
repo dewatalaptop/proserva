@@ -1125,3 +1125,59 @@ function setPageTitle (viewName) {
 
   document.title = (PAGE_NAMES[viewName] || viewName) + ' — Proserva';
 }
+/* ============================================================
+DEBUG LOGGER (FOR MOBILE DEV)
+============================================================ */
+
+var DEBUG = {
+  logs: [],
+  enabled: false,
+
+  push: function(type, args) {
+    var msg = '[' + type.toUpperCase() + '] ' +
+      Array.from(args).map(function(a) {
+        try {
+          return typeof a === 'object'
+            ? JSON.stringify(a)
+            : String(a);
+        } catch (e) {
+          return '[unserializable]';
+        }
+      }).join(' ');
+
+    this.logs.push(msg);
+
+    var el = document.getElementById('debug-content');
+    if (el) {
+      el.textContent += msg + '\n';
+      el.scrollTop = el.scrollHeight;
+    }
+  }
+};
+
+// Override console
+(function () {
+  var origLog   = console.log;
+  var origError = console.error;
+  var origWarn  = console.warn;
+
+  console.log = function () {
+    DEBUG.push('log', arguments);
+    origLog.apply(console, arguments);
+  };
+
+  console.error = function () {
+    DEBUG.push('error', arguments);
+    origError.apply(console, arguments);
+  };
+
+  console.warn = function () {
+    DEBUG.push('warn', arguments);
+    origWarn.apply(console, arguments);
+  };
+
+  // Global error
+  window.onerror = function (msg, src, line, col, err) {
+    DEBUG.push('fatal', [msg, 'at', src + ':' + line + ':' + col]);
+  };
+})();
