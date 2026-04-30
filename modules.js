@@ -1181,3 +1181,33 @@ var DEBUG = {
     DEBUG.push('fatal', [msg, 'at', src + ':' + line + ':' + col]);
   };
 })();
+function debugToggle() {
+  var panel = document.getElementById('debug-panel');
+  if (!panel) return;
+
+  panel.classList.toggle('debug-hidden');
+}
+
+function debugClose() {
+  var panel = document.getElementById('debug-panel');
+  if (panel) panel.classList.add('debug-hidden');
+}
+
+function debugClear() {
+  DEBUG.logs = [];
+
+  var el = document.getElementById('debug-content');
+  if (el) el.textContent = '';
+}
+
+function debugCopy() {
+  var text = DEBUG.logs.join('\n');
+
+  navigator.clipboard.writeText(text)
+    .then(function () {
+      alert('Log berhasil disalin!');
+    })
+    .catch(function () {
+      alert('Gagal copy');
+    });
+}
