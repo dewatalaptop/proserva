@@ -717,6 +717,16 @@
 
 <script src="modules.js" defer></script>
 <script src="app.js" defer></script>
+<!-- DEBUG PANEL (HIDDEN) -->
+<div id="debug-panel" class="debug-hidden">
+  <div class="debug-header">
+    <span>🧪 Debug Console</span>
+    <button onclick="debugCopy()">Copy</button>
+    <button onclick="debugClear()">Clear</button>
+    <button onclick="debugClose()">✕</button>
+  </div>
 
+  <div id="debug-content"></div>
+</div>
 </body>
 </html>
