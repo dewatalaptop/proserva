@@ -1,732 +1,2464 @@
 <!DOCTYPE html>
-
 <html lang="id">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Proserva — Reservation Engine</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Fonts -->
+  <title>Proserva — Smart Reservation System</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Satoshi:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- =========================
+       META (SEO + FUTURE PWA)
+  ========================== -->
+  <meta name="description" content="Proserva - Sistem reservasi restoran modern dengan manajemen kapasitas dan jadwal pintar" />
+  <meta name="theme-color" content="#18181b" />
 
-  <!-- App Styles -->
+  <!-- =========================
+       FONT
+  ========================== -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Satoshi:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- =========================
+       ICONS
+  ========================== -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+
+  <!-- =========================
+       BASE STYLE (FOUNDATION)
+       ⚠️ JANGAN CAMPUR LOGIC DI SINI
+  ========================== -->
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #111827;
+      --surface-2: #18181b;
+
+      --ink: #e5e7eb;
+      --ink-2: #a1a1aa;
+      --ink-3: #71717a;
+      --ink-4: #52525b;
+
+      --accent: #f97316;
+      --accent-soft: rgba(249,115,22,0.15);
+
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Satoshi', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      outline: none;
+    }
+
+    input, select, textarea {
+      font-family: inherit;
+      outline: none;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* Layout base */
+    #app-root {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #content {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+  </style>
 </head>
 <body>
 
-<!-- ============================================================
-     TRIAL BANNER
-     ============================================================ -->
+  <!-- =========================
+       ROOT APP
+  ========================== -->
+  <div id="app-root">
 
-<div id="trial-banner">
-  <div class="tb-inner">
-    <span class="tb-icon"><i class="fas fa-clock"></i></span>
-    <span class="tb-text">Mode Demo Aktif — Data akan direset otomatis dalam <strong id="trial-countdown">7 hari</strong></span>
-    <span class="tb-badge">TRIAL</span>
+    <!-- =========================
+         SIDEBAR (NAVIGATION)
+         ⚠️ Hanya struktur, logic di JS
+    ========================== -->
+    <aside id="sidebar">
+
+      <div class="sb-header">
+        <div class="sb-logo">
+          <i class="fas fa-calendar-check"></i>
+          <span>Proserva</span>
+        </div>
+
+        <div id="sidebar-biz-name" class="sb-biz">
+          Usaha Saya
+        </div>
+      </div>
+
+      <nav class="sb-nav">
+
+        <div class="nav-item active" data-view="calendar">
+          <i class="fas fa-calendar"></i>
+          <span>Kalender</span>
+        </div>
+
+        <div class="nav-item" data-view="menus">
+          <i class="fas fa-utensils"></i>
+          <span>Menu</span>
+        </div>
+
+        <div class="nav-item" data-view="locations">
+          <i class="fas fa-map-marker-alt"></i>
+          <span>Lokasi</span>
+        </div>
+
+        <div class="nav-item" data-view="customers">
+          <i class="fas fa-users"></i>
+          <span>Pelanggan</span>
+        </div>
+
+        <div class="nav-item" data-view="analysis">
+          <i class="fas fa-chart-line"></i>
+          <span>Analisis</span>
+        </div>
+
+        <div class="nav-item" data-view="broadcast">
+          <i class="fas fa-bullhorn"></i>
+          <span>Broadcast</span>
+        </div>
+
+      </nav>
+
+      <!-- Trial Info -->
+      <div class="sb-footer">
+        <div id="sidebar-trial-days">7 hari tersisa</div>
+      </div>
+
+    </aside>
+
+
+    <!-- =========================
+         MAIN CONTENT
+    ========================== -->
+    <main id="content">
+
+      <!-- =========================
+           TOPBAR
+           ⚠️ DEBUG TAP TARGET (5x tap)
+      ========================== -->
+      <header id="topbar" class="topbar">
+
+        <div class="tb-left">
+          <button class="btn-icon" onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+          </button>
+
+          <div id="topbar-breadcrumb" class="tb-title">
+            Kalender
+          </div>
+        </div>
+
+        <div class="tb-right">
+
+          <!-- NOTIFICATION -->
+          <div class="notif-wrapper">
+            <button id="notif-btn" class="btn-icon" onclick="toggleNotifDropdown(event)">
+              <i class="fas fa-bell"></i>
+              <span id="notif-dot" class="notif-dot"></span>
+            </button>
+
+            <div id="notif-dropdown" class="notif-dropdown">
+              <div id="notif-list" class="notif-list"></div>
+            </div>
+          </div>
+
+        </div>
+
+      </header>
+
+
+      <!-- =========================
+           VIEW CONTAINER
+           ⚠️ Semua halaman masuk sini
+      ========================== -->
+      <div id="view-container">
+
+        <!-- Views akan diinject / ditampilkan via JS -->
+        <!-- Jangan isi logic di sini -->
+
+      </div>
+
+    </main>
+
   </div>
-</div>
 
-<!-- ============================================================
-     SETUP WIZARD
-     ============================================================ -->
 
-<div id="setup-wizard">
+  <!-- =========================
+       SIDEBAR OVERLAY (MOBILE)
+  ========================== -->
+  <div id="sidebar-overlay"></div>
 
-  <!-- Step 1: Welcome -->
 
-  <div class="wizard-step active" id="wizard-1">
-    <div class="wz-bg-art">
-      <div class="wz-orb wz-orb-1"></div>
-      <div class="wz-orb wz-orb-2"></div>
-      <div class="wz-orb wz-orb-3"></div>
+  <!-- =========================
+       TOAST CONTAINER
+  ========================== -->
+  <div id="toast-container"></div>
+
+
+  <!-- =========================
+       DEBUG PANEL
+       ⚠️ WAJIB ADA (tap header 5x)
+  ========================== -->
+  <div id="debug-panel" class="debug-hidden">
+
+    <div class="debug-header">
+      <strong>Debug Console</strong>
+
+      <div class="debug-actions">
+        <button onclick="debugCopy()">Copy</button>
+        <button onclick="debugClear()">Clear</button>
+        <button onclick="debugClose()">Close</button>
+      </div>
     </div>
-    <div class="wizard-card">
-      <div class="wz-logo-mark">
-        <i class="fas fa-calendar-check"></i>
+
+    <pre id="debug-content"></pre>
+
+  </div>
+
+
+  <!-- =========================
+       BASE STYLE (LAYOUT + CORE UI)
+  ========================== -->
+  <style>
+
+    /* Sidebar */
+    #sidebar {
+      width: 240px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .sb-header {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .sb-logo {
+      font-weight: 700;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .sb-biz {
+      font-size: 0.8rem;
+      color: var(--ink-3);
+      margin-top: 6px;
+    }
+
+    .sb-nav {
+      padding: 12px;
+      flex: 1;
+    }
+
+    .nav-item {
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--ink-2);
+      cursor: pointer;
+      margin-bottom: 6px;
+    }
+
+    .nav-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .sb-footer {
+      padding: 12px;
+      font-size: 0.75rem;
+      color: var(--ink-3);
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Topbar */
+    .topbar {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      background: var(--surface-2);
+    }
+
+    .tb-title {
+      font-weight: 600;
+    }
+
+    .btn-icon {
+      background: transparent;
+      color: var(--ink);
+      font-size: 1rem;
+    }
+
+    /* Notification */
+    .notif-wrapper {
+      position: relative;
+    }
+
+    .notif-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--danger);
+      border-radius: 50%;
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: none;
+    }
+
+
+
+    .debug-actions button {
+      margin-left: 6px;
+      font-size: 11px;
+    }
+
+    #debug-content {
+      flex: 1;
+      overflow: auto;
+      padding: 8px;
+      white-space: pre-wrap;
+    }
+
+  </style>
+  <!-- =========================
+       SETUP WIZARD
+       ⚠️ Hanya tampil saat first use
+  ========================== -->
+  <div id="setup-wizard">
+
+    <div class="wizard-container">
+
+      <!-- HEADER -->
+      <div class="wizard-header">
+        <h2>Setup Proserva</h2>
+        <p>Mulai dalam 2 menit — atur usaha kamu</p>
       </div>
-      <div class="wz-step-indicator">
-        <div class="wz-step-dot active"></div>
-        <div class="wz-step-line"></div>
-        <div class="wz-step-dot"></div>
-        <div class="wz-step-line"></div>
-        <div class="wz-step-dot"></div>
-      </div>
-      <div class="wz-eyebrow">Langkah 1 dari 3</div>
-      <h1 class="wz-title">Selamat Datang<br/><em>di Proserva</em></h1>
-      <p class="wz-subtitle">Platform reservasi cerdas untuk restoran, café, dan tempat wisata. Setup hanya butuh 2 menit.</p>
-      <div class="wz-form">
-        <div class="wz-field">
-          <label>Nama Usaha Anda <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-store"></i>
-            <input type="text" id="wz-biz-name" placeholder="Contoh: Warung Sawah Indah"/>
-          </div>
+
+
+      <!-- =========================
+           STEP 1 — BUSINESS INFO
+      ========================== -->
+      <div class="wizard-step active" id="wizard-1">
+
+        <div class="wz-section">
+          <label>Nama Usaha</label>
+          <input id="wz-biz-name" type="text" placeholder="Contoh: Nusantara Grand Hall" />
         </div>
-        <div class="wz-field">
-          <label>Tipe Usaha</label>
-          <div class="input-wrap">
-            <i class="fas fa-tag"></i>
-            <select id="wz-biz-type">
-              <option value="restoran">🍽️ Restoran / Warung</option>
-              <option value="cafe">☕ Café / Coffee Shop</option>
-              <option value="wisata">🏞️ Tempat Wisata</option>
-              <option value="villa">🏡 Villa / Resort</option>
-              <option value="lainnya">✨ Lainnya</option>
-            </select>
-          </div>
+
+        <div class="wz-section">
+          <label>Jenis Usaha</label>
+          <select id="wz-biz-type">
+            <option value="restoran">Restoran</option>
+            <option value="cafe">Cafe</option>
+            <option value="venue">Venue Event</option>
+            <option value="catering">Catering</option>
+          </select>
         </div>
+
+        <div class="wizard-actions">
+          <button class="btn-primary" onclick="wizardNext(2)">
+            Lanjut
+          </button>
+        </div>
+
       </div>
-      <button class="wz-btn-primary" onclick="wizardNext(2)">
-        Lanjutkan <i class="fas fa-arrow-right"></i>
+
+
+      <!-- =========================
+           STEP 2 — LOCATIONS
+           ⚠️ Sudah siap kapasitas besar
+      ========================== -->
+      <div class="wizard-step" id="wizard-2">
+
+        <div class="wz-section">
+          <label>Tambah Lokasi / Area</label>
+
+          <div class="wz-row">
+            <input id="wz-loc-name" type="text" placeholder="Contoh: Hall Utama" />
+            <input id="wz-loc-cap" type="number" placeholder="Kapasitas" />
+          </div>
+
+          <button class="btn-secondary" onclick="wizardAddLocation()">
+            + Tambah Lokasi
+          </button>
+        </div>
+
+        <div id="wz-locations-list" class="wz-list"></div>
+
+        <div class="wizard-actions">
+          <button class="btn-ghost" onclick="wizardNext(1)">
+            Kembali
+          </button>
+
+          <button class="btn-primary" onclick="wizardNext(3)">
+            Lanjut
+          </button>
+        </div>
+
+      </div>
+
+
+      <!-- =========================
+           STEP 3 — MENUS / PACKAGES
+           ⚠️ Siap untuk paket event besar
+      ========================== -->
+      <div class="wizard-step" id="wizard-3">
+
+        <div class="wz-section">
+          <label>Tambah Menu / Paket</label>
+
+          <input id="wz-menu-name" type="text" placeholder="Nama paket (Contoh: Paket Gold)" />
+
+          <div class="wz-row">
+            <input id="wz-menu-price" type="number" placeholder="Harga (opsional)" />
+            <input id="wz-menu-detail" type="text" placeholder="Detail (pisahkan dengan koma)" />
+          </div>
+
+          <button class="btn-secondary" onclick="wizardAddMenu()">
+            + Tambah Menu
+          </button>
+        </div>
+
+        <div id="wz-menus-list" class="wz-list"></div>
+
+        <div class="wizard-actions">
+          <button class="btn-ghost" onclick="wizardNext(2)">
+            Kembali
+          </button>
+
+          <button class="btn-primary" onclick="wizardFinish()">
+            Selesai
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- =========================
+       WIZARD STYLE
+  ========================== -->
+  <style>
+
+    #setup-wizard {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .wizard-container {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      padding: 20px;
+      border-radius: var(--radius);
+    }
+
+    .wizard-header {
+      margin-bottom: 18px;
+    }
+
+    .wizard-header h2 {
+      font-size: 1.2rem;
+    }
+
+    .wizard-header p {
+      font-size: 0.8rem;
+      color: var(--ink-3);
+    }
+
+    .wizard-step {
+      display: none;
+    }
+
+    .wizard-step.active {
+      display: block;
+    }
+
+    .wz-section {
+      margin-bottom: 14px;
+    }
+
+    .wz-section label {
+      font-size: 0.75rem;
+      color: var(--ink-3);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .wz-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .wz-list {
+      margin-top: 10px;
+    }
+
+    .wz-added-item {
+      background: var(--surface-2);
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 16px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      padding: 8px 14px;
+      border-radius: var(--radius);
+    }
+
+    .btn-secondary {
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      margin-top: 6px;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink-3);
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--surface-2);
+      color: var(--ink);
+      font-size: 0.85rem;
+    }
+
+  </style>
+<!-- =========================
+     VIEW: CALENDAR
+     ⚠️ Fondasi untuk timeline + capacity
+========================== -->
+<div id="view-calendar" class="view active-view">
+
+  <!-- =========================
+       HEADER
+  ========================== -->
+  <div class="cal-header">
+
+    <div class="cal-title">
+      <h2 id="cal-biz-name">Usaha Saya</h2>
+      <p id="cal-subtitle">Kelola reservasi dengan mudah</p>
+    </div>
+
+    <div class="cal-actions">
+      <button class="btn-ghost" onclick="goToToday()">
+        Hari Ini
+      </button>
+
+      <button class="btn-primary" id="btn-add-res" onclick="openAddReservationModal()">
+        <i class="fas fa-plus"></i> Tambah
       </button>
     </div>
+
   </div>
 
-  <!-- Step 2: Locations -->
 
-  <div class="wizard-step" id="wizard-2">
-    <div class="wz-bg-art">
-      <div class="wz-orb wz-orb-1" style="background:var(--teal-glow);"></div>
-      <div class="wz-orb wz-orb-2"></div>
-    </div>
-    <div class="wizard-card wizard-card-wide">
-      <div class="wz-logo-mark" style="background:linear-gradient(135deg,#0d9488,#0891b2);">
-        <i class="fas fa-map-marker-alt"></i>
-      </div>
-      <div class="wz-step-indicator">
-        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
-        <div class="wz-step-line active"></div>
-        <div class="wz-step-dot active"></div>
-        <div class="wz-step-line"></div>
-        <div class="wz-step-dot"></div>
-      </div>
-      <div class="wz-eyebrow">Langkah 2 dari 3</div>
-      <h2 class="wz-title-sm">Tambah Lokasi <em>& Area</em></h2>
-      <p class="wz-subtitle">Tentukan tempat, meja, atau gazebo yang bisa dipesan tamu Anda.</p>
+  <!-- =========================
+       QUICK STATS (UPGRADE READY)
+       ⚠️ nanti bisa realtime dari service
+  ========================== -->
+  <div class="cal-stats">
 
-  <div id="wz-locations-list" class="wz-added-list"></div>
+    <div class="stat-card">
+      <div class="stat-label">Reservasi</div>
+      <div id="stat-total" class="stat-value">0</div>
+    </div>
 
-  <div class="wz-inline-form">
-    <div class="input-wrap">
-      <i class="fas fa-map-pin"></i>
-      <input type="text" id="wz-loc-name" placeholder="Nama lokasi (Gazebo A, VIP Room…)"/>
+    <div class="stat-card">
+      <div class="stat-label">Total Tamu</div>
+      <div id="stat-pax" class="stat-value">0</div>
     </div>
-    <div class="input-wrap input-wrap-sm">
-      <i class="fas fa-users"></i>
-      <input type="number" id="wz-loc-cap" min="1" placeholder="Kapasitas"/>
+
+    <div class="stat-card">
+      <div class="stat-label">DP Masuk</div>
+      <div id="stat-dp" class="stat-value">Rp0</div>
     </div>
-    <button class="wz-btn-add" onclick="wizardAddLocation()">
-      <i class="fas fa-plus"></i>
+
+    <div class="stat-card">
+      <div class="stat-label">Hari Terpadat</div>
+      <div id="stat-busiest" class="stat-value">-</div>
+    </div>
+
+  </div>
+
+
+  <!-- =========================
+       MONTH NAVIGATION
+  ========================== -->
+  <div class="cal-nav">
+
+    <button class="btn-icon" onclick="navMonth(-1)">
+      <i class="fas fa-chevron-left"></i>
     </button>
+
+    <div id="cal-month-label" class="cal-month">
+      Januari 2026
+    </div>
+
+    <button class="btn-icon" onclick="navMonth(1)">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+
   </div>
 
-  <div class="wz-nav">
-    <button class="wz-btn-ghost" onclick="wizardNext(1)"><i class="fas fa-arrow-left"></i> Kembali</button>
-    <button class="wz-btn-primary" onclick="wizardNext(3)">Lanjutkan <i class="fas fa-arrow-right"></i></button>
+
+  <!-- =========================
+       WEEK HEADER
+  ========================== -->
+  <div class="cal-weekdays">
+    <div>Ming</div>
+    <div>Sen</div>
+    <div>Sel</div>
+    <div>Rab</div>
+    <div>Kam</div>
+    <div>Jum</div>
+    <div>Sab</div>
   </div>
+
+
+  <!-- =========================
+       CALENDAR GRID
+       ⚠️ Akan di-render JS
+       ⚠️ Siap untuk:
+          - capacity indicator
+          - color coding
+  ========================== -->
+  <div id="cal-days" class="cal-grid"></div>
+
+
 </div>
 
+
+<!-- =========================
+     CALENDAR STYLE
+========================== -->
+<style>
+
+  .view {
+    display: none;
+    padding: 16px;
+  }
+
+  .active-view {
+    display: block;
+  }
+
+  /* HEADER */
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .cal-title h2 {
+    font-size: 1.2rem;
+  }
+
+  .cal-title p {
+    font-size: 0.8rem;
+    color: var(--ink-3);
+  }
+
+  .cal-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* STATS */
+  .cal-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    padding: 10px;
+    border-radius: var(--radius);
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    color: var(--ink-3);
+  }
+
+  .stat-value {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  /* NAV */
+  .cal-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+
+  .cal-month {
+    font-weight: 600;
+  }
+
+  /* WEEK HEADER */
+  .cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+    text-align: center;
+  }
+
+  /* GRID */
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+.empty-state {
+  grid-column: span 7;
+  text-align: center;
+  padding: 40px 10px;
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+  .cal-day {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 6px;
+    min-height: 70px;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cal-day.empty {
+    background: transparent;
+    cursor: default;
+  }
+
+  .cal-day.today {
+    outline: 1px solid var(--accent);
+  }
+
+  .cal-day.selected {
+    background: var(--accent-soft);
+  }
+
+  .cal-day-num {
+    font-size: 0.7rem;
+    color: var(--ink-3);
+  }
+
+  /* RESERVATION PILL */
+  .cal-res-pill {
+    margin-top: 4px;
+    font-size: 0.65rem;
+    background: var(--accent-soft);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  /* MINI NAMES */
+  .cal-mini-names {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .cal-mini-name {
+    font-size: 0.65rem;
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+</style>
+<!-- =========================
+     VIEW: DETAIL RESERVASI
+     ⚠️ Fokus ke performa & skalabilitas
+========================== -->
+<div id="view-detail" class="view">
+
+  <!-- =========================
+       HEADER
+  ========================== -->
+  <div class="detail-header">
+
+    <div class="dh-left">
+      <button class="btn-ghost" onclick="backToCalendar()">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+
+      <h2 id="detail-title">Tanggal</h2>
+    </div>
+
+    <div class="dh-right">
+
+      <input 
+        id="detail-search"
+        type="text"
+        placeholder="Cari nama / HP / menu..."
+        oninput="filterDetailList(this.value)"
+      />
+
+      <button class="btn-icon" onclick="showPrintOptions()">
+        <i class="fas fa-print"></i>
+      </button>
+
+      <button class="btn-icon" onclick="shareWA('day')">
+        <i class="fab fa-whatsapp"></i>
+      </button>
+
+    </div>
+
   </div>
 
-  <!-- Step 3: Menus -->
 
-  <div class="wizard-step" id="wizard-3">
-    <div class="wz-bg-art">
-      <div class="wz-orb wz-orb-3" style="background:var(--amber-glow);"></div>
-      <div class="wz-orb wz-orb-1"></div>
-    </div>
-    <div class="wizard-card wizard-card-wide">
-      <div class="wz-logo-mark" style="background:linear-gradient(135deg,#d97706,#ea580c);">
-        <i class="fas fa-utensils"></i>
-      </div>
-      <div class="wz-step-indicator">
-        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
-        <div class="wz-step-line active"></div>
-        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
-        <div class="wz-step-line active"></div>
-        <div class="wz-step-dot active"></div>
-      </div>
-      <div class="wz-eyebrow">Langkah 3 dari 3</div>
-      <h2 class="wz-title-sm">Tambah Menu <em>& Paket</em></h2>
-      <p class="wz-subtitle">Opsional: Menu atau paket yang bisa dipilih saat tamu melakukan reservasi.</p>
+  <!-- =========================
+       FILTER BAR (FUTURE READY)
+       ⚠️ Status, lokasi, dll
+  ========================== -->
+  <div class="detail-filters">
 
-  <div id="wz-menus-list" class="wz-added-list"></div>
+    <select id="filter-status" onchange="filterDetailList(document.getElementById('detail-search').value)">
+      <option value="">Semua Status</option>
+      <option value="pending">Pending</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="ongoing">Ongoing</option>
+      <option value="completed">Completed</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
 
-  <div class="wz-menu-form">
-    <div class="input-wrap">
-      <i class="fas fa-bowl-food"></i>
-      <input type="text" id="wz-menu-name" placeholder="Nama paket (Paket Keluarga…)"/>
+    <select id="filter-location" onchange="filterDetailList(document.getElementById('detail-search').value)">
+      <option value="">Semua Lokasi</option>
+    </select>
+
+    <select id="filter-sort" onchange="filterDetailList(document.getElementById('detail-search').value)">
+      <option value="time">Urutkan Jam</option>
+      <option value="pax">Jumlah Tamu</option>
+      <option value="name">Nama</option>
+    </select>
+
+  </div>
+
+
+  <!-- =========================
+       LIST CONTAINER
+       ⚠️ Akan di-render JS
+  ========================== -->
+  <div id="detail-list" class="detail-list"></div>
+
+</div>
+
+
+<!-- =========================
+     DETAIL STYLE
+========================== -->
+<style>
+
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 10px;
+  }
+
+  .dh-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dh-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #detail-search {
+    padding: 6px 8px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.8rem;
+  }
+
+  /* FILTER */
+  .detail-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .detail-filters select {
+    padding: 6px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 0.75rem;
+  }
+
+  /* LIST */
+  .detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* CARD */
+  .res-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* TOP */
+  .rc-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .rc-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+
+  .rc-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .rc-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    border-radius: 999px;
+  }
+
+  .badge-orange { background: var(--accent-soft); color: var(--accent); }
+  .badge-green  { background: rgba(34,197,94,0.15); color: var(--success); }
+  .badge-gray   { background: rgba(255,255,255,0.05); color: var(--ink-2); }
+
+  /* STATUS BADGE (READY) */
+  .badge-status {
+    font-weight: 600;
+  }
+
+  .status-pending   { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .status-confirmed { background: rgba(34,197,94,0.15); color: var(--success); }
+  .status-ongoing   { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .status-completed { background: rgba(255,255,255,0.1); color: var(--ink-2); }
+  .status-cancelled { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  /* BODY */
+  .rc-body {
+    font-size: 0.8rem;
+  }
+
+  .rc-section-title {
+    font-size: 0.7rem;
+    color: var(--ink-3);
+    margin-bottom: 4px;
+  }
+
+  .rc-menu-item {
+    margin-bottom: 4px;
+  }
+
+  .rc-menu-sub {
+    font-size: 0.7rem;
+    color: var(--ink-3);
+  }
+
+  /* FOOTER */
+  .rc-footer {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .btn-wa-soft {
+    background: rgba(34,197,94,0.15);
+    color: var(--success);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+  }
+
+  .btn-info-soft {
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+  }
+
+  .btn-danger-soft {
+    background: rgba(239,68,68,0.15);
+    color: var(--danger);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+  }
+
+  .btn-success-soft {
+    background: rgba(34,197,94,0.15);
+    color: var(--success);
+    padding: 6px 10px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+  }
+
+</style>
+<!-- =========================
+     MODAL: RESERVATION (ADD / EDIT)
+     ⚠️ CORE SYSTEM UI
+========================== -->
+<div id="modal-reservation" class="modal-overlay">
+
+  <div class="modal-box">
+
+    <!-- HEADER -->
+    <div class="modal-header">
+      <h3 id="res-modal-title">
+        Tambah Reservasi
+      </h3>
+
+      <button class="btn-icon" onclick="closeModal('modal-reservation')">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
-    <div class="wz-form-row2">
-      <div class="input-wrap">
-        <span class="input-prefix">Rp</span>
-        <input type="number" id="wz-menu-price" min="0" placeholder="Harga"/>
+
+
+    <!-- BODY -->
+    <div class="modal-body">
+
+      <!-- hidden edit id -->
+      <input type="hidden" id="res-edit-id" />
+
+      <!-- =========================
+           BASIC INFO
+      ========================== -->
+      <div class="form-group">
+        <label>Nama</label>
+        <input id="res-nama" class="form-input" type="text" />
+        <div id="err-nama" class="form-error"></div>
       </div>
-      <div class="input-wrap">
-        <i class="fas fa-list"></i>
-        <input type="text" id="wz-menu-detail" placeholder="Detail (pisahkan koma)"/>
+
+      <div class="form-group">
+        <label>No. HP</label>
+        <input id="res-hp" class="form-input" type="text" />
+        <div id="err-hp" class="form-error"></div>
       </div>
+
+
+      <!-- =========================
+           DATE + TIME + DURATION
+           ⚠️ Fondasi time-blocking
+      ========================== -->
+      <div class="form-row">
+
+        <div class="form-group">
+          <label>Tanggal</label>
+          <input id="res-date" class="form-input" type="date" />
+        </div>
+
+        <div class="form-group">
+          <label>Jam Mulai</label>
+          <input id="res-jam" class="form-input" type="time" />
+          <div id="err-jam" class="form-error"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Durasi (jam)</label>
+          <input id="res-duration" class="form-input" type="number" min="1" value="2" />
+        </div>
+
+      </div>
+
+
+      <!-- =========================
+           LOCATION + CAPACITY
+      ========================== -->
+      <div class="form-group">
+        <label>Lokasi</label>
+        <select id="res-tempat" class="form-select" onchange="onLocationChange()"></select>
+        <div id="err-tempat" class="form-error"></div>
+
+        <div id="res-cap-hint" class="form-hint"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Jumlah Tamu</label>
+        <input id="res-jumlah" class="form-input" type="number" />
+        <div id="err-jumlah" class="form-error"></div>
+
+        <!-- Capacity live hint -->
+        <div id="res-capacity-live" class="form-hint"></div>
+      </div>
+
+
+      <!-- =========================
+           STATUS (FUTURE READY)
+      ========================== -->
+      <div class="form-group">
+        <label>Status</label>
+        <select id="res-status" class="form-select">
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="ongoing">Ongoing</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+
+
+      <!-- =========================
+           MENU / PACKAGE (MULTI + QTY)
+      ========================== -->
+      <div class="form-group">
+        <label>Menu / Paket</label>
+
+        <div id="res-menus-container"></div>
+
+        <button class="btn-secondary" onclick="addMenuRow('res-menus-container')">
+          + Tambah Paket
+        </button>
+
+        <div id="err-menus" class="form-error"></div>
+      </div>
+
+
+      <!-- =========================
+           PAYMENT (DP)
+      ========================== -->
+      <div class="form-row">
+
+        <div class="form-group">
+          <label>DP</label>
+          <input id="res-dp" class="form-input" type="number" value="0" />
+        </div>
+
+        <div class="form-group">
+          <label>Tipe DP</label>
+          <select id="res-tipe-dp" class="form-select">
+            <option value="">—</option>
+            <option value="transfer">Transfer</option>
+            <option value="cash">Cash</option>
+            <option value="qris">QRIS</option>
+          </select>
+        </div>
+
+      </div>
+
+
+      <!-- =========================
+           NOTES
+      ========================== -->
+      <div class="form-group">
+        <label>Catatan</label>
+        <textarea id="res-tambahan" class="form-input"></textarea>
+      </div>
+
     </div>
-    <button class="wz-btn-add-full" onclick="wizardAddMenu()">
+
+
+    <!-- FOOTER -->
+    <div class="modal-footer">
+
+      <button class="btn-ghost" onclick="closeModal('modal-reservation')">
+        Batal
+      </button>
+
+      <button class="btn-primary" onclick="saveReservation()">
+        Simpan
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================
+     MODAL STYLE
+========================== -->
+<style>
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-overlay.open {
+    display: flex;
+  }
+
+  .modal-box {
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  /* FORM */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .form-input,
+  .form-select,
+  textarea {
+    padding: 8px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255,255,255,0.08);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-size: 0.85rem;
+  }
+
+  .form-error {
+    font-size: 0.7rem;
+    color: var(--danger);
+  }
+
+  .form-hint {
+    font-size: 0.7rem;
+    color: var(--ink-3);
+  }
+
+</style>
+<!-- =========================
+     VIEW: MENU & PAKET
+========================== -->
+<div id="view-menus" class="view">
+
+  <!-- HEADER -->
+  <div class="section-header">
+    <div>
+      <h2>Menu & Paket</h2>
+      <p class="section-sub">
+        Kelola paket makanan dan menu restoran
+      </p>
+    </div>
+
+    <button class="btn-primary" onclick="openMenuModal()">
       <i class="fas fa-plus"></i> Tambah Menu
     </button>
   </div>
 
-  <div class="wz-nav">
-    <button class="wz-btn-ghost" onclick="wizardNext(2)"><i class="fas fa-arrow-left"></i> Kembali</button>
-    <button class="wz-btn-finish" onclick="wizardFinish()">
-      <i class="fas fa-rocket"></i> Mulai Gunakan Proserva!
-    </button>
+
+  <!-- =========================
+       SEARCH + FILTER (FUTURE READY)
+  ========================== -->
+  <div class="toolbar">
+
+    <input
+      type="text"
+      class="form-input"
+      placeholder="Cari menu..."
+      oninput="filterMenus(this.value)"
+    />
+
+    <select class="form-select" id="menu-sort" onchange="renderMenusTable()">
+      <option value="name">Urutkan: Nama</option>
+      <option value="price">Urutkan: Harga</option>
+    </select>
+
   </div>
+
+
+  <!-- =========================
+       TABLE
+  ========================== -->
+  <div class="table-wrapper">
+
+    <table class="table">
+
+      <thead>
+        <tr>
+          <th>Nama Menu</th>
+          <th>Harga</th>
+          <th>Detail</th>
+          <th>Usage</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody id="menus-tbody"></tbody>
+
+    </table>
+
+  </div>
+
 </div>
 
 
-  </div>
+<!-- =========================
+     MODAL: MENU
+========================== -->
+<div id="modal-menu" class="modal-overlay">
 
-</div><!-- /setup-wizard -->
+  <div class="modal-box">
 
-<!-- ============================================================
-     APP SHELL
-     ============================================================ -->
+    <div class="modal-header">
+      <h3 id="menu-modal-title">Tambah Menu</h3>
 
-<div id="app-shell">
-
-  <!-- SIDEBAR -->
-
-  <aside id="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon"><i class="fas fa-calendar-check"></i></div>
-      <div class="brand-text">
-        <span class="brand-name">Proserva</span>
-        <span class="brand-sub">Reservation Engine</span>
-      </div>
-    </div>
-
-<div class="sidebar-biz" id="sidebar-biz-name">—</div>
-
-<nav class="sidebar-nav">
-  <div class="nav-group-label">Utama</div>
-  <div class="nav-item active" data-view="calendar" onclick="showView('calendar')">
-    <span class="nav-icon"><i class="fas fa-calendar-alt"></i></span>
-    <span class="nav-label">Kalender</span>
-  </div>
-  <div class="nav-item" data-view="customers" onclick="showView('customers')">
-    <span class="nav-icon"><i class="fas fa-users"></i></span>
-    <span class="nav-label">Pelanggan</span>
-  </div>
-  <div class="nav-item" data-view="analysis" onclick="showView('analysis')">
-    <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
-    <span class="nav-label">Analisis</span>
-  </div>
-  <div class="nav-item" data-view="broadcast" onclick="showView('broadcast')">
-    <span class="nav-icon"><i class="fas fa-bullhorn"></i></span>
-    <span class="nav-label">Broadcast</span>
-  </div>
-
-  <div class="nav-group-label" style="margin-top:16px;">Pengaturan</div>
-  <div class="nav-item" data-view="menus" onclick="showView('menus')">
-    <span class="nav-icon"><i class="fas fa-book-open"></i></span>
-    <span class="nav-label">Menu & Paket</span>
-  </div>
-  <div class="nav-item" data-view="locations" onclick="showView('locations')">
-    <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span>
-    <span class="nav-label">Lokasi</span>
-  </div>
-</nav>
-
-<div class="sidebar-footer">
-  <div class="trial-pill">
-    <i class="fas fa-clock"></i>
-    <span id="sidebar-trial-days">7 hari tersisa</span>
-  </div>
-  <div class="sidebar-ver">Proserva v2.0 · Demo Mode</div>
-</div>
-
-  </aside>
-
-  <!-- TOPBAR -->
-
-  <header id="topbar">
-    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
-      <i class="fas fa-bars"></i>
-    </button>
-
-<div class="topbar-center" id="topbar-breadcrumb">
-  <span class="tb-page-name">Kalender</span>
-</div>
-
-<div class="topbar-actions">
-  <!-- Notif Bell -->
-  <div class="topbar-btn icon-btn" id="notif-btn" onclick="toggleNotifDropdown(event)" title="Pengingat">
-    <i class="fas fa-bell"></i>
-    <span class="notif-dot" id="notif-dot" style="display:none;"></span>
-    <div id="notif-dropdown">
-      <div class="nd-header">
-        <i class="fas fa-bell"></i> Pengingat Ucapan Terima Kasih
-      </div>
-      <div id="notif-list">
-        <div class="nd-empty"><i class="fas fa-check-circle"></i><br/>Semua beres!</div>
-      </div>
-    </div>
-  </div>
-
-  <button class="topbar-btn" onclick="handleExport()" title="Export Data">
-    <i class="fas fa-upload"></i>
-    <span class="btn-label">Export</span>
-  </button>
-
-  <button class="topbar-btn topbar-btn-accent" onclick="openAddReservationModal()" id="btn-add-res" title="Tambah Reservasi">
-    <i class="fas fa-plus"></i>
-    <span class="btn-label">Reservasi Baru</span>
-  </button>
-</div>
-
-  </header>
-
-  <!-- MAIN CONTENT -->
-
-  <main id="content">
-
-<!-- ────────────────────────────────────────
-     VIEW: CALENDAR
-──────────────────────────────────────── -->
-<div id="view-calendar" class="view active-view">
-  <div class="view-header">
-    <div>
-      <h1 class="view-title" id="cal-biz-name">Dashboard Reservasi</h1>
-      <p class="view-sub" id="cal-subtitle">Kelola semua reservasi dengan mudah</p>
-    </div>
-    <div class="cal-nav-controls">
-      <button class="cal-arrow" onclick="navMonth(-1)"><i class="fas fa-chevron-left"></i></button>
-      <span class="cal-month-label" id="cal-month-label">—</span>
-      <button class="cal-arrow" onclick="navMonth(1)"><i class="fas fa-chevron-right"></i></button>
-      <button class="btn-today" onclick="goToToday()">Hari Ini</button>
-    </div>
-  </div>
-
-  <!-- Stats Row -->
-  <div class="stats-row" id="cal-stats-row">
-    <div class="stat-card">
-      <div class="stat-icon stat-orange"><i class="fas fa-calendar-check"></i></div>
-      <div class="stat-value" id="stat-total">0</div>
-      <div class="stat-label">Reservasi Bulan Ini</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon stat-green"><i class="fas fa-users"></i></div>
-      <div class="stat-value" id="stat-pax">0</div>
-      <div class="stat-label">Total Tamu</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon stat-blue"><i class="fas fa-money-bill-wave"></i></div>
-      <div class="stat-value" id="stat-dp">Rp0</div>
-      <div class="stat-label">Omzet DP</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon stat-amber"><i class="fas fa-fire"></i></div>
-      <div class="stat-value" id="stat-busiest">—</div>
-      <div class="stat-label">Hari Tersibuk</div>
-    </div>
-  </div>
-
-  <!-- Calendar Grid -->
-  <div class="calendar-card">
-    <div class="cal-weekdays">
-      <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
-    </div>
-    <div class="cal-grid" id="cal-days"></div>
-  </div>
-</div>
-
-
-<!-- ────────────────────────────────────────
-     VIEW: DETAIL (per tanggal)
-──────────────────────────────────────── -->
-<div id="view-detail" class="view">
-  <div class="view-header detail-view-header">
-    <button class="back-btn" onclick="backToCalendar()">
-      <i class="fas fa-arrow-left"></i> Kalender
-    </button>
-    <div class="detail-title-wrap">
-      <h2 class="view-title" id="detail-title"></h2>
-    </div>
-    <div class="detail-actions">
-      <div class="search-wrap">
-        <i class="fas fa-search"></i>
-        <input type="text" id="detail-search" placeholder="Cari reservasi…" oninput="filterDetailList(this.value)"/>
-      </div>
-      <button class="icon-action-btn" onclick="shareWA('day')" title="Share ke WhatsApp">
-        <i class="fab fa-whatsapp"></i>
-      </button>
-      <button class="icon-action-btn" onclick="showPrintOptions()" title="Cetak">
-        <i class="fas fa-print"></i>
-      </button>
-      <button class="btn-accent-sm" onclick="openAddReservationModal()">
-        <i class="fas fa-plus"></i> Tambah
+      <button class="btn-icon" onclick="closeModal('modal-menu')">
+        <i class="fas fa-times"></i>
       </button>
     </div>
+
+
+    <div class="modal-body">
+
+      <input type="hidden" id="menu-edit-id" />
+
+      <div class="form-group">
+        <label>Nama Menu / Paket</label>
+        <input id="menu-name" class="form-input" type="text" />
+      </div>
+
+      <div class="form-group">
+        <label>Harga (Rp)</label>
+        <input id="menu-price" class="form-input" type="number" />
+      </div>
+
+      <div class="form-group">
+        <label>Detail Menu</label>
+        <textarea
+          id="menu-details"
+          class="form-input"
+          placeholder="Contoh: Nasi, Ayam, Es Teh (pisahkan dengan koma)"
+        ></textarea>
+      </div>
+
+      <!-- FUTURE: CATEGORY -->
+      <div class="form-group">
+        <label>Kategori (opsional)</label>
+        <select id="menu-category" class="form-select">
+          <option value="">—</option>
+          <option value="wedding">Wedding</option>
+          <option value="gathering">Gathering</option>
+          <option value="regular">Regular</option>
+        </select>
+      </div>
+
+    </div>
+
+
+    <div class="modal-footer">
+
+      <button class="btn-ghost" onclick="closeModal('modal-menu')">
+        Batal
+      </button>
+
+      <button class="btn-primary" onclick="saveMenu()">
+        Simpan
+      </button>
+
+    </div>
+
   </div>
-  <div id="detail-list" class="res-grid"></div>
+
 </div>
 
 
-<!-- ────────────────────────────────────────
-     VIEW: MENUS
-──────────────────────────────────────── -->
-<div id="view-menus" class="view">
-  <div class="view-header">
-    <div>
-      <h1 class="view-title">Menu & Paket</h1>
-      <p class="view-sub">Kelola semua paket yang tersedia untuk dipesan</p>
-    </div>
-    <button class="btn-accent" onclick="openMenuModal()"><i class="fas fa-plus"></i> Tambah Menu</button>
-  </div>
-  <div class="data-card">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
-        <tbody id="menus-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<!-- =========================
+     STYLE
+========================== -->
+<style>
 
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
 
-<!-- ────────────────────────────────────────
-     VIEW: LOCATIONS
-──────────────────────────────────────── -->
+  .section-sub {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .table th {
+    text-align: left;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+
+  .chip {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+  }
+
+  .chip-orange {
+    background: rgba(255, 159, 10, 0.15);
+    color: #ff9f0a;
+  }
+
+  .chip-gray {
+    background: rgba(255,255,255,0.08);
+    color: var(--ink-3);
+  }
+
+</style>
+<!-- =========================
+     VIEW: LOKASI
+========================== -->
 <div id="view-locations" class="view">
-  <div class="view-header">
+
+  <!-- HEADER -->
+  <div class="section-header">
     <div>
-      <h1 class="view-title">Manajemen Lokasi</h1>
-      <p class="view-sub">Atur tempat duduk, gazebo, atau area yang bisa dipesan</p>
+      <h2>Lokasi</h2>
+      <p class="section-sub">
+        Atur area restoran dan kapasitasnya
+      </p>
     </div>
-    <button class="btn-accent" onclick="openLocationModal()"><i class="fas fa-plus"></i> Tambah Lokasi</button>
+
+    <button class="btn-primary" onclick="openLocationModal()">
+      <i class="fas fa-plus"></i> Tambah Lokasi
+    </button>
   </div>
-  <div class="data-card">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr><th>Nama Lokasi</th><th>Kapasitas</th><th>Aksi</th></tr></thead>
-        <tbody id="locations-tbody"></tbody>
-      </table>
-    </div>
+
+
+  <!-- =========================
+       SEARCH
+  ========================== -->
+  <div class="toolbar">
+
+    <input
+      type="text"
+      class="form-input"
+      placeholder="Cari lokasi..."
+      oninput="filterLocations(this.value)"
+    />
+
   </div>
+
+
+  <!-- =========================
+       TABLE
+  ========================== -->
+  <div class="table-wrapper">
+
+    <table class="table">
+
+      <thead>
+        <tr>
+          <th>Nama Lokasi</th>
+          <th>Kapasitas</th>
+          <th>Status Hari Ini</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody id="locations-tbody"></tbody>
+
+    </table>
+
+  </div>
+
 </div>
 
 
-<!-- ────────────────────────────────────────
-     VIEW: CUSTOMERS
-──────────────────────────────────────── -->
+<!-- =========================
+     MODAL: LOKASI
+========================== -->
+<div id="modal-location" class="modal-overlay">
+
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <h3 id="loc-modal-title">Tambah Lokasi</h3>
+
+      <button class="btn-icon" onclick="closeModal('modal-location')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+
+    <div class="modal-body">
+
+      <input type="hidden" id="loc-edit-id" />
+
+      <div class="form-group">
+        <label>Nama Lokasi</label>
+        <input id="loc-name" class="form-input" type="text" />
+      </div>
+
+      <div class="form-group">
+        <label>Kapasitas Maksimal</label>
+        <input id="loc-capacity" class="form-input" type="number" />
+      </div>
+
+      <!-- FUTURE: DURATION DEFAULT -->
+      <div class="form-group">
+        <label>Durasi Default (jam)</label>
+        <input id="loc-duration" class="form-input" type="number" placeholder="Contoh: 3" />
+        <small style="color:var(--ink-3)">
+          Digunakan untuk estimasi waktu reservasi (opsional)
+        </small>
+      </div>
+
+      <!-- FUTURE: BUFFER -->
+      <div class="form-group">
+        <label>Buffer Antar Event (menit)</label>
+        <input id="loc-buffer" class="form-input" type="number" placeholder="Contoh: 30" />
+        <small style="color:var(--ink-3)">
+          Waktu persiapan antar reservasi
+        </small>
+      </div>
+
+    </div>
+
+
+    <div class="modal-footer">
+
+      <button class="btn-ghost" onclick="closeModal('modal-location')">
+        Batal
+      </button>
+
+      <button class="btn-primary" onclick="saveLocation()">
+        Simpan
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================
+     STYLE TAMBAHAN
+========================== -->
+<style>
+
+  /* Capacity status badge */
+  .cap-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .cap-safe {
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+  }
+
+  .cap-warning {
+    background: rgba(255,159,10,0.15);
+    color: #ff9f0a;
+  }
+
+  .cap-full {
+    background: rgba(239,68,68,0.15);
+    color: #ef4444;
+  }
+
+</style>
+<!-- =========================
+     VIEW: PELANGGAN
+========================== -->
 <div id="view-customers" class="view">
-  <div class="view-header">
+
+  <!-- HEADER -->
+  <div class="section-header">
     <div>
-      <h1 class="view-title">Data Pelanggan</h1>
-      <p class="view-sub">Semua pelanggan yang pernah melakukan reservasi</p>
-    </div>
-    <div class="search-wrap">
-      <i class="fas fa-search"></i>
-      <input type="text" id="customer-search" placeholder="Cari nama atau HP…" oninput="filterCustomers(this.value)"/>
+      <h2>Pelanggan</h2>
+      <p class="section-sub">
+        Kelola data pelanggan dan riwayat kunjungan
+      </p>
     </div>
   </div>
-  <div class="data-card">
-    <div class="table-scroll">
-      <table class="data-table">
-        <thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Reservasi</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead>
-        <tbody id="customers-tbody"></tbody>
-      </table>
-    </div>
+
+
+  <!-- =========================
+       FILTER & SEARCH
+  ========================== -->
+  <div class="toolbar">
+
+    <input
+      type="text"
+      class="form-input"
+      placeholder="Cari nama / nomor HP..."
+      oninput="filterCustomers(this.value)"
+    />
+
+    <!-- FUTURE: SEGMENT FILTER -->
+    <select id="cust-filter" class="form-select" onchange="applyCustomerFilter()">
+      <option value="all">Semua Pelanggan</option>
+      <option value="vip">VIP (Sering datang)</option>
+      <option value="new">Baru (1x kunjungan)</option>
+      <option value="inactive">Tidak aktif</option>
+    </select>
+
   </div>
+
+
+  <!-- =========================
+       TABLE
+  ========================== -->
+  <div class="table-wrapper">
+
+    <table class="table">
+
+      <thead>
+        <tr>
+          <th>Nama</th>
+          <th>Nomor HP</th>
+          <th>Kunjungan</th>
+          <th>Total Tamu</th>
+          <th>Terakhir Datang</th>
+          <th>Segment</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody id="customers-tbody"></tbody>
+
+    </table>
+
+  </div>
+
 </div>
 
 
-<!-- ────────────────────────────────────────
+<!-- =========================
+     STYLE TAMBAHAN
+========================== -->
+<style>
+
+  .cust-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .cust-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chip-vip {
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+  }
+
+  .chip-new {
+    background: rgba(59,130,246,0.15);
+    color: #3b82f6;
+  }
+
+  .chip-inactive {
+    background: rgba(255,255,255,0.08);
+    color: var(--ink-3);
+  }
+
+</style>
+<!-- =========================
      VIEW: ANALYSIS
-──────────────────────────────────────── -->
+========================== -->
 <div id="view-analysis" class="view">
-  <div class="view-header">
+
+  <!-- HEADER -->
+  <div class="section-header">
     <div>
-      <h1 class="view-title">Analisis Bisnis</h1>
-      <p class="view-sub">Wawasan mendalam tentang performa reservasi Anda</p>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <select class="form-select-sm" id="anl-year" onchange="runAnalysis()"></select>
-      <select class="form-select-sm" id="anl-month" style="width:160px;" onchange="runAnalysis()"></select>
+      <h2>Analisis Bisnis</h2>
+      <p class="section-sub">
+        Lihat performa reservasi dan pendapatan
+      </p>
     </div>
   </div>
-  <div class="anl-stats-row" id="anl-stats"></div>
-  <div class="chart-card"><canvas id="anl-chart"></canvas></div>
-  <div class="insight-card" id="anl-insight"></div>
-  <div class="anl-bottom-grid">
-    <div class="data-card">
-      <div class="data-card-header"><i class="fas fa-crown"></i> Pelanggan Setia</div>
-      <ul class="rank-list" id="anl-frequent"></ul>
-    </div>
-    <div class="data-card">
-      <div class="data-card-header"><i class="fas fa-fire"></i> Menu Terlaris</div>
-      <ul class="rank-list" id="anl-menus"></ul>
-    </div>
+
+
+  <!-- =========================
+       FILTER
+  ========================== -->
+  <div class="toolbar">
+
+    <select id="anl-year" class="form-select"></select>
+
+    <select id="anl-month" class="form-select">
+      <option value="all">Satu Tahun</option>
+    </select>
+
+    <!-- FUTURE: STATUS FILTER -->
+    <select id="anl-status" class="form-select">
+      <option value="all">Semua Status</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="pending">Pending</option>
+      <option value="completed">Completed</option>
+    </select>
+
+    <button class="btn-primary" onclick="runAnalysis()">
+      Tampilkan
+    </button>
+
   </div>
+
+
+  <!-- =========================
+       STATS CARDS
+  ========================== -->
+  <div id="anl-stats" class="anl-stats"></div>
+
+
+  <!-- =========================
+       CHART
+  ========================== -->
+  <div class="chart-box">
+    <canvas id="anl-chart"></canvas>
+  </div>
+
+
+  <!-- =========================
+       REVENUE BREAKDOWN
+  ========================== -->
+  <div class="anl-section">
+
+    <h4>Revenue per Paket</h4>
+
+    <ul id="anl-revenue"></ul>
+
+  </div>
+
+
+  <!-- =========================
+       TOP CUSTOMERS
+  ========================== -->
+  <div class="anl-section">
+
+    <h4>Pelanggan Teratas</h4>
+
+    <ul id="anl-frequent"></ul>
+
+  </div>
+
+
+  <!-- =========================
+       TOP MENUS
+  ========================== -->
+  <div class="anl-section">
+
+    <h4>Menu Terlaris</h4>
+
+    <ul id="anl-menus"></ul>
+
+  </div>
+
+
+  <!-- =========================
+       INSIGHTS
+  ========================== -->
+  <div id="anl-insight" class="anl-section"></div>
+
 </div>
 
 
-<!-- ────────────────────────────────────────
+<!-- =========================
+     STYLE
+========================== -->
+<style>
+
+  .anl-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .anl-card {
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .anl-val {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .anl-label {
+    font-size: 0.7rem;
+    color: var(--ink-3);
+  }
+
+  .chart-box {
+    height: 220px;
+    margin-bottom: 16px;
+  }
+
+  .anl-section {
+    margin-bottom: 18px;
+  }
+
+  .anl-section h4 {
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+  }
+
+  .rank-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    padding: 4px 0;
+  }
+
+  .ri-name {
+    color: var(--ink-1);
+  }
+
+  .ri-val {
+    color: var(--ink-3);
+  }
+
+</style>
+<!-- =========================
      VIEW: BROADCAST
-──────────────────────────────────────── -->
+========================== -->
 <div id="view-broadcast" class="view">
-  <div class="view-header">
+
+  <!-- HEADER -->
+  <div class="section-header">
     <div>
-      <h1 class="view-title">Broadcast Promo</h1>
-      <p class="view-sub">Kirim pesan promosi ke semua pelanggan via WhatsApp</p>
+      <h2>Broadcast Promo</h2>
+      <p class="section-sub">
+        Kirim pesan WhatsApp ke pelanggan secara terarah
+      </p>
     </div>
   </div>
-  <div class="broadcast-layout">
-    <div class="data-card bc-compose-card">
-      <div class="data-card-header"><i class="fas fa-pen-nib"></i> Tulis Pesan</div>
-      <div class="bc-compose-body">
-        <div class="form-group">
-          <label class="form-label">Template Pesan Broadcast</label>
-          <textarea class="form-textarea" id="broadcast-msg" placeholder="Halo Kak! Ada promo spesial di tempat kami ✨…"></textarea>
-          <p class="form-hint">Gunakan kata "kak" untuk diganti otomatis dengan nama pelanggan.</p>
-        </div>
-        <button class="btn-accent" style="width:100%;" onclick="saveBroadcastMsg()">
-          <i class="fas fa-save"></i> Simpan Pesan
+
+
+  <!-- =========================
+       TEMPLATE MESSAGE
+  ========================== -->
+  <div class="form-group">
+
+    <label>Template Pesan</label>
+
+    <textarea
+      id="broadcast-msg"
+      class="form-input"
+      rows="5"
+      placeholder="Contoh: Halo kak, ada promo spesial minggu ini..."
+    ></textarea>
+
+    <button class="btn-primary" style="margin-top:8px;" onclick="saveBroadcastMsg()">
+      Simpan Template
+    </button>
+
+  </div>
+
+
+  <!-- =========================
+       SEGMENT FILTER
+  ========================== -->
+  <div class="toolbar">
+
+    <select id="bc-segment" class="form-select" onchange="applyBroadcastFilter()">
+      <option value="all">Semua Pelanggan</option>
+      <option value="vip">VIP (Sering datang)</option>
+      <option value="new">Baru (1x)</option>
+      <option value="inactive">Tidak aktif</option>
+    </select>
+
+    <!-- FUTURE: DATE FILTER -->
+    <select id="bc-upcoming" class="form-select">
+      <option value="all">Semua Waktu</option>
+      <option value="7">Booking 7 hari ke depan</option>
+      <option value="30">Booking 30 hari ke depan</option>
+    </select>
+
+    <input
+      type="text"
+      class="form-input"
+      placeholder="Cari pelanggan..."
+      oninput="filterBcList(this.value)"
+    />
+
+  </div>
+
+
+  <!-- =========================
+       LIST TARGET
+  ========================== -->
+  <div id="bc-list" class="bc-list"></div>
+
+</div>
+
+
+<!-- =========================
+     STYLE
+========================== -->
+<style>
+
+  .bc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .bc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .bc-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .bc-phone {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+  }
+
+</style>
+
+
+<!-- =========================
+     STYLE
+========================== -->
+<style>
+
+  
+  .notif-dropdown {
+  position: absolute;
+  right: 0;
+  top: 42px;
+  width: 280px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 10px;
+  display: none;
+  flex-direction: column;
+  z-index: 50;
+}
+
+  .notif-dropdown.open {
+    display: flex;
+  }
+
+  .notif-header {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.85rem;
+  }
+
+  .notif-list {
+    max-height: 320px;
+    overflow-y: auto;
+  }
+
+  .notif-item {
+    padding: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .notif-item:last-child {
+    border-bottom: none;
+  }
+
+  .ni-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .ni-date {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+
+  .ni-alert {
+    font-size: 0.7rem;
+    margin-top: 4px;
+    color: #f59e0b;
+  }
+
+  .nd-empty {
+    padding: 20px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+  }
+
+</style>
+<!-- =========================
+     PRINT BUTTON (DETAIL VIEW)
+========================== -->
+<div class="print-toolbar">
+
+  <button class="btn-secondary" onclick="showPrintOptions()">
+    <i class="fas fa-print"></i> Cetak Laporan
+  </button>
+
+</div>
+
+
+<!-- =========================
+     MODAL: PRINT OPTIONS
+========================== -->
+<div id="modal-print" class="modal-overlay">
+
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <h3>
+        <i class="fas fa-print"></i> Cetak Laporan
+      </h3>
+
+      <button class="btn-icon" onclick="closeModal('modal-print')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+
+    <div class="modal-body">
+
+      <p style="font-size:0.8rem;color:var(--ink-3);margin-bottom:10px;">
+        Pilih informasi yang ingin ditampilkan dalam laporan:
+      </p>
+
+      <label class="chk">
+        <input type="checkbox" id="po-menu" checked />
+        Tampilkan Pesanan
+      </label>
+
+      <label class="chk">
+        <input type="checkbox" id="po-hp" />
+        Tampilkan Nomor HP
+      </label>
+
+      <label class="chk">
+        <input type="checkbox" id="po-dp" checked />
+        Tampilkan DP
+      </label>
+
+      <label class="chk">
+        <input type="checkbox" id="po-tambahan" checked />
+        Tampilkan Catatan Tambahan
+      </label>
+
+    </div>
+
+
+    <div class="modal-footer">
+
+      <button class="btn-ghost" onclick="closeModal('modal-print')">
+        Batal
+      </button>
+
+      <button class="btn-primary" onclick="executePrint()">
+        Cetak
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================
+     STYLE
+========================== -->
+<style>
+
+  .print-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+  }
+
+  .chk {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    margin-bottom: 6px;
+  }
+
+</style>
+<!-- =========================
+     DATA MANAGEMENT (SETTINGS / SIDEBAR AREA)
+========================== -->
+<div class="data-tools">
+
+  <button class="btn-secondary" onclick="handleExport()">
+    <i class="fas fa-download"></i> Export Data
+  </button>
+
+  <button class="btn-secondary" onclick="openModal('modal-export')">
+    <i class="fas fa-upload"></i> Import Data
+  </button>
+
+</div>
+
+
+<!-- =========================
+     MODAL: EXPORT / IMPORT
+========================== -->
+<div id="modal-export" class="modal-overlay">
+
+  <div class="modal-box">
+
+    <div class="modal-header">
+      <h3>
+        <i class="fas fa-database"></i> Backup & Restore Data
+      </h3>
+
+      <button class="btn-icon" onclick="closeModal('modal-export')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+
+    <div class="modal-body">
+
+      <!-- EXPORT -->
+      <div class="form-group">
+        <label>Kode Backup</label>
+
+        <textarea
+          id="export-output"
+          class="form-input"
+          rows="4"
+          readonly
+        ></textarea>
+
+        <button class="btn-secondary" style="margin-top:6px;" onclick="copyExport()">
+          Salin Kode
         </button>
       </div>
-    </div>
-    <div class="data-card bc-list-card">
-      <div class="data-card-header bc-list-header">
-        <span><i class="fas fa-users"></i> Daftar Penerima</span>
-        <div class="search-wrap search-sm">
-          <i class="fas fa-search"></i>
-          <input type="text" id="bc-search" placeholder="Cari…" oninput="filterBcList(this.value)"/>
-        </div>
-      </div>
-      <div id="bc-list" class="bc-list-body"></div>
-    </div>
-  </div>
-</div>
 
-  </main><!-- /content -->
 
-</div><!-- /app-shell -->
+      <hr style="margin:12px 0;border-color:rgba(255,255,255,0.06);" />
 
-<!-- ============================================================
-     MODALS
-     ============================================================ -->
 
-<!-- Reservation Modal -->
-
-<div class="modal-overlay" id="modal-reservation">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3>
-      <button class="modal-close" onclick="closeModal('modal-reservation')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="res-edit-id"/>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Nama Tamu <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div>
-          <div class="form-error" id="err-nama"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Nomor HP</label>
-          <div class="input-wrap"><i class="fas fa-phone"></i><input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/></div>
-          <div class="form-error" id="err-hp"></div>
-        </div>
-      </div>
-      <div class="form-row form-row-3">
-        <div class="form-group">
-          <label class="form-label">Jam <span class="req">*</span></label>
-          <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="res-jam" type="time"/></div>
-          <div class="form-error" id="err-jam"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Jumlah Tamu <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10"/></div>
-          <div class="form-error" id="err-jumlah"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Lokasi <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-map-pin"></i><select class="form-input" id="res-tempat" onchange="onLocationChange()"></select></div>
-          <div class="form-error" id="err-tempat"></div>
-          <div class="form-hint" id="res-cap-hint"></div>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">DP (Rp)</label>
-          <div class="input-wrap"><span class="input-prefix">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Metode Pembayaran DP</label>
-          <div class="input-wrap"><i class="fas fa-credit-card"></i>
-            <select class="form-input" id="res-tipe-dp">
-              <option value="">— Tanpa DP —</option>
-              <option>Cash</option><option>QRIS</option>
-              <option>Transfer BCA</option><option>Transfer Mandiri</option>
-              <option>Transfer BRI</option><option>Transfer BNI</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <!-- IMPORT -->
       <div class="form-group">
-        <label class="form-label">Menu & Paket Dipesan</label>
-        <div class="form-error" id="err-menus"></div>
-        <div id="res-menus-container" class="menus-container"></div>
-        <button class="add-menu-row-btn" onclick="addMenuRow('res-menus-container')">
-          <i class="fas fa-plus"></i> Tambah Paket
+        <label>Import Data</label>
+
+        <textarea
+          id="import-input"
+          class="form-input"
+          rows="4"
+          placeholder="Tempel kode backup di sini"
+        ></textarea>
+
+        <button class="btn-primary" style="margin-top:6px;" onclick="doImportData()">
+          Import Data
         </button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Catatan / Request Tambahan</label>
-        <textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan…"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-reservation')">Batal</button>
-      <button class="btn-accent" onclick="saveReservation()"><i class="fas fa-save"></i> Simpan</button>
-    </div>
-  </div>
-</div>
 
-<!-- Menu Modal -->
+    </div>
 
-<div class="modal-overlay" id="modal-menu">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3>
-      <button class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="menu-edit-id"/>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Nama Menu <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-bowl-food"></i><input class="form-input" id="menu-name" placeholder="Paket Keluarga"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Harga (Rp)</label>
-          <div class="input-wrap"><span class="input-prefix">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Detail Menu</label>
-        <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
-        <p class="form-hint">Pisahkan dengan koma untuk setiap item</p>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-menu')">Batal</button>
-      <button class="btn-accent" onclick="saveMenu()"><i class="fas fa-save"></i> Simpan</button>
-    </div>
-  </div>
-</div>
-
-<!-- Location Modal -->
-
-<div class="modal-overlay" id="modal-location">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3>
-      <button class="modal-close" onclick="closeModal('modal-location')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="loc-edit-id"/>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Nama Lokasi <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-map-pin"></i><input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room…"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Kapasitas (orang) <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div>
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-location')">Batal</button>
-      <button class="btn-accent" onclick="saveLocation()"><i class="fas fa-save"></i> Simpan</button>
-    </div>
-  </div>
-</div>
-
-<!-- Print Modal -->
-
-<div class="modal-overlay" id="modal-print">
-  <div class="modal">
-    <div class="modal-header">
-      <h3><i class="fas fa-print"></i> Opsi Cetak</h3>
-      <button class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <p class="form-hint" style="margin-bottom:14px;">Pilih informasi yang ingin ditampilkan saat mencetak:</p>
-      <div class="print-options-grid">
-        <label class="print-option"><input type="checkbox" id="po-menu" checked/> <i class="fas fa-utensils"></i> Detail Menu</label>
-        <label class="print-option"><input type="checkbox" id="po-hp" checked/> <i class="fas fa-phone"></i> Nomor HP</label>
-        <label class="print-option"><input type="checkbox" id="po-dp" checked/> <i class="fas fa-money-bill"></i> Info DP</label>
-        <label class="print-option"><input type="checkbox" id="po-tambahan" checked/> <i class="fas fa-comment-dots"></i> Catatan</label>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-print')">Batal</button>
-      <button class="btn-accent" onclick="executePrint()"><i class="fas fa-print"></i> Cetak Sekarang</button>
-    </div>
-  </div>
-</div>
-
-<!-- Export Modal -->
-
-<div class="modal-overlay" id="modal-export">
-  <div class="modal">
-    <div class="modal-header">
-      <h3><i class="fas fa-upload"></i> Export & Backup Data</h3>
-      <button class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button>
-    </div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Kode Backup</label>
-        <textarea class="form-textarea code-textarea" id="export-output" readonly placeholder="Klik Export untuk menghasilkan kode…"></textarea>
-        <p class="form-hint">Salin kode ini untuk backup atau transfer ke perangkat lain.</p>
-      </div>
-      <div class="modal-divider"><span>atau import data</span></div>
-      <div class="form-group">
-        <label class="form-label">Import dari Backup</label>
-        <textarea class="form-textarea code-textarea" id="import-input" placeholder="Tempel kode backup di sini…"></textarea>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
-      <button class="btn-secondary" onclick="doImportData()"><i class="fas fa-download"></i> Import</button>
-      <button class="btn-accent" onclick="copyExport()"><i class="fas fa-copy"></i> Salin Kode</button>
-    </div>
-  </div>
-</div>
-
-<!-- Toast Container -->
-
-<div id="toast-container"></div>
-
-<!-- Scripts -->
-
-<script src="modules.js" defer></script>
-<script src="app.js" defer></script>
-<!-- DEBUG PANEL (HIDDEN) -->
-<div id="debug-panel" class="debug-hidden">
-  <div class="debug-header">
-    <span>🧪 Debug Console</span>
-    <button onclick="debugCopy()">Copy</button>
-    <button onclick="debugClear()">Clear</button>
-    <button onclick="debugClose()">✕</button>
   </div>
 
-  <div id="debug-content"></div>
 </div>
+
+
+<!-- =========================
+     STYLE
+========================== -->
+<style>
+
+  .data-tools {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+</style>
+
+
+<!-- =========================
+     STYLE
+========================== -->
+<style>
+
+  #debug-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 11px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .debug-hidden {
+    display: none !important;
+  }
+
+  .debug-header {
+  padding: 6px 10px;
+  background: #020617;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+  .debug-actions button {
+    margin-left: 6px;
+    font-size: 10px;
+    padding: 4px 6px;
+    cursor: pointer;
+  }
+
+  #debug-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    white-space: pre-wrap;
+  }
+
+</style>
+
+
+
+
+
+<!--
+Nanti kamu tinggal:
+mode: 'firebase'
+
+dan inject:
+- firestore adapter
+- auth layer
+-->
+<!-- =========================
+
+     SCRIPT LOADER
+
+========================== -->
+
+<script src="modules.js"></script>
+
+<script src="app.js"></script>
+
+<!-- =========================
+
+     GLOBAL ERROR
+
+========================== -->
+
+<script>
+
+window.addEventListener('error', function (e) {
+
+  console.error('[GLOBAL ERROR]', e.message, e.filename, e.lineno);
+
+});
+
+window.addEventListener('unhandledrejection', function (e) {
+
+  console.error('[PROMISE ERROR]', e.reason);
+
+});
+
+</script>
+
+<!-- =========================
+
+     ENV CONFIG
+
+========================== -->
+
+<script>
+
+window.PRO_SERVA_ENV = {
+
+  mode: 'local',
+
+  version: '2.0'
+
+};
+
+</script>
+
 </body>
+
 </html>
