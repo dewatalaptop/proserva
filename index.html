@@ -447,7 +447,7 @@
     }
 
     /* =========================
-       CONFIRM DIALOG (custom — menggantikan window.confirm)
+       CONFIRM DIALOG
     ========================== */
     #confirm-modal {
       position: fixed;
@@ -709,1477 +709,562 @@
 
 <body>
 
-<!-- GLOBAL LOADING OVERLAY -->
+  <!-- GLOBAL LOADING OVERLAY -->
 
-<div id="global-loading">
-  <div class="loader"></div>
-</div>
+  <div id="global-loading">
+    <div class="loader"></div>
+  </div>
 
-<!-- SIDEBAR OVERLAY (mobile) -->
+  <!-- SIDEBAR OVERLAY (mobile) -->
 
-<div id="sidebar-overlay"></div>
+  <div id="sidebar-overlay"></div>
 
-<!-- =========================
-     CUSTOM CONFIRM DIALOG
-     Menggantikan window.confirm() — UX konsisten
-========================== -->
+  <!-- CUSTOM CONFIRM DIALOG -->
 
-<div id="confirm-modal">
-  <div class="confirm-box">
-    <h4 id="confirm-title">Konfirmasi</h4>
-    <p id="confirm-message">Apakah Anda yakin?</p>
-    <div class="confirm-actions">
-      <button class="btn-ghost" id="confirm-cancel-btn">Batal</button>
-      <button class="btn-danger" id="confirm-ok-btn">Ya, Lanjutkan</button>
+  <div id="confirm-modal">
+    <div class="confirm-box">
+      <h4 id="confirm-title">Konfirmasi</h4>
+      <p id="confirm-message">Apakah Anda yakin?</p>
+      <div class="confirm-actions">
+        <button class="btn-ghost" id="confirm-cancel-btn">Batal</button>
+        <button class="btn-danger" id="confirm-ok-btn">Ya, Lanjutkan</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- =========================
-     APP ROOT
-========================== -->
+  <!-- APP ROOT -->
 
-<div id="app-root">
-
-  <!-- SIDEBAR -->
-
-  <aside id="sidebar">
-    <div class="sb-header">
-      <div class="sb-logo">
-        <i class="fas fa-calendar-check"></i>
-        <span>Proserva</span>
-      </div>
-      <div id="biz-name" class="sb-biz">Restoran Saya</div>
-    </div>
+  <div id="app-root">
 
 ```
-<nav class="sb-nav">
-  <div class="nav-item active" data-view="calendar">
-    <i class="fas fa-calendar"></i>
-    <span>Kalender</span>
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sb-header">
+    <div class="sb-logo">
+      <i class="fas fa-calendar-check"></i>
+      <span>Proserva</span>
+    </div>
+    <div id="biz-name" class="sb-biz">Restoran Saya</div>
   </div>
-  <div class="nav-item" data-view="menus">
-    <i class="fas fa-utensils"></i>
-    <span>Menu</span>
-  </div>
-  <div class="nav-item" data-view="analysis">
-    <i class="fas fa-chart-line"></i>
-    <span>Analisis</span>
-  </div>
-</nav>
 
-<div class="sb-footer">
-  <div id="sidebar-trial-days">Trial aktif</div>
-</div>
+  <nav class="sb-nav">
+    <div class="nav-item active" data-view="calendar">
+      <i class="fas fa-calendar"></i>
+      <span>Kalender</span>
+    </div>
+    <div class="nav-item" data-view="menus">
+      <i class="fas fa-utensils"></i>
+      <span>Menu</span>
+    </div>
+    <div class="nav-item" data-view="analysis">
+      <i class="fas fa-chart-line"></i>
+      <span>Analisis</span>
+    </div>
+  </nav>
+
+  <div class="sb-footer">
+    <div id="sidebar-trial-days">Trial aktif</div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main id="content">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="tb-left">
+      <button class="btn-icon" id="btn-toggle-sidebar">
+        <i class="fas fa-bars"></i>
+      </button>
+      <div id="topbar-breadcrumb" class="tb-title">Kalender</div>
+    </div>
+
+    <!-- NOTIFICATION BELL -->
+    <div class="notif-wrapper">
+      <button id="notif-btn" class="btn-icon">
+        <i class="fas fa-bell"></i>
+        <span id="notif-dot"></span>
+      </button>
+      <div id="notif-dropdown">
+        <div id="notif-list"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- VIEW CONTAINER -->
+  <div id="view-container">
+
+    <!-- VIEW: CALENDAR -->
+    <div id="view-calendar" class="view active-view">
+      <div class="cal-header">
+        <div class="cal-title">
+          <h2>Reservasi</h2>
+          <p>Kelola booking harian</p>
+        </div>
+        <button id="btn-open-modal" class="btn-primary">
+          <i class="fas fa-plus"></i> Tambah
+        </button>
+      </div>
+
+      <div class="cal-nav">
+        <button id="btn-prev-month" class="btn-icon">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <div id="calendar-month" class="cal-month"></div>
+        <button id="btn-next-month" class="btn-icon">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <div class="cal-weekdays">
+        <div>Ming</div><div>Sen</div><div>Sel</div><div>Rab</div>
+        <div>Kam</div><div>Jum</div><div>Sab</div>
+      </div>
+
+      <div id="calendar-grid" class="cal-grid"></div>
+    </div>
+
+    <!-- VIEW: DETAIL -->
+    <div id="view-detail" class="view">
+      <div class="detail-header">
+        <h3 id="detail-title">Detail Reservasi</h3>
+      </div>
+      <div class="detail-filters">
+        <input id="detail-search" type="text" class="input" placeholder="Cari nama / HP..." />
+        <select id="filter-status">
+          <option value="all">Semua Status</option>
+          <option value="pending">Pending</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="ongoing">Ongoing</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <input id="filter-date" type="date" class="input" />
+      </div>
+      <div id="reservation-list" class="detail-list"></div>
+    </div>
+
+    <!-- VIEW: MENUS -->
+    <div id="view-menus" class="view">
+      <div style="padding: 20px 0;">
+        <h2 style="font-size:1.1rem; margin-bottom:8px;">Menu</h2>
+        <p style="font-size:0.8rem; color:var(--ink-3);">Kelola daftar menu restoran</p>
+        <div id="menu-container" style="margin-top:16px;"></div>
+      </div>
+    </div>
+
+    <!-- VIEW: ANALYSIS -->
+    <div id="view-analysis" class="view">
+      <div style="margin-bottom:14px;">
+        <h2 style="font-size:1.1rem; margin-bottom:4px;">Analisis</h2>
+        <p style="font-size:0.8rem; color:var(--ink-3);">Ringkasan performa reservasi</p>
+      </div>
+      <div id="anl-stats" class="anl-stats"></div>
+      <div id="anl-insight"></div>
+    </div>
+
+  </div><!-- END VIEW CONTAINER -->
+
+  <!-- MODAL: RESERVATION -->
+  <div id="reservation-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">Tambah Reservasi</h3>
+        <button id="modal-close" class="btn-icon">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="reservation-form" class="modal-body" onsubmit="return false;">
+        <div class="form-group">
+          <label>Nama</label>
+          <input id="input-name" class="input" type="text" placeholder="Nama pemesan" />
+          <span class="form-error" id="err-name">Nama minimal 2 karakter</span>
+        </div>
+        <div class="form-group">
+          <label>No HP</label>
+          <input id="input-phone" class="input" type="text" placeholder="08xxxxxxxxxx" />
+        </div>
+        <div class="form-group">
+          <label>Tanggal</label>
+          <input id="input-date" class="input" type="date" />
+          <span class="form-error" id="err-date">Tanggal wajib diisi</span>
+        </div>
+        <div class="form-group">
+          <label>Jam</label>
+          <input id="input-time" class="input" type="time" />
+          <span class="form-error" id="err-time">Jam wajib diisi</span>
+        </div>
+        <div class="form-group">
+          <label>Jumlah Tamu</label>
+          <input id="input-guests" class="input" type="number" min="1" placeholder="1" />
+          <span class="form-error" id="err-guests">Jumlah tamu tidak valid</span>
+        </div>
+        <div class="form-group">
+          <label>Catatan</label>
+          <textarea id="input-note" class="input" rows="3" placeholder="Permintaan khusus..."></textarea>
+        </div>
+
+        <!-- Menu builder injected by Menu module -->
+        <div id="menu-builder"></div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-ghost" id="btn-cancel-modal">Batal</button>
+          <button type="submit" id="btn-submit" class="btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div><!-- END MODAL -->
+
+</main>
 ```
 
-  </aside>
-
-  <!-- MAIN CONTENT -->
-
-  <main id="content">
-
-```
-<!-- TOPBAR -->
-<header class="topbar">
-  <div class="tb-left">
-    <button class="btn-icon" id="btn-toggle-sidebar">
-      <i class="fas fa-bars"></i>
-    </button>
-    <div id="topbar-breadcrumb" class="tb-title">Kalender</div>
-  </div>
-
-  <!-- NOTIFICATION BELL -->
-  <div class="notif-wrapper">
-    <button id="notif-btn" class="btn-icon">
-      <i class="fas fa-bell"></i>
-      <span id="notif-dot"></span>
-    </button>
-    <div id="notif-dropdown">
-      <div id="notif-list"></div>
-    </div>
-  </div>
-</header>
-
-<!-- VIEW CONTAINER -->
-<div id="view-container">
-
-  <!-- VIEW: CALENDAR -->
-  <div id="view-calendar" class="view active-view">
-    <div class="cal-header">
-      <div class="cal-title">
-        <h2>Reservasi</h2>
-        <p>Kelola booking harian</p>
-      </div>
-      <button id="btn-open-modal" class="btn-primary">
-        <i class="fas fa-plus"></i> Tambah
-      </button>
-    </div>
-
-    <div class="cal-nav">
-      <button id="btn-prev-month" class="btn-icon">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-      <div id="calendar-month" class="cal-month"></div>
-      <button id="btn-next-month" class="btn-icon">
-        <i class="fas fa-chevron-right"></i>
-      </button>
-    </div>
-
-    <div class="cal-weekdays">
-      <div>Ming</div><div>Sen</div><div>Sel</div><div>Rab</div>
-      <div>Kam</div><div>Jum</div><div>Sab</div>
-    </div>
-
-    <div id="calendar-grid" class="cal-grid"></div>
-  </div>
-
-  <!-- VIEW: DETAIL -->
-  <div id="view-detail" class="view">
-    <div class="detail-header">
-      <h3 id="detail-title">Detail Reservasi</h3>
-    </div>
-    <div class="detail-filters">
-      <input id="detail-search" type="text" class="input" placeholder="Cari nama / HP..." />
-      <select id="filter-status">
-        <option value="all">Semua Status</option>
-        <option value="pending">Pending</option>
-        <option value="confirmed">Confirmed</option>
-        <option value="ongoing">Ongoing</option>
-        <option value="completed">Completed</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
-      <input id="filter-date" type="date" class="input" />
-    </div>
-    <div id="reservation-list" class="detail-list"></div>
-  </div>
-
-  <!-- VIEW: MENUS -->
-  <div id="view-menus" class="view">
-    <div style="padding: 20px 0;">
-      <h2 style="font-size:1.1rem; margin-bottom:8px;">Menu</h2>
-      <p style="font-size:0.8rem; color:var(--ink-3);">Kelola daftar menu restoran</p>
-      <div id="menu-container" style="margin-top:16px;"></div>
-    </div>
-  </div>
-
-  <!-- VIEW: ANALYSIS -->
-  <div id="view-analysis" class="view">
-    <div style="margin-bottom:14px;">
-      <h2 style="font-size:1.1rem; margin-bottom:4px;">Analisis</h2>
-      <p style="font-size:0.8rem; color:var(--ink-3);">Ringkasan performa reservasi</p>
-    </div>
-    <div id="anl-stats" class="anl-stats"></div>
-    <div id="anl-insight"></div>
-  </div>
-
-</div><!-- END VIEW CONTAINER -->
-
-<!-- MODAL: RESERVATION -->
-<div id="reservation-modal" class="modal-overlay">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3 id="modal-title">Tambah Reservasi</h3>
-      <button id="modal-close" class="btn-icon">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-
-    <form id="reservation-form" class="modal-body" onsubmit="return false;">
-      <div class="form-group">
-        <label>Nama</label>
-        <input id="input-name" class="input" type="text" placeholder="Nama pemesan" />
-        <span class="form-error" id="err-name">Nama minimal 2 karakter</span>
-      </div>
-      <div class="form-group">
-        <label>No HP</label>
-        <input id="input-phone" class="input" type="text" placeholder="08xxxxxxxxxx" />
-      </div>
-      <div class="form-group">
-        <label>Tanggal</label>
-        <input id="input-date" class="input" type="date" />
-        <span class="form-error" id="err-date">Tanggal wajib diisi</span>
-      </div>
-      <div class="form-group">
-        <label>Jam</label>
-        <input id="input-time" class="input" type="time" />
-        <span class="form-error" id="err-time">Jam wajib diisi</span>
-      </div>
-      <div class="form-group">
-        <label>Jumlah Tamu</label>
-        <input id="input-guests" class="input" type="number" min="1" placeholder="1" />
-        <span class="form-error" id="err-guests">Jumlah tamu tidak valid</span>
-      </div>
-      <div class="form-group">
-        <label>Catatan</label>
-        <textarea id="input-note" class="input" rows="3" placeholder="Permintaan khusus..."></textarea>
-      </div>
-
-      <!-- Menu builder injected by Menu module -->
-      <div id="menu-builder"></div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-ghost" id="btn-cancel-modal">Batal</button>
-        <button type="submit" id="btn-submit" class="btn-primary">Simpan</button>
-      </div>
-    </form>
-  </div>
-</div><!-- END MODAL -->
-```
-
-  </main>
-</div><!-- END APP ROOT -->
-
-<!-- ============================================================
-     SCRIPT LOAD ORDER:
-     1. modules.js  — Reservation, Calendar, UI, Analytics, Settings, Sync, Menu, Backup, LocalDB
-     2. app.js      — additional logic
-     3. Inline bridges below (run setelah modul tersedia)
-============================================================ -->
-
-<script src="modules.js"></script>
-
-<script src="app.js"></script>
-
-<!-- =========================
-     ENV / CONFIG
-========================== -->
-
-<script>
-window.PRO_SERVA_ENV = { mode: 'local', version: '2.1' };
-window.CONFIG        = { DATA_MODE: 'local' };
-</script>
-
-<!-- =========================
-     STEP 1 — EVENTS BUS
-     (fallback jika belum ada di modules.js)
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-  if (typeof Events !== 'undefined') return; // sudah ada dari modules.js
-
-  var _h = {};
-  window.Events = {
-    on:   function (e, fn) { (_h[e] || (_h[e] = [])).push(fn); },
-    off:  function (e)     { _h[e] = []; },
-    emit: function (e, d)  { (_h[e] || []).slice().forEach(function (fn) { fn(d); }); }
-  };
-})();
-</script>
-
-<!-- =========================
-     STEP 2 — UTILS FALLBACK
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-  if (typeof Utils !== 'undefined') return;
-
-  window.Utils = {
-    debounce: function (fn, delay) {
-      var t;
-      return function () {
-        var a = arguments;
-        clearTimeout(t);
-        t = setTimeout(function () { fn.apply(null, a); }, delay);
-      };
-    },
-    generateId: function () {
-      return Date.now().toString(36) + Math.random().toString(36).slice(2);
-    },
-    /*
-     * FIX: Menggunakan waktu lokal, bukan UTC.
-     * Menggantikan .toISOString().split('T')[0] yang bermasalah di timezone +7/+8.
-     */
-    todayLocal: function () {
-      var d = new Date();
-      return d.toLocaleDateString('en-CA'); // 'YYYY-MM-DD' format, locale-aware
-    },
-    dateLocal: function (d) {
-      return (d instanceof Date ? d : new Date(d)).toLocaleDateString('en-CA');
-    }
-  };
-})();
-</script>
-
-<!-- =========================
-     STEP 3 — NOTIFY FALLBACK
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-  if (typeof Notify !== 'undefined') return;
-
-  var colors = { success: '#22c55e', error: '#ef4444', info: '#3b82f6' };
-
-  function show(msg, type) {
-    var el = document.createElement('div');
-    el.style.cssText = [
-      'position:fixed', 'bottom:20px', 'right:20px', 'z-index:99999',
-      'background:' + (colors[type] || '#333'),
-      'color:#fff', 'padding:10px 16px', 'border-radius:10px',
-      'font-size:0.85rem', 'font-family:inherit',
-      'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
-      'opacity:0', 'transition:opacity 0.2s', 'max-width:300px'
-    ].join(';');
-    el.textContent = msg;
-    document.body.appendChild(el);
-    requestAnimationFrame(function () { el.style.opacity = '1'; });
-    setTimeout(function () {
-      el.style.opacity = '0';
-      setTimeout(function () { el.remove(); }, 300);
-    }, 3000);
-  }
-
-  window.Notify = {
-    success: function (m) { show(m, 'success'); },
-    error:   function (m) { show(m, 'error'); },
-    info:    function (m) { show(m, 'info'); }
-  };
-})();
-</script>
-
-<!-- =========================
-     STEP 4 — UX HELPERS (loading, skeleton, empty)
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-  var loader = document.getElementById('global-loading');
-
-  window.showLoading   = function ()     { if (loader) loader.classList.add('active'); };
-  window.hideLoading   = function ()     { if (loader) loader.classList.remove('active'); };
-  window.withLoading   = async function (fn) {
-    try { showLoading(); return await fn(); }
-    finally { hideLoading(); }
-  };
-  window.setBtnLoading = function (btn, state) {
-    if (btn) btn.classList.toggle('btn-loading', !!state);
-  };
-  window.renderSkeleton = function (container, count) {
-    if (!container) return;
-    container.innerHTML = '';
-    for (var i = 0; i < (count || 5); i++) {
-      var d = document.createElement('div');
-      d.className = 'skeleton';
-      d.style.cssText = 'height:60px;margin-bottom:8px;';
-      container.appendChild(d);
-    }
-  };
-  window.renderEmpty = function (container, title, subtitle) {
-    if (!container) return;
-    container.innerHTML = '<div class="empty-state"><strong>' + (title || '') +
-      '</strong><span>' + (subtitle || '') + '</span></div>';
-  };
-})();
-</script>
-
-<!-- =========================
-     STEP 5 — CUSTOM CONFIRM DIALOG
-     Menggantikan window.confirm() secara global.
-     API: ConfirmDialog.show({ title, message }) → Promise<boolean>
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  var _resolve = null;
-
-  var modal   = document.getElementById('confirm-modal');
-  var titleEl = document.getElementById('confirm-title');
-  var msgEl   = document.getElementById('confirm-message');
-  var okBtn   = document.getElementById('confirm-ok-btn');
-  var cancelBtn = document.getElementById('confirm-cancel-btn');
-
-  function show(opts) {
-    opts = opts || {};
-    if (titleEl) titleEl.textContent = opts.title   || 'Konfirmasi';
-    if (msgEl)   msgEl.textContent   = opts.message || 'Apakah Anda yakin?';
-    if (modal)   modal.classList.add('open');
-
-    return new Promise(function (resolve) {
-      _resolve = resolve;
-    });
-  }
-
-  function handleOk() {
-    if (modal) modal.classList.remove('open');
-    if (_resolve) { _resolve(true); _resolve = null; }
-  }
-
-  function handleCancel() {
-    if (modal) modal.classList.remove('open');
-    if (_resolve) { _resolve(false); _resolve = null; }
-  }
-
-  if (okBtn)     okBtn.addEventListener('click', handleOk);
-  if (cancelBtn) cancelBtn.addEventListener('click', handleCancel);
-
-  // close on backdrop click
-  if (modal) {
-    modal.addEventListener('click', function (e) {
-      if (e.target === modal) handleCancel();
-    });
-  }
-
-  window.ConfirmDialog = { show: show };
-})();
-</script>
-
-<!-- =========================
-     STEP 6 — NAVIGATION SYSTEM
-     - Single authoritative controller
-     - Emits 'nav:changed' event (tidak override fungsi lain)
-     - Tidak ada override global — hooks dilakukan via Events.on('nav:changed')
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  var VIEW_LABELS = {
-    calendar: 'Kalender',
-    menus:    'Menu',
-    analysis: 'Analisis',
-    detail:   'Detail'
-  };
-
-  var _current = 'calendar';
-
-  function show(viewName) {
-    if (!viewName) return;
-
-    var target = document.getElementById('view-' + viewName);
-    if (!target) {
-      console.warn('[Navigation] view not found:', viewName);
-      return;
-    }
-
-    // hide all
-    document.querySelectorAll('.view').forEach(function (v) {
-      v.classList.remove('active-view');
-    });
-
-    // show target
-    target.classList.add('active-view');
-    _current = viewName;
-
-    // update sidebar active
-    document.querySelectorAll('.nav-item').forEach(function (n) {
-      n.classList.toggle('active', n.dataset.view === viewName);
-    });
-
-    // update breadcrumb
-    var bc = document.getElementById('topbar-breadcrumb');
-    if (bc) bc.textContent = VIEW_LABELS[viewName] || viewName;
-
-    // close mobile sidebar
-    _closeSidebar();
-
-    // notify all listeners via event bus — NO function override needed
-    Events.emit('nav:changed', viewName);
-  }
-
-  function current() { return _current; }
-
-  function goToDetail(dateStr) {
-    show('detail');
-    if (dateStr && typeof UI !== 'undefined' && typeof UI.renderDetail === 'function') {
-      UI.renderDetail(dateStr);
-    }
-  }
-
-  function goToCalendar() { show('calendar'); }
-
-  function toggleSidebar() {
-    var sb = document.getElementById('sidebar');
-    var ov = document.getElementById('sidebar-overlay');
-    if (sb) sb.classList.toggle('open');
-    if (ov) ov.classList.toggle('show');
-  }
-
-  function _closeSidebar() {
-    var sb = document.getElementById('sidebar');
-    var ov = document.getElementById('sidebar-overlay');
-    if (sb) sb.classList.remove('open');
-    if (ov) ov.classList.remove('show');
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    // sidebar toggle button
-    var toggleBtn = document.getElementById('btn-toggle-sidebar');
-    if (toggleBtn) toggleBtn.addEventListener('click', toggleSidebar);
-
-    // nav item clicks
-    document.querySelectorAll('.nav-item').forEach(function (item) {
-      item.addEventListener('click', function () {
-        show(item.dataset.view);
-      });
-    });
-
-    // overlay click closes sidebar
-    var ov = document.getElementById('sidebar-overlay');
-    if (ov) ov.addEventListener('click', _closeSidebar);
-
-    show('calendar'); // initial view
-  });
-
-  window.Navigation = {
-    show:          show,
-    current:       current,
-    goToDetail:    goToDetail,
-    goToCalendar:  goToCalendar,
-    toggleSidebar: toggleSidebar
-  };
-})();
-</script>
-
-<!-- =========================
-     STEP 7 — FORM MODULE
-     - ID references sesuai HTML
-     - Satu definisi bersih, tidak ada override berganda
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  var el = {};
-  var _editingId = null;
-
-  function _resolve() {
-    el.modal   = document.getElementById('reservation-modal');
-    el.form    = document.getElementById('reservation-form');
-    el.name    = document.getElementById('input-name');
-    el.phone   = document.getElementById('input-phone');
-    el.date    = document.getElementById('input-date');
-    el.time    = document.getElementById('input-time');
-    el.guests  = document.getElementById('input-guests');
-    el.note    = document.getElementById('input-note');
-    el.submit  = document.getElementById('btn-submit');
-    el.close   = document.getElementById('modal-close');
-    el.cancel  = document.getElementById('btn-cancel-modal');
-  }
-
-  function init() {
-    _resolve();
-    if (!el.modal || !el.form) { console.warn('[Form] Modal elements not found'); return; }
-
-    var openBtn = document.getElementById('btn-open-modal');
-    if (openBtn) openBtn.addEventListener('click', function () { Form.open(); });
-    if (el.close)  el.close.addEventListener('click',  function () { Form.close(); });
-    if (el.cancel) el.cancel.addEventListener('click', function () { Form.close(); });
-
-    el.modal.addEventListener('click', function (e) {
-      if (e.target === el.modal) Form.close();
-    });
-
-    el.form.addEventListener('submit', _handleSubmit);
-  }
-
-  function open(data) {
-    _resolve();
-    if (!el.modal) return;
-
-    _editingId = data ? (data.id || null) : null;
-    _reset();
-
-    if (data) {
-      if (el.name)   el.name.value   = data.name   || '';
-      if (el.phone)  el.phone.value  = data.phone  || '';
-      if (el.date)   el.date.value   = data.date   || '';
-      if (el.time)   el.time.value   = data.time   || '';
-      if (el.guests) el.guests.value = data.guests || '';
-      if (el.note)   el.note.value   = data.note   || '';
-    } else {
-      // Pre-fill tanggal dari kalender yang dipilih
-      if (typeof Calendar !== 'undefined' && Calendar.getSelected && el.date) {
-        var sel = Calendar.getSelected();
-        if (sel) el.date.value = sel;
-      }
-    }
-
-    var title = document.getElementById('modal-title');
-    if (title) title.textContent = data ? 'Edit Reservasi' : 'Tambah Reservasi';
-
-    el.modal.classList.add('open');
-
-    if (typeof Menu !== 'undefined') {
-      Menu.reset();
-      Menu.init();
-      if (data && data.menus) Menu.setData(data.menus);
-    }
-  }
-
-  function close() {
-    _resolve();
-    if (el.modal) el.modal.classList.remove('open');
-    _reset();
-    _editingId = null;
-  }
-
-  function _reset() {
-    if (el.form) el.form.reset();
-    _clearErrors();
-    if (typeof Menu !== 'undefined') Menu.reset();
-  }
-
-  function _clearErrors() {
-    document.querySelectorAll('.form-error.show').forEach(function (e) { e.classList.remove('show'); });
-    document.querySelectorAll('.input.error').forEach(function (e) { e.classList.remove('error'); });
-  }
-
-  function _showError(fieldId, errId) {
-    var field = document.getElementById(fieldId);
-    var err   = document.getElementById(errId);
-    if (field) field.classList.add('error');
-    if (err)   err.classList.add('show');
-  }
-
-  function _validate(v) {
-    _clearErrors();
-    var ok = true;
-    if (!v.name || v.name.trim().length < 2)              { _showError('input-name',   'err-name');   ok = false; }
-    if (!v.date)                                           { _showError('input-date',   'err-date');   ok = false; }
-    if (!v.time)                                           { _showError('input-time',   'err-time');   ok = false; }
-    if (!v.guests || v.guests < 1 || v.guests > 1000)     { _showError('input-guests', 'err-guests'); ok = false; }
-    return ok;
-  }
-
-  function getValues() {
-    _resolve();
-    return {
-      name:   el.name   ? el.name.value.trim()   : '',
-      phone:  el.phone  ? el.phone.value.trim()  : '',
-      date:   el.date   ? el.date.value           : '',
-      time:   el.time   ? el.time.value           : '',
-      guests: Number(el.guests ? el.guests.value  : 0),
-      note:   el.note   ? el.note.value.trim()    : '',
-      menus:  (typeof Menu !== 'undefined' ? Menu.getData() : [])
+  </div><!-- END APP ROOT -->
+
+  <!-- ============================================================
+       ENV / CONFIG
+       Dideklarasikan sebelum semua script agar tersedia global.
+  ============================================================ -->
+
+  <script>
+    window.PRO_SERVA_ENV = { mode: 'local', version: '2.1' };
+    window.CONFIG        = { DATA_MODE: 'local' };
+  </script>
+
+  <!-- ============================================================
+       UI HELPERS
+       Hanya helper presentasi murni: loading, skeleton, empty state,
+       notify toast, dan ConfirmDialog.
+       TIDAK ADA logic bisnis, routing, event bus, atau data di sini.
+  ============================================================ -->
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ---------- Loading overlay ---------- */
+    var _loader = document.getElementById('global-loading');
+
+    window.showLoading  = function ()    { if (_loader) _loader.classList.add('active'); };
+    window.hideLoading  = function ()    { if (_loader) _loader.classList.remove('active'); };
+    window.withLoading  = async function (fn) {
+      try { showLoading(); return await fn(); }
+      finally { hideLoading(); }
     };
-  }
 
-  async function _handleSubmit() {
-    var values = getValues();
-    if (!_validate(values)) return;
+    /* ---------- Button loading state ---------- */
+    window.setBtnLoading = function (btn, state) {
+      if (btn) btn.classList.toggle('btn-loading', !!state);
+    };
 
-    setBtnLoading(el.submit, true);
-    try {
-      if (_editingId) {
-        await Reservation.update(_editingId, values);
-        Notify.success('Reservasi diperbarui');
-      } else {
-        await Reservation.create(values);
-        Notify.success('Reservasi berhasil dibuat');
+    /* ---------- Skeleton ---------- */
+    window.renderSkeleton = function (container, count) {
+      if (!container) return;
+      container.innerHTML = '';
+      for (var i = 0; i < (count || 5); i++) {
+        var d = document.createElement('div');
+        d.className = 'skeleton';
+        d.style.cssText = 'height:60px;margin-bottom:8px;';
+        container.appendChild(d);
       }
-      Form.close();
-      Events.emit('reservation:changed');
-    } catch (err) {
-      Notify.error(err.message || 'Gagal menyimpan reservasi');
-    } finally {
-      setBtnLoading(el.submit, false);
+    };
+
+    /* ---------- Empty state ---------- */
+    window.renderEmpty = function (container, title, subtitle) {
+      if (!container) return;
+      container.innerHTML =
+        '<div class="empty-state"><strong>' + (title || '') +
+        '</strong><span>' + (subtitle || '') + '</span></div>';
+    };
+
+    /* ---------- Toast notifications ---------- */
+    var _colors = { success: '#22c55e', error: '#ef4444', info: '#3b82f6' };
+
+    function _toast(msg, type) {
+      var el = document.createElement('div');
+      el.style.cssText = [
+        'position:fixed', 'bottom:20px', 'right:20px', 'z-index:99999',
+        'background:' + (_colors[type] || '#333'),
+        'color:#fff', 'padding:10px 16px', 'border-radius:10px',
+        'font-size:0.85rem', 'font-family:inherit',
+        'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
+        'opacity:0', 'transition:opacity 0.2s', 'max-width:300px'
+      ].join(';');
+      el.textContent = msg;
+      document.body.appendChild(el);
+      requestAnimationFrame(function () { el.style.opacity = '1'; });
+      setTimeout(function () {
+        el.style.opacity = '0';
+        setTimeout(function () { el.remove(); }, 300);
+      }, 3000);
     }
-  }
 
-  window.Form = { init, open, close, getValues };
+    window.Notify = {
+      success: function (m) { _toast(m, 'success'); },
+      error:   function (m) { _toast(m, 'error'); },
+      info:    function (m) { _toast(m, 'info'); }
+    };
 
-  document.addEventListener('DOMContentLoaded', init);
-})();
-</script>
+  })();
+  </script>
 
-<!-- =========================
-     STEP 8 — FILTER SYSTEM
-     - Tidak override Navigation
-     - Re-render via Events.on('reservation:changed')
-     - init() hanya dipanggil dari sini (bukan dari AppBoot)
-========================== -->
+  <!-- ============================================================
+       CONFIRM DIALOG
+       UI-only helper. Logic resolve/reject dipanggil oleh app.js
+       melalui ConfirmDialog.show() → Promise<boolean>.
+  ============================================================ -->
 
-<script>
-(function () {
-  'use strict';
+  <script>
+  (function () {
+    'use strict';
 
-  var _keyword = '';
-  var _status  = 'all';
-  var _date    = '';
-  var _initialized = false;
+    var _resolve  = null;
+    var modal     = document.getElementById('confirm-modal');
+    var titleEl   = document.getElementById('confirm-title');
+    var msgEl     = document.getElementById('confirm-message');
+    var okBtn     = document.getElementById('confirm-ok-btn');
+    var cancelBtn = document.getElementById('confirm-cancel-btn');
 
-  function setKeyword(v) { _keyword = (v || '').toLowerCase().trim(); }
-  function setStatus(v)  { _status  = v || 'all'; }
-  function setDate(v)    { _date    = v || ''; }
+    function show(opts) {
+      opts = opts || {};
+      if (titleEl) titleEl.textContent = opts.title   || 'Konfirmasi';
+      if (msgEl)   msgEl.textContent   = opts.message || 'Apakah Anda yakin?';
+      if (modal)   modal.classList.add('open');
+      return new Promise(function (resolve) { _resolve = resolve; });
+    }
 
-  function reset() {
-    _keyword = ''; _status = 'all'; _date = '';
-    var s  = document.getElementById('detail-search');
-    var st = document.getElementById('filter-status');
-    var d  = document.getElementById('filter-date');
-    if (s)  s.value  = '';
-    if (st) st.value = 'all';
-    if (d)  d.value  = '';
-  }
+    function _resolve_true()  { _close(); if (_resolve) { _resolve(true);  _resolve = null; } }
+    function _resolve_false() { _close(); if (_resolve) { _resolve(false); _resolve = null; } }
+    function _close() { if (modal) modal.classList.remove('open'); }
 
-  async function trigger() {
-    var list = document.getElementById('reservation-list');
-    if (!list) return;
-    if (typeof Reservation === 'undefined') return;
+    if (okBtn)     okBtn.addEventListener('click', _resolve_true);
+    if (cancelBtn) cancelBtn.addEventListener('click', _resolve_false);
+    if (modal)     modal.addEventListener('click', function (e) { if (e.target === modal) _resolve_false(); });
 
-    try {
-      var all = await Reservation.getAll();
-      var filtered = all.filter(function (r) {
-        if (_keyword) {
-          var h = (r.name + ' ' + r.phone).toLowerCase();
-          if (h.indexOf(_keyword) === -1) return false;
+    window.ConfirmDialog = { show: show };
+
+  })();
+  </script>
+
+  <!-- ============================================================
+       UI BRIDGE
+       Menghubungkan elemen HTML ke app.js (Router, SafeReservation,
+       EventBridge). Tidak ada logic bisnis di sini — hanya wiring DOM.
+       Semua handler berjalan SETELAH app.js selesai di-load.
+  ============================================================ -->
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ----------------------------------------------------------
+       Tunggu sampai app.js selesai boot lalu hubungkan semua UI.
+       Menggunakan requestAnimationFrame + polling ringan agar
+       tidak bergantung pada urutan load yang tidak pasti.
+    ---------------------------------------------------------- */
+    function _waitFor(condition, callback, maxMs) {
+      var elapsed = 0;
+      var interval = 50;
+      var timer = setInterval(function () {
+        elapsed += interval;
+        if (condition()) {
+          clearInterval(timer);
+          callback();
+        } else if (elapsed >= (maxMs || 5000)) {
+          clearInterval(timer);
+          console.warn('[UI Bridge] Timeout waiting for app.js modules');
         }
-        if (_status !== 'all' && r.status !== _status) return false;
-        if (_date && r.date !== _date) return false;
-        return true;
+      }, interval);
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+
+      /* ---- 1. SIDEBAR TOGGLE ---- */
+      var sb  = document.getElementById('sidebar');
+      var ov  = document.getElementById('sidebar-overlay');
+      var toggleBtn = document.getElementById('btn-toggle-sidebar');
+
+      function _openSidebar()  { if (sb) sb.classList.add('open');    if (ov) ov.classList.add('show'); }
+      function _closeSidebar() { if (sb) sb.classList.remove('open'); if (ov) ov.classList.remove('show'); }
+
+      if (toggleBtn) toggleBtn.addEventListener('click', function () {
+        sb && sb.classList.contains('open') ? _closeSidebar() : _openSidebar();
       });
-      _renderList(list, filtered);
-    } catch (err) {
-      console.error('[Filter] Error:', err);
-    }
-  }
+      if (ov) ov.addEventListener('click', _closeSidebar);
 
-  function _renderList(container, items) {
-    if (!items.length) { renderEmpty(container, 'Tidak ada hasil', 'Coba ubah filter pencarian'); return; }
-    container.innerHTML = items.map(_buildCard).join('');
-  }
+      /* ---- 2. NAVIGATION (.nav-item → Router.go) ---- */
+      var VIEW_LABELS = {
+        calendar: 'Kalender',
+        detail:   'Detail',
+        menus:    'Menu',
+        analysis: 'Analisis'
+      };
 
-  function _esc(str) {
-    // Escape untuk keamanan inline text (anti-XSS sederhana)
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  function _buildCard(r) {
-    var initials = (_esc(r.name) || '?').slice(0, 2).toUpperCase();
-    return [
-      '<div class="res-card" data-id="' + _esc(r.id) + '">',
-        '<div class="rc-top">',
-          '<div class="rc-name">',
-            '<div class="rc-avatar">' + initials + '</div>',
-            _esc(r.name),
-          '</div>',
-          '<span class="status status-' + _esc(r.status) + '">' + _esc(r.status) + '</span>',
-        '</div>',
-        '<div class="rc-info">',
-          '<span><i class="fas fa-clock" style="margin-right:4px;"></i>' + _esc(r.time) + '</span>',
-          '<span><i class="fas fa-users" style="margin-right:4px;"></i>' + _esc(String(r.guests)) + ' tamu</span>',
-          r.phone ? '<span><i class="fas fa-phone" style="margin-right:4px;"></i>' + _esc(r.phone) + '</span>' : '',
-        '</div>',
-        r.note ? '<div style="font-size:0.75rem;color:var(--ink-3);">' + _esc(r.note) + '</div>' : '',
-        '<div class="rc-footer">',
-          _buildActions(r),
-        '</div>',
-      '</div>'
-    ].join('');
-  }
-
-  /*
-   * FIX: Tidak pakai inline onclick dengan data user (anti-XSS).
-   * Semua aksi pakai event delegation di bawah.
-   */
-  function _buildActions(r) {
-    var s    = (r.status || '').toLowerCase();
-    var btns = [];
-
-    if (s === 'pending') {
-      btns.push('<button class="btn-primary res-action" style="font-size:0.75rem;padding:5px 10px;" data-action="confirm" data-id="' + _esc(r.id) + '">Konfirmasi</button>');
-    }
-    if (s === 'confirmed') {
-      btns.push('<button class="btn-primary res-action" style="font-size:0.75rem;padding:5px 10px;" data-action="ongoing" data-id="' + _esc(r.id) + '">Mulai</button>');
-    }
-    if (s === 'ongoing') {
-      btns.push('<button class="btn-primary res-action" style="font-size:0.75rem;padding:5px 10px;" data-action="complete" data-id="' + _esc(r.id) + '">Selesai</button>');
-    }
-    if (s !== 'cancelled' && s !== 'completed') {
-      btns.push('<button class="btn-ghost res-action" style="font-size:0.75rem;color:var(--danger);" data-action="cancel" data-id="' + _esc(r.id) + '">Batalkan</button>');
-    }
-    btns.push('<button class="btn-ghost res-action" style="font-size:0.75rem;" data-action="edit" data-id="' + _esc(r.id) + '"><i class="fas fa-edit"></i></button>');
-
-    return btns.join('');
-  }
-
-  function init() {
-    if (_initialized) return; // FIX: guard — cegah double init
-    _initialized = true;
-
-    var searchEl = document.getElementById('detail-search');
-    var statusEl = document.getElementById('filter-status');
-    var dateEl   = document.getElementById('filter-date');
-
-    if (searchEl) {
-      searchEl.addEventListener('input', Utils.debounce(function (e) {
-        setKeyword(e.target.value);
-        trigger();
-      }, 250));
-    }
-
-    if (statusEl) {
-      statusEl.addEventListener('change', function (e) {
-        setStatus(e.target.value);
-        trigger();
-      });
-    }
-
-    if (dateEl) {
-      dateEl.addEventListener('change', function (e) {
-        setDate(e.target.value);
-        trigger();
-      });
-    }
-
-    Events.on('reservation:changed', trigger);
-  }
-
-  window.Filter = { init, trigger, reset, setKeyword, setStatus, setDate };
-
-  document.addEventListener('DOMContentLoaded', init);
-})();
-</script>
-
-<!-- =========================
-     STEP 9 — EVENT DELEGATION (menggantikan inline onclick)
-     Satu listener di #reservation-list menangani semua aksi kartu.
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  document.addEventListener('DOMContentLoaded', function () {
-    var listContainer = document.getElementById('reservation-list');
-    if (!listContainer) return;
-
-    listContainer.addEventListener('click', async function (e) {
-      var btn = e.target.closest('.res-action');
-      if (!btn) return;
-
-      var action = btn.dataset.action;
-      var id     = btn.dataset.id;
-      if (!action || !id) return;
-
-      switch (action) {
-        case 'confirm':  await _updateStatus(id, 'confirmed', 'Reservasi dikonfirmasi'); break;
-        case 'ongoing':  await _updateStatus(id, 'ongoing',   'Reservasi dimulai'); break;
-        case 'complete': await _updateStatus(id, 'completed', 'Reservasi selesai'); break;
-        case 'cancel':   await _cancelReservation(id); break;
-        case 'edit':     await _editReservation(id); break;
+      function _updateBreadcrumb(name) {
+        var bc = document.getElementById('topbar-breadcrumb');
+        if (bc) bc.textContent = VIEW_LABELS[name] || name;
       }
-    });
-  });
 
-  async function _updateStatus(id, status, msg) {
-    try {
-      await Reservation.update(id, { status: status });
-      if (msg) Notify.info(msg);
-      Events.emit('reservation:changed');
-    } catch (err) {
-      Notify.error(err.message || 'Gagal memperbarui status');
-    }
-  }
-
-  async function _cancelReservation(id) {
-    // FIX: Pakai ConfirmDialog custom, bukan window.confirm()
-    var ok = await ConfirmDialog.show({
-      title:   'Batalkan Reservasi',
-      message: 'Reservasi ini akan dibatalkan. Lanjutkan?'
-    });
-    if (!ok) return;
-    await _updateStatus(id, 'cancelled', null);
-    Notify.error('Reservasi dibatalkan');
-  }
-
-  async function _editReservation(id) {
-    try {
-      var all = await Reservation.getAll();
-      var r   = all.find(function (x) { return x.id === id; });
-      if (r) Form.open(r);
-    } catch (err) {
-      Notify.error('Tidak bisa membuka data');
-    }
-  }
-
-  /*
-   * Tetap expose ReservationActions untuk backward-compat
-   * (kalau modules.js memanggil ini)
-   */
-  window.ReservationActions = {
-    confirm:    function (id) { return _updateStatus(id, 'confirmed', 'Reservasi dikonfirmasi'); },
-    setOngoing: function (id) { return _updateStatus(id, 'ongoing',   'Reservasi dimulai'); },
-    complete:   function (id) { return _updateStatus(id, 'completed', 'Reservasi selesai'); },
-    cancel:     _cancelReservation,
-    edit:       _editReservation
-  };
-})();
-</script>
-
-<!-- =========================
-     STEP 10 — NOTIFICATION SYSTEM
-     FIX: Pakai Utils.todayLocal() & Utils.dateLocal() — timezone aman
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  function _resolveEl() {
-    return {
-      dropdown: document.getElementById('notif-dropdown'),
-      list:     document.getElementById('notif-list'),
-      dot:      document.getElementById('notif-dot')
-    };
-  }
-
-  async function _generate() {
-    if (typeof Reservation === 'undefined') return [];
-    var all = [];
-    try { all = await Reservation.getAll(); } catch (e) { return []; }
-
-    // FIX: Gunakan waktu lokal, bukan UTC
-    var today    = new Date();
-    var todayStr = Utils.todayLocal();
-    var tom      = new Date(today);
-    tom.setDate(today.getDate() + 1);
-    var tomorrowStr = Utils.dateLocal(tom);
-
-    var nowMins = today.getHours() * 60 + today.getMinutes();
-    var result  = [];
-
-    all.forEach(function (r) {
-      if (!r.date || !r.time) return;
-      if (r.status === 'cancelled' || r.status === 'completed') return;
-
-      var parts   = r.time.split(':').map(Number);
-      var resMins = parts[0] * 60 + (parts[1] || 0);
-      var diff    = resMins - nowMins;
-
-      if (r.date === todayStr) {
-        result.push({
-          name:    r.name,
-          message: 'Hari ini pukul ' + r.time,
-          urgent:  diff <= 60 && diff >= 0
+      function _updateNavActive(name) {
+        document.querySelectorAll('.nav-item').forEach(function (n) {
+          n.classList.toggle('active', n.dataset.view === name);
         });
-      } else if (r.date === tomorrowStr) {
-        result.push({ name: r.name, message: 'Besok pukul ' + r.time, urgent: false });
       }
-    });
 
-    return result.sort(function (a, b) { return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0); });
-  }
+      document.querySelectorAll('.nav-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+          var view = item.dataset.view;
+          if (!view) return;
+          _closeSidebar();
+          if (window.Router) {
+            Router.go(view);
+          } else {
+            /* Fallback jika Router belum siap: tampilkan view langsung */
+            document.querySelectorAll('.view').forEach(function (v) {
+              v.classList.remove('active-view');
+            });
+            var target = document.getElementById('view-' + view);
+            if (target) target.classList.add('active-view');
+            _updateNavActive(view);
+            _updateBreadcrumb(view);
+          }
+        });
+      });
 
-  async function render() {
-    var el = _resolveEl();
-    if (!el.list) return;
+      /* ---- 3. BREADCRUMB — update saat Router berubah ---- */
+      /* Router bisa tersedia belakangan, pakai polling */
+      _waitFor(
+        function () { return !!window.EventBridge; },
+        function () {
+          EventBridge.on('router:changed', function (name) {
+            _updateBreadcrumb(name);
+            _updateNavActive(name);
+          });
+        }
+      );
 
-    var data = await _generate();
+      /* ---- 4. MODAL RESERVATION (open / close) ---- */
+      var resModal = document.getElementById('reservation-modal');
 
-    if (!data.length) {
-      el.list.innerHTML = '<div class="nd-empty">Tidak ada notifikasi</div>';
-      if (el.dot) el.dot.style.display = 'none';
-      return;
-    }
+      function _openModal()  { if (resModal) resModal.classList.add('open'); }
+      function _closeModal() { if (resModal) resModal.classList.remove('open'); }
 
-    el.list.innerHTML = data.map(function (item) {
-      return [
-        '<div class="notif-item">',
-          '<div class="ni-name">' + item.name + '</div>',
-          '<div class="ni-date">' + item.message + '</div>',
-          item.urgent ? '<div class="ni-alert">⏰ Segera mulai</div>' : '',
-        '</div>'
-      ].join('');
-    }).join('');
+      var openBtn   = document.getElementById('btn-open-modal');
+      var closeBtn  = document.getElementById('modal-close');
+      var cancelBtn = document.getElementById('btn-cancel-modal');
 
-    var hasUrgent = data.some(function (d) { return d.urgent; });
-    if (el.dot) el.dot.style.display = hasUrgent ? 'block' : 'none';
-  }
+      if (openBtn)   openBtn.addEventListener('click', _openModal);
+      if (closeBtn)  closeBtn.addEventListener('click', _closeModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', _closeModal);
+      if (resModal)  resModal.addEventListener('click', function (e) {
+        if (e.target === resModal) _closeModal();
+      });
 
-  function toggle(e) {
-    e.stopPropagation();
-    var dd = document.getElementById('notif-dropdown');
-    if (!dd) return;
-    var isOpen = dd.classList.toggle('open');
-    if (isOpen) render();
-  }
+      /* ---- 5. FORM SUBMIT → SafeReservation ---- */
+      var form     = document.getElementById('reservation-form');
+      var submitBtn = document.getElementById('btn-submit');
 
-  // Close dropdown on outside click
-  document.addEventListener('click', function (e) {
-    if (!e.target.closest('.notif-wrapper')) {
-      var dd = document.getElementById('notif-dropdown');
-      if (dd) dd.classList.remove('open');
-    }
-  });
+      if (form) {
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          if (!window.SafeReservation) {
+            Notify.error('SafeReservation belum siap');
+            return;
+          }
 
-  Events.on('reservation:changed', render);
-  setInterval(render, 60000);
+          var data = {
+            name:   (document.getElementById('input-name')?.value   || '').trim(),
+            phone:  (document.getElementById('input-phone')?.value  || '').trim(),
+            date:    document.getElementById('input-date')?.value   || '',
+            time:    document.getElementById('input-time')?.value   || '',
+            guests:  Number(document.getElementById('input-guests')?.value || 0),
+            note:   (document.getElementById('input-note')?.value   || '').trim(),
+            menus:   (window.Menu && Menu.getData) ? Menu.getData() : []
+          };
 
-  document.addEventListener('DOMContentLoaded', function () {
-    var btn = document.getElementById('notif-btn');
-    if (btn) btn.addEventListener('click', toggle);
-    render();
-  });
-
-  window.NotifSystem = { toggle, render };
-})();
-</script>
-
-<!-- =========================
-     STEP 11 — ANALYTICS BRIDGE
-     FIX: TIDAK override Navigation.show.
-          Menggunakan Events.on('nav:changed') — clean, tidak ada konflik.
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  async function renderAnalysisPage() {
-    var statsContainer = document.getElementById('anl-stats');
-    var insight        = document.getElementById('anl-insight');
-    if (!statsContainer) return;
-
-    if (typeof Analytics === 'undefined') {
-      statsContainer.innerHTML = '<p style="color:var(--ink-3);font-size:0.8rem;">Analytics module tidak tersedia</p>';
-      return;
-    }
-
-    try {
-      var summary = await Analytics.getSummary();
-      var daily   = await Analytics.getDaily();
-
-      statsContainer.innerHTML = [
-        '<div class="anl-card"><div class="anl-val">' + summary.totalReservations + '</div><div class="anl-label">Reservasi</div></div>',
-        '<div class="anl-card"><div class="anl-val">' + summary.totalGuests       + '</div><div class="anl-label">Tamu</div></div>',
-        '<div class="anl-card"><div class="anl-val">' + summary.occupancy + '%'   + '</div><div class="anl-label">Occupancy</div></div>',
-        '<div class="anl-card"><div class="anl-val">' + (summary.peakDay || '-')  + '</div><div class="anl-label">Peak Day</div></div>'
-      ].join('');
-
-      if (insight && Array.isArray(daily)) {
-        insight.innerHTML = daily.map(function (d) {
-          return '<div class="rank-item">' +
-            '<span class="ri-name">' + d.date + '</span>' +
-            '<span class="ri-val">' + d.total + ' res · ' + d.guests + ' pax · ' + d.occupancy + '%</span>' +
-          '</div>';
-        }).join('');
+          setBtnLoading(submitBtn, true);
+          try {
+            var editingId = form.dataset.editingId || null;
+            if (editingId) {
+              await SafeReservation.update(editingId, data);
+              Notify.success('Reservasi diperbarui');
+            } else {
+              await SafeReservation.create(data);
+              Notify.success('Reservasi berhasil dibuat');
+            }
+            _closeModal();
+            form.reset();
+            form.dataset.editingId = '';
+            if (window.EventBridge) EventBridge.emit('reservation:changed');
+          } catch (err) {
+            /* Error handling & notify sudah ada di SafeReservation / app.js */
+          } finally {
+            setBtnLoading(submitBtn, false);
+          }
+        });
       }
-    } catch (err) {
-      console.error('[Analytics] render error', err);
-    }
-  }
 
-  // FIX: Hook via event bus saja — tidak perlu override Navigation.show
-  Events.on('nav:changed', function (viewName) {
-    if (viewName === 'analysis') renderAnalysisPage();
-  });
+      /* ---- 6. NOTIFICATION DROPDOWN TOGGLE ---- */
+      var notifBtn = document.getElementById('notif-btn');
+      var notifDd  = document.getElementById('notif-dropdown');
 
-  Events.on('reservation:changed', function () {
-    if (Navigation.current && Navigation.current() === 'analysis') {
-      renderAnalysisPage();
-    }
-  });
-})();
-</script>
+      if (notifBtn) {
+        notifBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (!notifDd) return;
+          var isOpen = notifDd.classList.toggle('open');
+          /* Minta app.js render notif jika tersedia */
+          if (isOpen && window.NotifSystem && NotifSystem.render) {
+            NotifSystem.render();
+          }
+        });
+      }
 
-<!-- =========================
-     STEP 12 — SMART STATUS ENGINE
-     FIX: Batch update — tidak spam satu-per-satu.
-          Pakai timezone-safe todayLocal().
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  function _toMinutes(time) {
-    var parts = (time || '00:00').split(':').map(Number);
-    return parts[0] * 60 + (parts[1] || 0);
-  }
-
-  async function process() {
-    if (typeof Reservation === 'undefined') return;
-
-    try {
-      var list     = await Reservation.getAll();
-      var now      = new Date();
-      var todayStr = Utils.todayLocal(); // FIX: timezone-safe
-      var nowMins  = now.getHours() * 60 + now.getMinutes();
-      var settings = (typeof Settings !== 'undefined') ? Settings.get() : {};
-      var changed  = false;
-
-      // Kumpulkan semua update dulu, lalu eksekusi — mengurangi spam write
-      var updates = [];
-
-      list.forEach(function (r) {
-        if (!r.date || !r.time) return;
-        if (r.status === 'cancelled' || r.status === 'completed') return;
-
-        var start    = _toMinutes(r.time);
-        var duration = ((r.duration || 2) * 60);
-        var end      = start + duration;
-
-        if (settings.autoConfirm && r.status === 'pending' && r.date === todayStr) {
-          updates.push({ id: r.id, patch: { status: 'confirmed' } });
-          return;
-        }
-        if (r.status === 'confirmed' && r.date === todayStr && nowMins >= start && nowMins < end) {
-          updates.push({ id: r.id, patch: { status: 'ongoing' } });
-          return;
-        }
-        if ((r.status === 'ongoing' || r.status === 'confirmed') && r.date === todayStr && nowMins >= end) {
-          updates.push({ id: r.id, patch: { status: 'completed' } });
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.notif-wrapper') && notifDd) {
+          notifDd.classList.remove('open');
         }
       });
 
-      // FIX: Batch — eksekusi semua sekaligus baru emit event
-      for (var i = 0; i < updates.length; i++) {
-        await Reservation.update(updates[i].id, updates[i].patch);
-        changed = true;
+      /* ---- 7. FILTER UI → EventBridge ---- */
+      var searchEl = document.getElementById('detail-search');
+      var statusEl = document.getElementById('filter-status');
+      var dateEl   = document.getElementById('filter-date');
+
+      function _debounce(fn, delay) {
+        var t;
+        return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, delay); };
       }
 
-      if (changed) Events.emit('reservation:changed');
+      function _emitFilter() {
+        if (!window.EventBridge) return;
+        EventBridge.emit('filter:changed', {
+          keyword: searchEl ? searchEl.value : '',
+          status:  statusEl ? statusEl.value : 'all',
+          date:    dateEl   ? dateEl.value   : ''
+        });
+      }
 
-    } catch (err) {
-      console.error('[SmartStatus] error', err);
-    }
-  }
+      if (searchEl) searchEl.addEventListener('input',  _debounce(_emitFilter, 250));
+      if (statusEl) statusEl.addEventListener('change', _emitFilter);
+      if (dateEl)   dateEl.addEventListener('change',   _emitFilter);
 
-  setInterval(process, 60000);
-  document.addEventListener('DOMContentLoaded', process);
-})();
-</script>
+    }); /* END DOMContentLoaded */
 
-<!-- =========================
-     STEP 13 — SYNC BRIDGE
-     - Guard: jika Sync/Reservation tidak ada, skip
-     - Override Reservation methods sekali — lewat closure bersih
-========================== -->
+  })();
+  </script>
 
-<script>
-(function () {
-  'use strict';
+  <!-- ============================================================
+       SCRIPT LOAD ORDER:
+       1. modules.js  — Reservation, Calendar, UI, Analytics,
+                        Settings, Sync, Menu, Backup, LocalDB
+       2. app.js      — Router, EventBridge, SafeReservation,
+                        ReservationService, RefreshBus, App.init()
+  ============================================================ -->
 
-  document.addEventListener('DOMContentLoaded', function () {
-    if (typeof Sync === 'undefined' || typeof Reservation === 'undefined') {
-      console.warn('[Sync] Sync or Reservation module not available — running local only');
-      return;
-    }
+  <script src="modules.js"></script>
 
-    try { Sync.init(); } catch (e) { console.error('[Sync] init error', e); }
-
-    // Wrap Reservation methods — sekali, lewat closure, safe fallback
-    (function wrapWithSync() {
-      var _orig = {
-        getAll:    Reservation.getAll.bind(Reservation),
-        getByDate: Reservation.getByDate.bind(Reservation),
-        create:    Reservation.create.bind(Reservation),
-        update:    Reservation.update.bind(Reservation),
-        remove:    Reservation.remove.bind(Reservation)
-      };
-
-      Reservation.getAll    = async function ()       { try { return await Sync.getAll();           } catch (e) { return _orig.getAll(); } };
-      Reservation.getByDate = async function (date)   { try { return await Sync.getByDate(date);    } catch (e) { return _orig.getByDate(date); } };
-      Reservation.create    = async function (payload){ try { return await Sync.create(payload);    } catch (e) { return _orig.create(payload); } };
-      Reservation.update    = async function (id, p)  { try { return await Sync.update(id, p);      } catch (e) { return _orig.update(id, p); } };
-      Reservation.remove    = async function (id)     { try { return await Sync.remove(id);         } catch (e) { return _orig.remove(id); } };
-    })();
-
-    if (Sync.subscribe) {
-      Sync.subscribe(function () { Events.emit('reservation:changed'); });
-    }
-
-    if (window.CONFIG && CONFIG.DATA_MODE === 'firebase' && Sync.startAutoSync) {
-      Sync.startAutoSync(5000);
-    }
-
-    console.log('[Sync] Bridge ready, mode:', CONFIG.DATA_MODE);
-  });
-})();
-</script>
-
-<!-- =========================
-     STEP 14 — DATA SAFETY SYSTEM
-     FIX: Validation HANYA di sini — tidak ada override berganda.
-          Repair berjalan sebelum Sync bridge menimpa Reservation.create,
-          sehingga guard ini bersih dan tunggal.
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  var KEYS_DEFAULT = 'psv_reservations';
-
-  function _safeParse(json, fallback) {
-    try { return JSON.parse(json); }
-    catch (e) { console.warn('[Safety] Corrupt JSON'); return (fallback !== undefined) ? fallback : []; }
-  }
-
-  function _safeRead(key) {
-    try {
-      var raw = localStorage.getItem(key);
-      return raw ? _safeParse(raw, []) : [];
-    } catch (e) { return []; }
-  }
-
-  function _safeWrite(key, data) {
-    try { localStorage.setItem(key, JSON.stringify(data)); }
-    catch (e) { console.error('[Safety] write error', e); }
-  }
-
-  function _sanitize(r) {
-    if (!r || typeof r !== 'object') return null;
-    return {
-      id:        r.id        || Utils.generateId(),
-      name:      String(r.name   || '').slice(0, 100),
-      phone:     String(r.phone  || ''),
-      date:      r.date      || '',
-      time:      r.time      || '',
-      guests:    Number(r.guests) || 1,
-      status:    r.status    || 'pending',
-      note:      r.note      || '',
-      menus:     Array.isArray(r.menus) ? r.menus : [],
-      createdAt: r.createdAt || Date.now(),
-      updatedAt: r.updatedAt || Date.now()
-    };
-  }
-
-  function _repairData() {
-    var key = (typeof KEYS !== 'undefined') ? KEYS.reservations : KEYS_DEFAULT;
-    var raw = _safeRead(key);
-    if (!Array.isArray(raw)) { _safeWrite(key, []); return; }
-    var cleaned = raw.map(_sanitize).filter(Boolean);
-    _safeWrite(key, cleaned);
-    console.log('[Safety] Repaired', cleaned.length, 'records');
-  }
-
-  // Patch LocalDB safe helpers jika tersedia
-  if (typeof LocalDB !== 'undefined') {
-    LocalDB.read  = _safeRead;
-    LocalDB.write = _safeWrite;
-  }
-
-  /*
-   * FIX: Validation guard dipasang SEBELUM Sync bridge (DOMContentLoaded).
-   * Urutan DOMContentLoaded listeners menentukan urutan eksekusi —
-   * Safety listener didaftarkan LEBIH AWAL dari Sync (file ini lebih atas).
-   *
-   * Namun karena Sync bridge juga meng-override Reservation.create,
-   * kita TIDAK override lagi di sini. Validasi dilakukan di Form._validate()
-   * sebelum data sampai ke Reservation.create. Ini mencegah chain override.
-   */
-
-  // Global crash guard
-  window.addEventListener('error', function (e) {
-    console.error('[GLOBAL ERROR]', e.message, e.filename, e.lineno);
-    Notify.error('Terjadi kesalahan sistem');
-  });
-
-  window.addEventListener('unhandledrejection', function (e) {
-    console.error('[PROMISE ERROR]', e.reason);
-    Notify.error('Terjadi error proses');
-  });
-
-  document.addEventListener('DOMContentLoaded', _repairData);
-
-  console.log('[Safety] System active 🔒');
-})();
-</script>
-
-<!-- =========================
-     STEP 15 — PERFORMANCE OPTIMIZER
-     FIX: Berjalan setelah UI.init() selesai (via app:ready event),
-          bukan langsung di DOMContentLoaded — sehingga UI pasti sudah ada.
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  var _calPending    = false;
-  var _detailPending = false;
-  var _detailDate    = null;
-
-  function _scheduleCalendar() {
-    if (_calPending) return;
-    _calPending = true;
-    requestAnimationFrame(async function () {
-      try {
-        if (typeof UI !== 'undefined' && typeof UI._renderCalendarOrig === 'function') {
-          await UI._renderCalendarOrig();
-        }
-      } catch (e) { console.error('[Perf] calendar', e); }
-      _calPending = false;
-    });
-  }
-
-  function _scheduleDetail(date) {
-    _detailDate = date;
-    if (_detailPending) return;
-    _detailPending = true;
-    requestAnimationFrame(async function () {
-      try {
-        if (typeof UI !== 'undefined' && typeof UI._renderDetailOrig === 'function' && _detailDate) {
-          await UI._renderDetailOrig(_detailDate);
-        }
-      } catch (e) { console.error('[Perf] detail', e); }
-      _detailPending = false;
-    });
-  }
-
-  /*
-   * FIX: Tidak berjalan di DOMContentLoaded (UI belum pasti siap).
-   * Berjalan saat 'app:ready' di-emit oleh AppBoot setelah UI.init() selesai.
-   */
-  Events.on('app:ready', function () {
-    if (typeof UI === 'undefined') {
-      console.warn('[Perf] UI not available, skipping optimization');
-      return;
-    }
-
-    // Guard: pastikan method ada sebelum override
-    if (typeof UI.renderCalendar === 'function') {
-      UI._renderCalendarOrig = UI.renderCalendar.bind(UI);
-      UI.renderCalendar = _scheduleCalendar;
-    }
-
-    if (typeof UI.renderDetail === 'function') {
-      UI._renderDetailOrig = UI.renderDetail.bind(UI);
-      UI.renderDetail = function (date) { _scheduleDetail(date); };
-    }
-
-    // Optimize Filter.trigger
-    if (typeof Filter !== 'undefined' && typeof Filter.trigger === 'function') {
-      var _origTrigger = Filter.trigger.bind(Filter);
-      Filter.trigger = Utils.debounce(_origTrigger, 200);
-    }
-
-    Events.on('reservation:changed', function () {
-      var sel = (typeof Calendar !== 'undefined' && Calendar.getSelected) ? Calendar.getSelected() : null;
-      _scheduleCalendar();
-      if (sel && Navigation.current() === 'detail') _scheduleDetail(sel);
-    });
-
-    console.log('[Perf] Optimization active ⚡');
-  });
-})();
-</script>
-
-<!-- =========================
-     STEP 16 — APP BOOT (FINAL)
-     FIX:
-     - Filter.init() TIDAK dipanggil di sini (sudah auto-init dengan guard)
-     - Emit 'app:ready' setelah UI.init() — Performance engine menunggu ini
-     - checkSetup() tetap ada
-========================== -->
-
-<script>
-(function () {
-  'use strict';
-
-  var _booted = false;
-
-  async function _safeInit(name, fn) {
-    try {
-      console.log('[BOOT]', name);
-      await fn();
-    } catch (e) {
-      console.error('[BOOT ERROR]', name, e);
-    }
-  }
-
-  function _checkSetup() {
-    var done   = localStorage.getItem('psv_setup_done');
-    var wizard = document.getElementById('setup-wizard');
-    if (!done) {
-      if (wizard) wizard.style.display = 'flex';
-      return false;
-    }
-    if (wizard) wizard.style.display = 'none';
-    return true;
-  }
-
-  window.completeSetup = function (data) {
-    data = data || {};
-    localStorage.setItem('psv_setup_done', '1');
-    if (typeof Settings !== 'undefined') {
-      Settings.save({ businessName: data.name || 'Usaha Saya' });
-    }
-    location.reload();
-  };
-
-  async function _initApp() {
-    if (_booted) { console.warn('[BOOT] Already initialized'); return; }
-    _booted = true;
-
-    if (!_checkSetup()) return;
-
-    await _safeInit('Settings', function () {
-      if (typeof Settings !== 'undefined') Settings.init();
-    });
-
-    // Update nama bisnis di sidebar
-    if (typeof Settings !== 'undefined') {
-      var cfg   = Settings.get();
-      var bizEl = document.getElementById('biz-name');
-      if (bizEl && cfg && cfg.businessName) bizEl.textContent = cfg.businessName;
-    }
-
-    await _safeInit('Menu', function () {
-      if (typeof Menu !== 'undefined') Menu.init();
-    });
-
-    // FIX: Filter.init() TIDAK dipanggil di sini —
-    //       sudah auto-init di Step 8 dengan guard _initialized.
-
-    await _safeInit('Backup', function () {
-      if (typeof Backup !== 'undefined') Backup.init();
-    });
-
-    await _safeInit('UI', async function () {
-      if (typeof UI !== 'undefined') await UI.init();
-    });
-
-    // FIX: Emit 'app:ready' SETELAH UI.init() selesai
-    //       Performance optimizer menunggu event ini
-    Events.emit('app:ready');
-
-    // Initial render
-    Events.emit('reservation:changed');
-
-    console.log('[BOOT] App ready 🚀 v2.1');
-  }
-
-  document.addEventListener('DOMContentLoaded', _initApp);
-
-  // Fallback jika DOMContentLoaded sudah lewat
-  setTimeout(function () {
-    if (!_booted) {
-      console.warn('[BOOT] Fallback init triggered');
-      _initApp();
-    }
-  }, 2000);
-
-  window.__APP__ = { reload: _initApp, version: '2.1' };
-})();
-</script>
-
-<!-- =========================
-     GLOBAL ERROR GUARD
-========================== -->
-
-<script>
-window.addEventListener('error', function (e) {
-  console.error('[GLOBAL ERROR]', e.message, e.filename, e.lineno);
-});
-
-window.addEventListener('unhandledrejection', function (e) {
-  console.error('[PROMISE ERROR]', e.reason);
-});
-</script>
+  <script src="app.js"></script>
 
 </body>
 </html>
