@@ -39,18 +39,18 @@ FIX-1, FIX-2: Ganti … Unicode ke … ASCII
 
 const Logger = (() => {
 
-function log(…args) {                          // FIX-1: ASCII spread
+function log(...args) {                          // FIX-1: ASCII spread
 if (typeof CONFIG !== ‘undefined’ && !CONFIG.DEBUG) return;
-console.log(’[Proserva]’, …args);            // FIX-1: ASCII spread
+console.log(’[Proserva]’, ...args);            // FIX-1: ASCII spread
 }
 
-function warn(…args) {                         // FIX-1
+function warn(...args) {                         // FIX-1
 if (typeof CONFIG !== ‘undefined’ && !CONFIG.DEBUG) return;
-console.warn(’[Proserva]’, …args);           // FIX-1
+console.warn(’[Proserva]’, ...args);           // FIX-1
 }
 
-function error(…args) {                        // FIX-1
-console.error(’[Proserva]’, …args);          // FIX-1
+function error(...args) {                        // FIX-1
+console.error(’[Proserva]’, ...args);          // FIX-1
 }
 
 return { log, warn, error };
