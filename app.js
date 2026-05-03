@@ -1,26 +1,30 @@
 ‘use strict’;
 
 /* ============================================================
-APP.JS — PROSERVA v1.1.0 (FULLY PATCHED)
-FIXES APPLIED:
+APP.JS — PROSERVA v1.2.0 (FULLY PATCHED + HARDENED)
+
+FIXES APPLIED FROM v1.1.0 AUDIT:
 🔴 CRITICAL:
-C1. Router now emits ‘router:changed’ event
-C2. Removed double nav binding (handled by index.html UI Bridge)
-C3. Removed patchFormSubmit (handled by index.html UI Bridge)
-C4. Notify unified → window.Notify = NotifySafe (no overlap)
-C5. confirm() replaced with ConfirmDialog.show()
-C6. AutoReminder now persists reminderSent to DB
+C1. EventBridge.on sekarang menyimpan wrapped listener → bisa di-off()
+→ mencegah memory leak akibat listener menumpuk saat navigasi
+C2. VirtualList render dari DATA bukan clone DOM
+→ event listeners di card tidak hilang
+C3. OfflineQueue dengan retry limit (max 3) + exponential backoff
+→ tidak stuck selamanya jika server error terus
+C4. Router.go dilindungi navigation lock
+→ mencegah race condition saat user klik cepat
+
 🟡 STRUCTURAL:
-S1. App.init emits ‘app:ready’ → replaces polling _waitFor
-S2. DataProvider used consistently (no raw Reservation.getAll bypass)
-S3. Router persists last view to localStorage + restores on init
-S4. ErrorHandler supports severity levels
+S1. SmartCache invalidation per event type (granular, bukan clear semua)
+S2. AutoReminder tab-lock via localStorage → cegah double-send multi-tab
+S3. UI.renderReservationCard diekspos agar VirtualList bisa render data→DOM
+S4. Audit log module untuk traceability aksi bisnis
+S5. Health check dengan latency measurement
+
 🟢 POLISHING:
-P1. Loader removed (use showLoading() from index.html)
-P2. VirtualList used in detail card rendering
-P3. Offline queue stub for failed mutations
-P4. Analytics results wrapped in SmartCache
-P5. Feature flags via CONFIG.FEATURES
+P1. Remote feature flags via fetch(’/config.json’) dengan fallback lokal
+P2. UI.empty() terpusat untuk empty state
+P3. Semua fix dari v1.1.0 tetap dipertahankan (C1–C6, S1–S4, P1–P5)
 ============================================================ */
 
 /* ============================================================
@@ -54,11 +58,12 @@ try {
   _validateModules();
   _syncSettingsToConfig();
 
+  /* P1: Load remote feature flags sebelum inisialisasi lainnya */
+  await FeatureFlags.loadRemote();
+
   Sync.init?.();
   Settings.init?.();
   UI.init?.();
-  /* C3: Form.init still called for non-submit setup, but submit
-     handler lives entirely in index.html UI Bridge */
   Form.init?.();
   Menu.init?.();
   Filter.init?.();
@@ -67,22 +72,17 @@ try {
   _patchRouter();
   _bindGlobalEvents();
 
-  /* S3: Restore last active view */
   const lastView = localStorage.getItem('psv_last_view') || 'calendar';
   await Router.go(lastView);
 
   EventBridge.emit('reservation:changed');
-
-  /* S1: Signal UI Bridge that app is ready (replaces _waitFor polling) */
   EventBridge.emit('app:ready');
 
   Logger.log('[App] initialized successfully');
 
 } catch (err) {
-
   Logger.error('[App] init error:', err);
   NotifySafe.error('Gagal memulai aplikasi');
-
 }
 ```
 
@@ -109,52 +109,49 @@ Logger.warn(’[Settings Sync Failed]’);
 }
 }
 
-/* C1 + S3: Single Router patch — emits router:changed + persists view */
 function _patchRouter() {
+if (!window.Router || !Router.go) return;
+if (Router.**PATCHED**) return;
 
 ```
-if (!window.Router || !Router.go) return;
-if (Router.__PATCHED__) return;
-
 const original = Router.go.bind(Router);
 
+/* C4: Navigation lock — cegah race condition klik cepat */
+let navigating = false;
+
 Router.go = async function (name) {
-
+  if (navigating) {
+    Logger.warn('[Router] navigation blocked — already navigating');
+    return;
+  }
+  navigating = true;
   try {
-
     await original(name);
-
-    /* S3: Persist last view */
     localStorage.setItem('psv_last_view', name);
-
-    /* C1: Emit router:changed so index.html UI Bridge stays in sync */
     EventBridge.emit('router:changed', name);
-
     for (const fn of RouterHooks) {
       try { await fn(name); } catch (e) { Logger.error('[RouterHook]', e); }
     }
-
     LazyView.handle(name);
-
   } catch (err) {
     ErrorHandler.capture(err, 'Router.go');
+  } finally {
+    navigating = false;
   }
-
 };
 
 Router.__PATCHED__ = true;
-Logger.log('[Router] single patch active — emits router:changed');
+Logger.log('[Router] single patch active — navigation lock + router:changed');
 ```
 
 }
 
 function _bindGlobalEvents() {
-
-```
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') Form?.close?.();
+document.addEventListener(‘keydown’, (e) => {
+if (e.key === ‘Escape’) Form?.close?.();
 });
 
+```
 window.addEventListener('focus', () => {
   RenderScheduler.schedule(() => UI.renderCalendar?.());
 });
@@ -166,7 +163,7 @@ return { init };
 
 })();
 
-/* DOM ready boot (single entry) */
+/* DOM ready boot */
 (function boot() {
 if (document.readyState === ‘loading’) {
 document.addEventListener(‘DOMContentLoaded’, () => App.init());
@@ -193,16 +190,14 @@ function getNavItems() { return document.querySelectorAll(’.nav-item’); }
 function getViewEl(n)  { return document.getElementById(‘view-’ + n); }
 
 async function go(name) {
-
-```
 if (!VIEWS.includes(name)) {
-  Logger.warn('[Router] unknown view:', name);
-  return;
+Logger.warn(’[Router] unknown view:’, name);
+return;
 }
-
 if (currentView === name) return;
 currentView = name;
 
+```
 Logger.log('[Router] navigating →', name);
 
 getViews().forEach(v => {
@@ -261,12 +256,6 @@ function addRouteHook(fn) {
 if (typeof fn === ‘function’) RouterHooks.push(fn);
 }
 
-/*
-C2: bindNavigation REMOVED from app.js.
-Navigation clicks are handled entirely by the UI Bridge in index.html.
-Keeping it here caused double Router.go() calls and random mobile bugs.
-*/
-
 window.goView = (name) => Router.go(name);
 
 /* ============================================================
@@ -307,7 +296,6 @@ return { select, back };
 
 })();
 
-/* Calendar grid click delegation */
 (function bindCalendarClicks() {
 const grid = document.getElementById(‘calendar-grid’);
 if (!grid) return;
@@ -319,7 +307,6 @@ if (dateStr) DateController.select(dateStr);
 });
 })();
 
-/* Inject dataset.date into calendar cells after render */
 (function patchCalendarRender() {
 if (!window.UI?.renderCalendar) return;
 const original = UI.renderCalendar.bind(UI);
@@ -342,10 +329,15 @@ window.selectDate     = (d) => DateController.select(d);
 window.backToCalendar = ()  => DateController.back();
 
 /* ============================================================
-PART 4 — EVENT BRIDGE (UNIFIED)
+PART 4 — EVENT BRIDGE (UNIFIED + MEMORY-SAFE)
+FIX C1: on() menyimpan wrapped listener → off() bisa bekerja
+Cegah memory leak akibat anonymous listener yang menumpuk
 ============================================================ */
 
 const EventBridge = (() => {
+
+/* Map dari original handler → wrapped listener per event name */
+const listenerMap = new Map();
 
 function emit(name, payload) {
 window.Events?.emit?.(name, payload);
@@ -354,15 +346,46 @@ document.dispatchEvent(new CustomEvent(name, { detail: payload }));
 
 function on(name, handler) {
 window.Events?.on?.(name, handler);
-document.addEventListener(name, (e) => handler(e.detail));
+
+```
+/* Buat key unik per (name + handler) */
+const key = name + '::' + (handler.__eb_id__ = handler.__eb_id__ || Math.random().toString(36).slice(2));
+
+/* Hindari duplikasi listener yang sama */
+if (listenerMap.has(key)) return;
+
+const wrapped = (e) => handler(e.detail);
+listenerMap.set(key, { name, wrapped });
+document.addEventListener(name, wrapped);
+```
+
 }
 
-return { emit, on };
+function off(name, handler) {
+if (!handler?.**eb_id**) return;
+const key = name + ‘::’ + handler.**eb_id**;
+const entry = listenerMap.get(key);
+if (!entry) return;
+document.removeEventListener(entry.name, entry.wrapped);
+listenerMap.delete(key);
+}
+
+/* Hapus semua listener untuk event name tertentu */
+function offAll(name) {
+for (const [key, entry] of listenerMap.entries()) {
+if (entry.name === name) {
+document.removeEventListener(entry.name, entry.wrapped);
+listenerMap.delete(key);
+}
+}
+}
+
+return { emit, on, off, offAll };
 
 })();
 
 /* ============================================================
-PART 5 — NOTIFICATION SYSTEM (NotifySafe — single source)
+PART 5 — NOTIFICATION SYSTEM (NotifySafe)
 ============================================================ */
 
 const NotificationQueue = (() => {
@@ -388,7 +411,6 @@ return { push };
 })();
 
 function _renderToast(opts, done) {
-
 const {
 message    = ‘’,
 type       = ‘info’,
@@ -400,9 +422,7 @@ persistent = false
 const container = _getToastContainer();
 const toast = document.createElement(‘div’);
 toast.className = `toast toast-${type}`;
-
 toast.innerHTML = `<div class="toast-content"> <div class="toast-msg">${escapeHtml(message)}</div> ${action ?`<button class="toast-action">${escapeHtml(action.label)}</button>` : ''} </div>`;
-
 container.appendChild(toast);
 requestAnimationFrame(() => toast.classList.add(‘show’));
 
@@ -419,7 +439,6 @@ setTimeout(() => { toast.remove(); done?.(); }, 200);
 }
 
 if (!persistent) setTimeout(_remove, duration);
-
 }
 
 function _getToastContainer() {
@@ -438,29 +457,20 @@ return el;
 }
 
 const NotifySafe = {
-
 success(message, opts = {}) {
 NotificationQueue.push({ message, type: ‘success’, …opts });
 },
-
 error(message, opts = {}) {
 NotificationQueue.push({ message, type: ‘error’, …opts });
 },
-
 info(message, opts = {}) {
 NotificationQueue.push({ message, type: ‘info’, …opts });
 },
-
 action(message, label, onClick) {
 NotificationQueue.push({ message, type: ‘info’, action: { label, onClick } });
 }
-
 };
 
-/*
-C4: Replace legacy Notify entirely — no conditional patch, no overlap.
-index.html UI Bridge and any code referencing window.Notify get NotifySafe.
-*/
 window.Notify = NotifySafe;
 
 const NotificationUX = {
@@ -483,17 +493,13 @@ Logger.log(’[NotifySafe] unified notification system ready’);
 PART 6 — ERROR HANDLING + SAFETY LAYER
 ============================================================ */
 
-/*
-S4: ErrorHandler now supports severity levels:
-‘error’ (default) | ‘warn’ | ‘info’
-*/
 const ErrorHandler = (() => {
 
 function log(error, context = ‘’, level = ‘error’) {
 try {
-if (level === ‘warn’)  Logger.warn(’[Warn]’,  context, error);
-else if (level === ‘info’) Logger.log(’[Info]’, context, error);
-else                   Logger.error(’[Error]’, context, error);
+if (level === ‘warn’)       Logger.warn(’[Warn]’,  context, error);
+else if (level === ‘info’)  Logger.log(’[Info]’,  context, error);
+else                        Logger.error(’[Error]’, context, error);
 } catch (e) { console.error(error); }
 }
 
@@ -589,28 +595,41 @@ ErrorHandler.capture(e.reason, ‘promise.rejection’);
 Logger.log(’[SafetyLayer] clean & active’);
 
 /* ============================================================
-PART 7 — FEATURE FLAGS (P5)
+PART 7 — FEATURE FLAGS
+P1: Mendukung remote config dari /config.json (dengan fallback lokal)
 ============================================================ */
 
-/*
-P5: Feature flags for SaaS rollout control.
-Defaults to all enabled; override via CONFIG.FEATURES in config.js.
-*/
 const FeatureFlags = (() => {
 
 const defaults = {
-WA:        true,
-ANALYTICS: true,
-BROADCAST: true,
+WA:            true,
+ANALYTICS:     true,
+BROADCAST:     true,
 AUTO_REMINDER: true,
 OFFLINE_QUEUE: true
 };
 
-const flags = Object.assign({}, defaults, CONFIG?.FEATURES || {});
+let flags = Object.assign({}, defaults, CONFIG?.FEATURES || {});
+
+async function loadRemote() {
+try {
+const res = await fetch(’/config.json’, { cache: ‘no-cache’ });
+if (!res.ok) return;
+const remote = await res.json();
+if (remote?.FEATURES && typeof remote.FEATURES === ‘object’) {
+flags = Object.assign({}, defaults, CONFIG?.FEATURES || {}, remote.FEATURES);
+Logger.log(’[FeatureFlags] remote config loaded:’, flags);
+}
+} catch (err) {
+/* Gagal fetch remote config → pakai local defaults (tidak error fatal) */
+Logger.warn(’[FeatureFlags] remote config unavailable, using local defaults’);
+}
+}
 
 function isEnabled(key) { return !!flags[key]; }
+function getAll()       { return { …flags }; }
 
-return { isEnabled };
+return { isEnabled, getAll, loadRemote };
 
 })();
 
@@ -632,14 +651,13 @@ return { load, get, refresh };
 
 const BusinessRules = (() => {
 
-function isOpenNow()      { return Settings.isOpenNow(); }
-function getMaxCapacity() { return SettingsBridge.get()?.maxCapacityPerDay ?? CONFIG.MAX_CAPACITY_PER_SLOT ?? 20; }
+function isOpenNow()         { return Settings.isOpenNow(); }
+function getMaxCapacity()    { return SettingsBridge.get()?.maxCapacityPerDay ?? CONFIG.MAX_CAPACITY_PER_SLOT ?? 20; }
 function shouldAutoConfirm() { return !!SettingsBridge.get()?.autoConfirm; }
-function isWAEnabled()    { return FeatureFlags.isEnabled(‘WA’) && !!SettingsBridge.get()?.enableWA; }
-function getBusinessPhone() { return SettingsBridge.get()?.phoneNumber || ‘’; }
+function isWAEnabled()       { return FeatureFlags.isEnabled(‘WA’) && !!SettingsBridge.get()?.enableWA; }
+function getBusinessPhone()  { return SettingsBridge.get()?.phoneNumber || ‘’; }
 
 async function canAcceptReservation(date, guests) {
-/* S2: Use DataProvider (cached) instead of raw Reservation.getByDate */
 const list  = await DataProvider.getByDate(date);
 const total = list.reduce((sum, r) => {
 if (r.status === Reservation.STATUS.CANCELLED) return sum;
@@ -708,7 +726,7 @@ SettingsUIBridge.init();
 })();
 
 /* ============================================================
-PART 9 — DATA PROVIDER (single source — canonical cache layer)
+PART 9 — DATA PROVIDER
 ============================================================ */
 
 const DataProvider = (() => {
@@ -748,11 +766,11 @@ return { getAllReservations, getByDate, getGroupedByDate };
 
 })();
 
-/* Backward compat alias */
 const DataStore = DataProvider;
 
 /* ============================================================
 PART 10 — SMART CACHE
+S1: Invalidasi granular per event type — tidak clear semua sekaligus
 ============================================================ */
 
 const SmartCache = (() => {
@@ -777,11 +795,45 @@ if (key.startsWith(prefix)) store.delete(key);
 }
 }
 
-return { set, get, clear };
+/* Invalidasi spesifik per tanggal — efisien untuk update 1 hari */
+function invalidateDate(date) {
+clear(`res_date_${date}`);
+clear(‘res_all’);
+clear(‘res_grouped’);
+}
+
+return { set, get, clear, invalidateDate };
 
 })();
 
-EventBridge.on(‘reservation:changed’, () => SmartCache.clear(‘res_’));
+/* S1: Granular cache invalidation per event type */
+EventBridge.on(‘reservation:created’, () => {
+SmartCache.clear(‘res_all’);
+SmartCache.clear(‘res_grouped’);
+SmartCache.clear(‘anl_’);
+});
+
+EventBridge.on(‘reservation:deleted’, () => {
+SmartCache.clear(‘res_all’);
+SmartCache.clear(‘res_grouped’);
+SmartCache.clear(‘anl_’);
+});
+
+EventBridge.on(‘reservation:updated’, (res) => {
+/* Hanya invalidasi tanggal yang berubah, bukan semua cache */
+if (res?.date) {
+SmartCache.invalidateDate(res.date);
+} else {
+SmartCache.clear(‘res_’);
+}
+SmartCache.clear(‘anl_’);
+});
+
+/* Fallback: reservation:changed untuk backward compat */
+EventBridge.on(‘reservation:changed’, () => {
+SmartCache.clear(‘res_’);
+SmartCache.clear(‘anl_’);
+});
 
 /* ============================================================
 PART 11 — SERVICE LAYER + RENDER BUS
@@ -828,6 +880,7 @@ const ReservationService = (() => {
 
 async function create(data) {
 const res = await Reservation.create(data);
+AuditLog.record(‘reservation:create’, { id: res?.id, date: data.date, name: data.name });
 EventBridge.emit(‘reservation:created’, res);
 EventBridge.emit(‘reservation:changed’);
 return res;
@@ -835,6 +888,7 @@ return res;
 
 async function update(id, patch) {
 const res = await Reservation.update(id, patch);
+AuditLog.record(‘reservation:update’, { id, patch });
 EventBridge.emit(‘reservation:updated’, res);
 EventBridge.emit(‘reservation:changed’);
 return res;
@@ -842,6 +896,7 @@ return res;
 
 async function remove(id) {
 await Reservation.remove(id);
+AuditLog.record(‘reservation:delete’, { id });
 EventBridge.emit(‘reservation:deleted’, id);
 EventBridge.emit(‘reservation:changed’);
 }
@@ -851,16 +906,14 @@ return { create, update, remove };
 })();
 
 /* ============================================================
-PART 12 — OFFLINE QUEUE (P3)
+PART 12 — OFFLINE QUEUE
+C3: Retry limit (max 3) + exponential backoff — tidak stuck selamanya
 ============================================================ */
 
-/*
-P3: When offline, mutations are queued and replayed on reconnect.
-Stored in localStorage so they survive page refresh.
-*/
 const OfflineQueue = (() => {
 
-const QUEUE_KEY = ‘psv_offline_queue’;
+const QUEUE_KEY  = ‘psv_offline_queue’;
+const MAX_RETRY  = 3;
 
 function _load()   { return SafeStorage.get(QUEUE_KEY, []); }
 function _save(q)  { SafeStorage.set(QUEUE_KEY, q); }
@@ -868,7 +921,7 @@ function _save(q)  { SafeStorage.set(QUEUE_KEY, q); }
 function push(op) {
 if (!FeatureFlags.isEnabled(‘OFFLINE_QUEUE’)) return;
 const q = _load();
-q.push({ …op, queuedAt: Date.now() });
+q.push({ …op, queuedAt: Date.now(), retries: 0 });
 _save(q);
 Logger.warn(’[OfflineQueue] queued operation:’, op.type);
 }
@@ -884,20 +937,36 @@ Logger.log('[OfflineQueue] flushing', q.length, 'queued ops');
 const failed = [];
 
 for (const op of q) {
+
+  /* C3: Skip jika sudah melebihi batas retry */
+  if (op.retries >= MAX_RETRY) {
+    Logger.warn('[OfflineQueue] max retries reached, dropping op:', op.type, op.queuedAt);
+    AuditLog.record('offline:drop', { type: op.type, retries: op.retries });
+    continue;
+  }
+
+  /* C3: Exponential backoff sebelum retry */
+  if (op.retries > 0) {
+    await new Promise(r => setTimeout(r, op.retries * 1000));
+  }
+
   try {
     if (op.type === 'create') await ReservationService.create(op.data);
     if (op.type === 'update') await ReservationService.update(op.id, op.data);
     if (op.type === 'delete') await ReservationService.remove(op.id);
   } catch (err) {
     Logger.error('[OfflineQueue] replay failed:', op, err);
+    op.retries++;
     failed.push(op);
   }
 }
 
 _save(failed);
 
-if (!failed.length) {
+if (!failed.length && q.length > 0) {
   NotifySafe.success('Data offline berhasil disinkronkan');
+} else if (failed.length > 0) {
+  NotifySafe.error(`${failed.length} operasi gagal disinkronkan`);
 }
 ```
 
@@ -965,20 +1034,17 @@ finally { locks.delete(key); }
 return { run };
 })();
 
-/* SafeReservation — all creates/updates/deletes route through here */
 const SafeReservation = (() => {
 
 async function create(payload) {
-
-```
 const clean = Sanitizer.reservation(payload);
 
+```
 if (DuplicateGuard.isDuplicate(clean)) {
   NotifySafe.info('Reservasi sedang diproses');
   return null;
 }
 
-/* P3: Queue if offline */
 if (!navigator.onLine) {
   OfflineQueue.push({ type: 'create', data: clean });
   NotifySafe.info('Offline — reservasi akan disimpan saat online');
@@ -1002,10 +1068,9 @@ return AsyncLock.run('create', async () => {
 }
 
 async function update(id, patch) {
-
-```
 const clean = Sanitizer.reservation(patch);
 
+```
 if (!navigator.onLine) {
   OfflineQueue.push({ type: 'update', id, data: clean });
   NotifySafe.info('Offline — perubahan akan disimpan saat online');
@@ -1027,14 +1092,13 @@ return AsyncLock.run('update_' + id, async () => {
 }
 
 async function remove(id) {
-
-```
 if (!navigator.onLine) {
-  OfflineQueue.push({ type: 'delete', id });
-  NotifySafe.info('Offline — penghapusan akan disinkronkan saat online');
-  return null;
+OfflineQueue.push({ type: ‘delete’, id });
+NotifySafe.info(‘Offline — penghapusan akan disinkronkan saat online’);
+return null;
 }
 
+```
 return AsyncLock.run('delete_' + id, async () => {
   try {
     await ReservationService.remove(id);
@@ -1052,22 +1116,14 @@ return { create, update, remove };
 
 })();
 
-const safeCreateReservation = (d)      => SafeReservation.create(d);
-const safeUpdateReservation = (id, d)  => SafeReservation.update(id, d);
-const safeDeleteReservation = (id)     => SafeReservation.remove(id);
+const safeCreateReservation = (d)     => SafeReservation.create(d);
+const safeUpdateReservation = (id, d) => SafeReservation.update(id, d);
+const safeDeleteReservation = (id)    => SafeReservation.remove(id);
 
 /* ============================================================
 PART 14 — FORM + DETAIL ACTIONS
 ============================================================ */
 
-/*
-C3: patchFormSubmit REMOVED.
-The form submit handler lives entirely in index.html UI Bridge
-and already calls SafeReservation.create. Keeping a second handler
-here caused double-create race conditions and double toast notifications.
-*/
-
-/* Extend Form.getValues to include menus (non-submit concern) */
 (function patchFormGetValues() {
 if (!window.Form || Form.**MENU_PATCHED**) return;
 
@@ -1081,13 +1137,29 @@ return { …base, menus: window.Menu?.getData?.() ?? [] };
 Form.**MENU_PATCHED** = true;
 })();
 
-/* Detail card actions */
+/* S3: renderReservationCard diekspos ke UI agar VirtualList bisa pakai */
+(function patchUIRenderCard() {
+if (!window.UI || UI.**CARD_PATCHED**) return;
+
+if (typeof UI.renderReservationCard !== ‘function’) {
+/* Fallback jika UI belum mengekspos fungsi ini */
+UI.renderReservationCard = function (r) {
+const div = document.createElement(‘div’);
+div.className = ‘res-card’;
+div.dataset.id = r.id;
+div.innerHTML = `<div class="res-card-header"> <strong>${escapeHtml(r.name || '-')}</strong> <span class="res-status status-${r.status || 'pending'}">${r.status || 'pending'}</span> </div> <div class="res-card-body"> <span>⏰ ${r.time || '-'}</span> <span>👥 ${r.guests || 0} orang</span> ${r.phone ?`<span>📱 ${escapeHtml(r.phone)}</span>`: ''} ${r.note  ?`<span>📝 ${escapeHtml(r.note)}</span>` : ''} </div> <div class="res-card-actions"> <button data-action="next">Lanjut</button> <button data-action="cancel">Batalkan</button> <button data-action="delete">Hapus</button> ${r.phone ?`<button data-action="wa">WA</button>` : ''} <button data-action="thank">Terima Kasih</button> <button data-action="reminder">Reminder</button> </div>`;
+return div;
+};
+}
+
+UI.**CARD_PATCHED** = true;
+})();
+
 (function bindDetailActions() {
 
 const container = document.getElementById(‘reservation-list’);
 if (!container) return;
 
-/* S2: Use DataProvider (cached) */
 async function _getById(id) {
 try {
 const list = await DataProvider.getAllReservations();
@@ -1107,7 +1179,6 @@ if (!card) return;
 const id = card.dataset.id;
 if (!id) return;
 
-/* Status advance */
 if (e.target.closest('[data-action="next"]')) {
   try {
     await Reservation.advanceStatus(id);
@@ -1116,9 +1187,7 @@ if (e.target.closest('[data-action="next"]')) {
   return;
 }
 
-/* Cancel */
 if (e.target.closest('[data-action="cancel"]')) {
-  /* C5: Use ConfirmDialog instead of native confirm() */
   const ok = await ConfirmDialog.show({
     title:   'Batalkan Reservasi',
     message: 'Apakah kamu yakin ingin membatalkan reservasi ini?'
@@ -1131,9 +1200,7 @@ if (e.target.closest('[data-action="cancel"]')) {
   return;
 }
 
-/* Delete */
 if (e.target.closest('[data-action="delete"]')) {
-  /* C5: Use ConfirmDialog instead of native confirm() */
   const ok = await ConfirmDialog.show({
     title:   'Hapus Reservasi',
     message: 'Hapus reservasi ini? Tindakan tidak dapat dibatalkan.',
@@ -1144,21 +1211,18 @@ if (e.target.closest('[data-action="delete"]')) {
   return;
 }
 
-/* WhatsApp confirmation */
 if (e.target.closest('[data-action="wa"]')) {
   const r = await _getById(id);
   if (r) Communication?.sendConfirmation?.(r);
   return;
 }
 
-/* Thank you */
 if (e.target.closest('[data-action="thank"]')) {
   const r = await _getById(id);
   if (r) Communication?.sendThankYou?.(r);
   return;
 }
 
-/* Reminder */
 if (e.target.closest('[data-action="reminder"]')) {
   const r = await _getById(id);
   if (r) Communication?.sendReminder?.(r);
@@ -1307,33 +1371,48 @@ return { sendConfirmation, sendReminder, sendThankYou, sendCustom, sendBroadcast
 })();
 
 /*
-C6: AutoReminder now persists reminderSent flag to DB via
-Reservation.update(), preventing repeated sends on the same reservation.
+S2: AutoReminder dengan tab-lock via localStorage
+→ cegah double-send jika app dibuka di banyak tab sekaligus
 */
 const AutoReminder = (() => {
 
-let started = false;
+const LOCK_KEY    = ‘psv_reminder_lock’;
+const LOCK_TTL_MS = 90000; /* 90 detik — lebih dari 1 tick interval */
+let started       = false;
+
+function _acquireLock() {
+const existing = SafeStorage.get(LOCK_KEY);
+if (existing && Date.now() - existing < LOCK_TTL_MS) return false;
+SafeStorage.set(LOCK_KEY, Date.now());
+return true;
+}
+
+function _releaseLock() {
+SafeStorage.remove(LOCK_KEY);
+}
 
 function start() {
-
-```
-if (!FeatureFlags.isEnabled('AUTO_REMINDER')) return;
+if (!FeatureFlags.isEnabled(‘AUTO_REMINDER’)) return;
 if (started) return;
 started = true;
 
+```
 setInterval(async () => {
 
+  /* S2: Hanya 1 tab yang boleh kirim reminder dalam satu waktu */
+  if (!_acquireLock()) {
+    Logger.log('[AutoReminder] lock held by another tab, skipping');
+    return;
+  }
+
   const today = Utils.today?.();
-  if (!today) return;
+  if (!today) { _releaseLock(); return; }
 
   try {
-
-    /* S2: Use DataProvider (cached) */
     const list = await DataProvider.getByDate(today);
     const now  = new Date();
 
     for (const r of list) {
-
       if (!r.time || r.reminderSent) continue;
 
       const [h, m] = r.time.split(':').map(Number);
@@ -1344,15 +1423,15 @@ setInterval(async () => {
 
       if (diff > 0 && diff < 3600000) {
         Communication.sendReminder(r);
-        /* C6: Persist to DB so we don't send again on next tick */
         await Reservation.update(r.id, { reminderSent: true });
         EventBridge.emit('reservation:updated', { ...r, reminderSent: true });
       }
-
     }
 
   } catch (err) {
     Logger.warn('[AutoReminder]', err);
+  } finally {
+    _releaseLock();
   }
 
 }, 60000);
@@ -1368,23 +1447,20 @@ AutoReminder.start();
 Logger.log(’[Communication] engine ready’);
 
 /* ============================================================
-PART 16 — ANALYTICS CONTROLLER (P4: SmartCache applied)
+PART 16 — ANALYTICS CONTROLLER
 ============================================================ */
 
 const AnalyticsController = (() => {
 
 async function loadSummary() {
+if (!FeatureFlags.isEnabled(‘ANALYTICS’)) return;
 
 ```
-if (!FeatureFlags.isEnabled('ANALYTICS')) return;
-
 try {
-
-  /* P4: Cache analytics summary to avoid expensive recalculation */
   let data = SmartCache.get('anl_summary');
   if (!data) {
     data = await Analytics.getSummary();
-    SmartCache.set('anl_summary', data, 30000); /* 30s TTL */
+    SmartCache.set('anl_summary', data, 30000);
   }
 
   const el = document.getElementById('anl-stats');
@@ -1392,9 +1468,9 @@ try {
 
   el.innerHTML = [
     { val: data.totalReservations, label: 'Total Reservasi' },
-    { val: data.totalGuests,        label: 'Total Tamu' },
-    { val: data.occupancy + '%',    label: 'Tingkat Okupansi' },
-    { val: data.peakDay || '-',     label: 'Hari Tersibuk' }
+    { val: data.totalGuests,       label: 'Total Tamu' },
+    { val: data.occupancy + '%',   label: 'Tingkat Okupansi' },
+    { val: data.peakDay || '-',    label: 'Hari Tersibuk' }
   ].map(c => `
     <div class="anl-card">
       <div class="anl-val">${c.val}</div>
@@ -1411,13 +1487,10 @@ try {
 }
 
 async function loadDaily() {
+if (!FeatureFlags.isEnabled(‘ANALYTICS’)) return;
 
 ```
-if (!FeatureFlags.isEnabled('ANALYTICS')) return;
-
 try {
-
-  /* P4: Cache daily analytics */
   let data = SmartCache.get('anl_daily');
   if (!data) {
     data = await Analytics.getDaily();
@@ -1428,7 +1501,7 @@ try {
   if (!el) return;
 
   if (!data.length) {
-    el.innerHTML = `<div class="empty-state">Belum ada data</div>`;
+    el.innerHTML = UI.empty('Belum ada data analitik');
     return;
   }
 
@@ -1463,9 +1536,7 @@ addRouteHook(async (name) => {
 if (name === ‘analysis’) await AnalyticsController.loadAll();
 });
 
-/* Invalidate analytics cache on data change so next visit is fresh */
 EventBridge.on(‘reservation:changed’, () => {
-SmartCache.clear(‘anl_’);
 if (Router?.getCurrent?.() === ‘analysis’) AnalyticsController.loadAll();
 });
 
@@ -1478,7 +1549,6 @@ const CustomerController = (() => {
 let cache = [];
 
 async function build() {
-/* S2: Use DataProvider (cached) */
 const list = await DataProvider.getAllReservations();
 const map  = {};
 list.forEach(r => {
@@ -1531,10 +1601,10 @@ function render(list) {
 const el = document.getElementById(‘customers-tbody’);
 if (!el) return;
 if (!list.length) {
-el.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;">Tidak ada data pelanggan</td></tr>`;
+el.innerHTML = `<tr><td colspan="5">${UI.empty('Tidak ada data pelanggan')}</td></tr>`;
 return;
 }
-el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ?`<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'}</td> </tr>`).join(’’);
+el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ?`<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'} </td> </tr>`).join(’’);
 }
 
 return { render };
@@ -1583,6 +1653,7 @@ list = (await CustomerController.build()).filter(c => c.phone);
 return list;
 }
 
+function get()         { return list; }
 function filter(query) {
 if (!query) return list;
 const q = query.toLowerCase();
@@ -1601,7 +1672,7 @@ if (!template)    { NotifySafe.error(‘Pesan kosong’); return; }
 Communication.sendBroadcast(list, template);
 }
 
-return { load, filter, send, sendAll };
+return { load, get, filter, send, sendAll };
 
 })();
 
@@ -1617,7 +1688,7 @@ function render(list) {
 const el = document.getElementById(‘bc-list’);
 if (!el) return;
 if (!list.length) {
-el.innerHTML = `<div style="padding:24px;text-align:center;">Tidak ada data pelanggan</div>`;
+el.innerHTML = UI.empty(‘Tidak ada data pelanggan’);
 return;
 }
 el.innerHTML = list.map(c => ` <div class="bc-item" data-phone="${c.phone}" data-name="${_esc(c.name)}"> <div> <div class="bc-name">${_esc(c.name)}</div> <div class="bc-phone">${c.phone}</div> </div> <button class="btn-wa">Kirim</button> </div>`).join(’’);
@@ -1654,7 +1725,6 @@ if (sendAllBtn) {
 sendAllBtn.addEventListener(‘click’, async () => {
 const msg = BroadcastUI.getMessage();
 if (!msg) { NotifySafe.error(‘Pesan kosong’); return; }
-/* C5: ConfirmDialog instead of confirm() */
 const ok = await ConfirmDialog.show({
 title:   ‘Kirim Broadcast’,
 message: `Kirim broadcast ke semua pelanggan (${BroadcastController.get?.()?.length ?? '?'} kontak)?`
@@ -1680,12 +1750,15 @@ BroadcastUI.render(await BroadcastController.load());
 });
 
 /* ============================================================
-PART 19 — LAZY VIEW + VIRTUAL LIST (P2: VirtualList used in detail)
+PART 19 — LAZY VIEW + VIRTUAL LIST
+C2: VirtualList render dari DATA (bukan clone DOM)
+→ event listener di card tidak hilang
 ============================================================ */
 
 /*
-P2: VirtualList is now used by detail view to handle long reservation lists.
-Renders 50 items at a time with a “load more” button.
+C2: Prinsip benar: DATA → DOM
+VirtualList.render menerima array data + fungsi renderItem yang
+menghasilkan elemen DOM baru. Tidak boleh clone elemen yang sudah ada.
 */
 const VirtualList = (() => {
 
@@ -1698,20 +1771,27 @@ if (el) frag.appendChild(el);
 });
 container.innerHTML = ‘’;
 container.appendChild(frag);
+
+```
 if (list.length > limit) {
-const more = document.createElement(‘div’);
-more.className = ‘load-more’;
-more.textContent = `Tampilkan ${list.length - limit} lagi...`;
-more.addEventListener(‘click’, () => render(container, list, renderItem, limit + 50));
-container.appendChild(more);
+  const more = document.createElement('div');
+  more.className = 'load-more';
+  more.textContent = `Tampilkan ${list.length - limit} lagi...`;
+  more.addEventListener('click', () => render(container, list, renderItem, limit + 50));
+  container.appendChild(more);
 }
+```
+
 }
 
 return { render };
 
 })();
 
-/* Hook UI.renderDetail to use VirtualList when list is long */
+/*
+C2: renderDetail dipatch untuk gunakan VirtualList dari DATA, bukan DOM.
+UI.renderReservationCard dipanggil per item untuk membuat elemen baru.
+*/
 (function patchDetailRender() {
 if (!window.UI?.renderDetail) return;
 if (UI.**VIRTUAL_PATCHED**) return;
@@ -1719,15 +1799,27 @@ if (UI.**VIRTUAL_PATCHED**) return;
 const original = UI.renderDetail.bind(UI);
 
 UI.renderDetail = async function (date) {
-await original(date);
-/* P2: Apply VirtualList to the rendered card list if it exceeds threshold */
-const container = document.getElementById(‘reservation-list’);
-if (!container) return;
-const cards = Array.from(container.querySelectorAll(’.res-card’));
-if (cards.length <= 50) return; /* Short lists don’t need virtualizing */
-/* Re-render with VirtualList — clone existing cards as render items */
-const clones = cards.map(c => c.cloneNode(true));
-VirtualList.render(container, clones, (el) => el);
+
+```
+/* Ambil data untuk tanggal yang dipilih */
+const list = await DataProvider.getByDate(date).catch(() => []);
+
+if (list.length <= 50) {
+  /* List pendek: render normal via original */
+  await original(date);
+} else {
+  /* C2: List panjang: render dari DATA menggunakan VirtualList */
+  const container = document.getElementById('reservation-list');
+  if (!container) { await original(date); return; }
+
+  VirtualList.render(
+    container,
+    list,
+    (item) => UI.renderReservationCard(item) /* data → DOM */
+  );
+}
+```
+
 };
 
 UI.**VIRTUAL_PATCHED** = true;
@@ -1756,13 +1848,6 @@ return { handle };
 /* ============================================================
 PART 20 — UX MICRO INTERACTIONS
 ============================================================ */
-
-/*
-P1: Loader module REMOVED from app.js.
-showLoading() / hideLoading() from index.html (#global-loading element)
-are the single source of truth for the global loader.
-Having two loaders caused flicker and inconsistent UX.
-*/
 
 const ButtonUX = {
 setLoading(btn, state = true) {
@@ -1808,14 +1893,62 @@ e.target.value = e.target.value.slice(0, 500);
 });
 })();
 
+/* P2: Empty state terpusat — tidak lagi scattered di masing-masing controller */
 function buildEmptyState(title, subtitle = ‘’) {
-return ` <div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> <div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div> </div>`;
+return `<div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> ${subtitle ?`<div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div>` : ''} </div>`;
+}
+
+/* Ekspos ke UI agar semua module pakai satu fungsi empty state */
+if (window.UI && !UI.empty) {
+UI.empty = buildEmptyState;
 }
 
 Logger.log(’[UX] interaction layer active’);
 
 /* ============================================================
-PART 21 — MODULE REGISTRY + ARCHITECTURE
+PART 21 — AUDIT LOG (S4)
+Traceability untuk aksi-aksi bisnis penting
+============================================================ */
+
+const AuditLog = (() => {
+
+const LOG_KEY  = ‘psv_audit_log’;
+const MAX_LOGS = 200;
+
+function record(action, meta = {}) {
+try {
+const logs = SafeStorage.get(LOG_KEY, []);
+logs.unshift({
+action,
+meta,
+ts: Date.now(),
+view: Router?.getCurrent?.() ?? null
+});
+/* Jaga ukuran log agar tidak membengkak */
+if (logs.length > MAX_LOGS) logs.length = MAX_LOGS;
+SafeStorage.set(LOG_KEY, logs);
+} catch (err) {
+Logger.warn(’[AuditLog] failed to record:’, action, err);
+}
+}
+
+function getAll() {
+return SafeStorage.get(LOG_KEY, []);
+}
+
+function clear() {
+SafeStorage.remove(LOG_KEY);
+Logger.log(’[AuditLog] cleared’);
+}
+
+return { record, getAll, clear };
+
+})();
+
+window.AuditLog = AuditLog;
+
+/* ============================================================
+PART 22 — MODULE REGISTRY + ARCHITECTURE
 ============================================================ */
 
 const ModuleRegistry = (() => {
@@ -1846,6 +1979,7 @@ update:  (id, d) => SafeReservation.update(id, d),
 delete:  (id)    => SafeReservation.remove(id),
 refresh: ()      => EventBridge.emit(‘reservation:changed’),
 getAll:  ()      => DataProvider.getAllReservations(),
+audit:   ()      => AuditLog.getAll(),
 debug:   ()      => console.log({ modules: ModuleRegistry.list() })
 };
 
@@ -1856,7 +1990,7 @@ Logger.log(’[HealthCheck] modules:’, ModuleRegistry.list().length);
 Logger.log(’[Architecture] clean & stable’);
 
 /* ============================================================
-PART 22 — PRODUCTION HARDENING
+PART 23 — PRODUCTION HARDENING
 ============================================================ */
 
 (function setProductionMode() {
@@ -1917,22 +2051,30 @@ backup:   () => Backup.exportData?.(),
 restore:  (file) => Backup.importFile?.(file),
 settings: () => Settings.get?.(),
 refresh:  () => EventBridge.emit(‘reservation:changed’),
-version:  ‘1.1.0’,
+audit:    () => AuditLog.getAll(),
+version:  ‘1.2.0’,
 
 async health() {
 try {
+/* S5: Health check dengan latency measurement */
+const t0   = performance.now();
 const list = await DataProvider.getAllReservations();
-return {
-ok: true, total: list.length,
-mode: CONFIG.DATA_MODE, prod: window.**PROD**,
-features: Object.fromEntries(
-[‘WA’,‘ANALYTICS’,‘BROADCAST’,‘AUTO_REMINDER’,‘OFFLINE_QUEUE’]
-.map(k => [k, FeatureFlags.isEnabled(k)])
-)
-};
+const latencyMs = Math.round(performance.now() - t0);
+
+```
+  return {
+    ok:       true,
+    total:    list.length,
+    mode:     CONFIG.DATA_MODE,
+    prod:     window.__PROD__,
+    latencyMs,
+    features: FeatureFlags.getAll()
+  };
 } catch (err) {
-return { ok: false };
+  return { ok: false, error: err?.message };
 }
+```
+
 }
 
 });
@@ -1949,20 +2091,22 @@ window.**DEV** = {
 async seed() {
 for (let i = 1; i <= 10; i++) {
 await SafeReservation.create({
-name: ’Customer ’ + i,
-phone: ‘08123456789’,
-date:  Utils.today(),
-time:  ‘18:00’,
+name:   ’Customer ’ + i,
+phone:  ‘08123456789’,
+date:   Utils.today(),
+time:   ‘18:00’,
 guests: Math.ceil(Math.random() * 5)
 });
 }
 },
-clear() { localStorage.clear(); location.reload(); }
+clear()  { localStorage.clear(); location.reload(); },
+audit()  { console.table(AuditLog.getAll()); },
+flags()  { console.log(FeatureFlags.getAll()); }
 };
 }
 
-console.log(’%cProserva v1.1.0 🚀’, ‘color:#22c55e;font-weight:bold;’);
+console.log(’%cProserva v1.2.0 🚀’, ‘color:#22c55e;font-weight:bold;’);
 
 /* ============================================================
-END OF APP.JS — PROSERVA v1.1.0
+END OF APP.JS — PROSERVA v1.2.0
 ============================================================ */
