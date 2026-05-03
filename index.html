@@ -2,1437 +2,731 @@
 
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Proserva &mdash; Smart Reservation System</title>
-  <meta name="description" content="Proserva - Sistem reservasi restoran modern" />
-  <meta name="theme-color" content="#18181b" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Proserva — Reservation Engine</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Satoshi:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <!-- Fonts -->
 
-  <style>
-    /* =========================
-       CSS VARIABLES
-    ========================== */
-    :root {
-      --bg: #0f172a;
-      --surface: #111827;
-      --surface-2: #18181b;
-      --ink: #e5e7eb;
-      --ink-2: #a1a1aa;
-      --ink-3: #71717a;
-      --accent: #f97316;
-      --accent-soft: rgba(249,115,22,0.15);
-      --success: #22c55e;
-      --danger: #ef4444;
-      --radius: 12px;
-    }
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Satoshi:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+  <!-- App Styles -->
 
-    body {
-      font-family: 'Satoshi', sans-serif;
-      background: var(--bg);
-      color: var(--ink);
-    }
-
-    /* =========================
-       LAYOUT
-    ========================== */
-    #app-root {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    #content {
-      flex: 1;
-      overflow-y: auto;
-      position: relative;
-    }
-
-    /* =========================
-       SIDEBAR
-    ========================== */
-    #sidebar {
-      width: 220px;
-      background: var(--surface);
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid rgba(255,255,255,0.06);
-      transition: transform 0.3s ease;
-      z-index: 100;
-    }
-
-    .sb-header {
-      padding: 20px 16px 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .sb-logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--accent);
-      margin-bottom: 6px;
-    }
-
-    .sb-biz {
-      font-size: 0.75rem;
-      color: var(--ink-3);
-    }
-
-    .sb-nav {
-      flex: 1;
-      padding: 12px 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 10px;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 0.85rem;
-      color: var(--ink-2);
-      transition: background 0.15s, color 0.15s;
-    }
-
-    .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--ink); }
-    .nav-item.active { background: var(--accent-soft); color: var(--accent); }
-
-    .sb-footer {
-      padding: 12px 16px;
-      font-size: 0.7rem;
-      color: var(--ink-3);
-      border-top: 1px solid rgba(255,255,255,0.06);
-    }
-
-    /* =========================
-       TOPBAR
-    ========================== */
-    .topbar {
-      display: flex;
-      align-items: center;
-      padding: 12px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      background: var(--bg);
-      z-index: 10;
-    }
-
-    .tb-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex: 1;
-    }
-
-    .tb-title { font-weight: 600; font-size: 0.95rem; }
-
-    /* =========================
-       BUTTONS
-    ========================== */
-    .btn-primary {
-      background: var(--accent);
-      color: white;
-      padding: 8px 14px;
-      border-radius: var(--radius);
-      font-size: 0.85rem;
-      border: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: inherit;
-      transition: opacity 0.15s;
-    }
-
-    .btn-primary:hover { opacity: 0.88; }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--ink-3);
-      font-size: 0.85rem;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      padding: 8px 12px;
-      border-radius: var(--radius);
-      transition: color 0.15s;
-    }
-
-    .btn-ghost:hover { color: var(--ink); }
-
-    .btn-danger {
-      background: transparent;
-      color: var(--danger);
-      font-size: 0.85rem;
-      border: 1px solid rgba(239,68,68,0.3);
-      cursor: pointer;
-      font-family: inherit;
-      padding: 8px 14px;
-      border-radius: var(--radius);
-      transition: background 0.15s;
-    }
-
-    .btn-danger:hover { background: rgba(239,68,68,0.1); }
-
-    .btn-icon {
-      background: transparent;
-      color: var(--ink);
-      font-size: 1rem;
-      border: none;
-      cursor: pointer;
-      padding: 6px;
-      border-radius: 6px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s;
-    }
-
-    .btn-icon:hover { background: rgba(255,255,255,0.07); }
-
-    /* =========================
-       VIEWS
-    ========================== */
-    .view {
-      display: none;
-      padding: 16px;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-
-    .active-view {
-      display: block;
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* =========================
-       CALENDAR VIEW
-    ========================== */
-    .cal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .cal-title h2 { font-size: 1.1rem; }
-    .cal-title p  { font-size: 0.75rem; color: var(--ink-3); }
-
-    .cal-nav {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-
-    .cal-month { font-weight: 600; }
-
-    .cal-weekdays {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      font-size: 0.7rem;
-      color: var(--ink-3);
-      margin-bottom: 6px;
-      text-align: center;
-    }
-
-    .cal-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 6px;
-    }
-
-    .cal-day {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 6px;
-      min-height: 70px;
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      transition: background 0.15s;
-    }
-
-    .cal-day:hover { background: rgba(255,255,255,0.06); }
-    .cal-day.empty { background: transparent; cursor: default; pointer-events: none; }
-    .cal-day.today { outline: 1px solid var(--accent); }
-    .cal-day.selected { background: var(--accent-soft); }
-    .cal-day.low    { border: 1px solid rgba(34,197,94,0.3); }
-    .cal-day.medium { border: 1px solid rgba(245,158,11,0.4); }
-    .cal-day.high   { border: 1px solid rgba(239,68,68,0.5); }
-
-    .cal-day-num { font-size: 0.7rem; color: var(--ink-3); }
-
-    .cal-res-pill {
-      margin-top: 4px;
-      font-size: 0.65rem;
-      background: var(--accent-soft);
-      color: var(--accent);
-      padding: 2px 6px;
-      border-radius: 999px;
-      align-self: flex-start;
-    }
-
-    .cal-mini-names {
-      margin-top: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .cal-mini-name {
-      font-size: 0.65rem;
-      color: var(--ink-2);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* =========================
-       DETAIL VIEW
-    ========================== */
-    .detail-header { margin-bottom: 10px; }
-
-    .detail-filters {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-
-    .detail-filters input,
-    .detail-filters select {
-      padding: 6px;
-      border-radius: var(--radius);
-      background: var(--surface);
-      color: var(--ink);
-      border: 1px solid rgba(255,255,255,0.08);
-      font-size: 0.75rem;
-      font-family: inherit;
-    }
-
-    .detail-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    /* =========================
-       RESERVATION CARD
-    ========================== */
-    .res-card {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .rc-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .rc-name {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-
-    .rc-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.7rem;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    .rc-info {
-      font-size: 0.75rem;
-      color: var(--ink-2);
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .rc-footer {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    /* =========================
-       STATUS BADGES
-    ========================== */
-    .status { font-size: 0.65rem; padding: 3px 6px; border-radius: 999px; font-weight: 600; }
-    .status-pending   { background: rgba(245,158,11,0.15); color: #f59e0b; }
-    .status-confirmed { background: rgba(34,197,94,0.15);  color: #22c55e; }
-    .status-ongoing   { background: rgba(59,130,246,0.15); color: #3b82f6; }
-    .status-completed { background: rgba(255,255,255,0.1); color: var(--ink-2); }
-    .status-cancelled { background: rgba(239,68,68,0.15);  color: #ef4444; }
-
-    /* =========================
-       MODAL (RESERVATION)
-    ========================== */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-
-    .modal-overlay.open { display: flex; }
-
-    .modal-box {
-      width: 100%;
-      max-width: 420px;
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 16px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .modal-header h3 { font-size: 1rem; }
-
-    .modal-body {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .modal-footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    /* =========================
-       CONFIRM DIALOG
-    ========================== */
-    #confirm-modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 2000;
-    }
-
-    #confirm-modal.open { display: flex; }
-
-    .confirm-box {
-      background: var(--surface);
-      border-radius: var(--radius);
-      padding: 20px;
-      width: 100%;
-      max-width: 340px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .confirm-box h4 { font-size: 0.95rem; }
-    .confirm-box p  { font-size: 0.82rem; color: var(--ink-2); }
-
-    .confirm-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    /* =========================
-       FORM
-    ========================== */
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .form-group label { font-size: 0.75rem; color: var(--ink-2); }
-
-    .input {
-      padding: 8px;
-      border-radius: var(--radius);
-      border: 1px solid rgba(255,255,255,0.08);
-      background: var(--surface-2);
-      color: var(--ink);
-      font-size: 0.85rem;
-      font-family: inherit;
-      width: 100%;
-      transition: border-color 0.15s;
-    }
-
-    .input:focus { outline: none; border-color: var(--accent); }
-    .input.error { border-color: var(--danger); }
-
-    .form-error { font-size: 0.7rem; color: var(--danger); display: none; }
-    .form-error.show { display: block; }
-
-    /* =========================
-       ANALYSIS VIEW
-    ========================== */
-    .anl-stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .anl-card { background: var(--surface); border-radius: var(--radius); padding: 14px; }
-    .anl-val  { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
-    .anl-label{ font-size: 0.75rem; color: var(--ink-3); margin-top: 4px; }
-
-    .rank-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 0.8rem;
-    }
-
-    .ri-name { color: var(--ink-2); }
-    .ri-val  { color: var(--ink); font-weight: 600; }
-
-    /* =========================
-       NOTIFICATIONS
-    ========================== */
-    .notif-wrapper { position: relative; }
-
-    #notif-btn { position: relative; }
-
-    #notif-dot {
-      position: absolute;
-      top: 2px;
-      right: 2px;
-      width: 8px;
-      height: 8px;
-      background: var(--danger);
-      border-radius: 50%;
-      display: none;
-    }
-
-    #notif-dropdown {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      width: 280px;
-      background: var(--surface);
-      border-radius: var(--radius);
-      border: 1px solid rgba(255,255,255,0.08);
-      display: none;
-      flex-direction: column;
-      z-index: 200;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    }
-
-    #notif-dropdown.open { display: flex; }
-
-    #notif-list { padding: 8px; }
-
-    .notif-item {
-      padding: 8px;
-      border-radius: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-
-    .notif-item:last-child { border-bottom: none; }
-
-    .ni-name  { font-size: 0.8rem; font-weight: 600; }
-    .ni-date  { font-size: 0.7rem; color: var(--ink-3); margin-top: 2px; }
-    .ni-alert { font-size: 0.7rem; color: var(--danger); margin-top: 4px; }
-
-    .nd-empty {
-      padding: 12px;
-      font-size: 0.8rem;
-      color: var(--ink-3);
-      text-align: center;
-    }
-
-    /* Notif empty state from NotifSystem.render */
-    .notif-empty {
-      padding: 12px;
-      font-size: 0.8rem;
-      color: var(--ink-3);
-      text-align: center;
-    }
-
-    /* =========================
-       GLOBAL LOADING
-    ========================== */
-    #global-loading {
-      position: fixed;
-      inset: 0;
-      background: rgba(15,23,42,0.6);
-      backdrop-filter: blur(6px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-
-    #global-loading.active { display: flex; }
-
-    .loader {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* =========================
-       SKELETON
-    ========================== */
-    .skeleton {
-      background: linear-gradient(
-        90deg,
-        rgba(255,255,255,0.05) 25%,
-        rgba(255,255,255,0.1) 37%,
-        rgba(255,255,255,0.05) 63%
-      );
-      background-size: 400% 100%;
-      animation: shimmer 1.2s infinite;
-      border-radius: 8px;
-    }
-
-    @keyframes shimmer {
-      0%   { background-position: 100% 0; }
-      100% { background-position: -100% 0; }
-    }
-
-    /* =========================
-       EMPTY STATE
-    ========================== */
-    .empty-state {
-      text-align: center;
-      padding: 40px 10px;
-      color: var(--ink-3);
-      font-size: 0.85rem;
-    }
-
-    .empty-state strong {
-      display: block;
-      font-size: 1rem;
-      color: var(--ink-2);
-      margin-bottom: 6px;
-    }
-
-    /* =========================
-       BUTTON LOADING STATE
-    ========================== */
-    .btn-loading {
-      position: relative;
-      pointer-events: none;
-      opacity: 0.7;
-    }
-
-    .btn-loading::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-
-    /* =========================
-       SIDEBAR OVERLAY (MOBILE)
-    ========================== */
-    #sidebar-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 99;
-    }
-
-    #sidebar-overlay.show { display: block; }
-
-    @media (max-width: 768px) {
-      #sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        transform: translateX(-100%);
-      }
-      #sidebar.open { transform: translateX(0); }
-    }
-
-    .hidden { display: none !important; }
-  </style>
-
+  <link rel="stylesheet" href="style.css"/>
 </head>
-
 <body>
 
-  <!-- GLOBAL LOADING OVERLAY -->
+<!-- ============================================================
+     TRIAL BANNER
+     ============================================================ -->
 
-  <div id="global-loading">
-    <div class="loader"></div>
+<div id="trial-banner">
+  <div class="tb-inner">
+    <span class="tb-icon"><i class="fas fa-clock"></i></span>
+    <span class="tb-text">Mode Demo Aktif — Data akan direset otomatis dalam <strong id="trial-countdown">7 hari</strong></span>
+    <span class="tb-badge">TRIAL</span>
+  </div>
+</div>
+
+<!-- ============================================================
+     SETUP WIZARD
+     ============================================================ -->
+
+<div id="setup-wizard">
+
+  <!-- Step 1: Welcome -->
+
+  <div class="wizard-step active" id="wizard-1">
+    <div class="wz-bg-art">
+      <div class="wz-orb wz-orb-1"></div>
+      <div class="wz-orb wz-orb-2"></div>
+      <div class="wz-orb wz-orb-3"></div>
+    </div>
+    <div class="wizard-card">
+      <div class="wz-logo-mark">
+        <i class="fas fa-calendar-check"></i>
+      </div>
+      <div class="wz-step-indicator">
+        <div class="wz-step-dot active"></div>
+        <div class="wz-step-line"></div>
+        <div class="wz-step-dot"></div>
+        <div class="wz-step-line"></div>
+        <div class="wz-step-dot"></div>
+      </div>
+      <div class="wz-eyebrow">Langkah 1 dari 3</div>
+      <h1 class="wz-title">Selamat Datang<br/><em>di Proserva</em></h1>
+      <p class="wz-subtitle">Platform reservasi cerdas untuk restoran, café, dan tempat wisata. Setup hanya butuh 2 menit.</p>
+      <div class="wz-form">
+        <div class="wz-field">
+          <label>Nama Usaha Anda <span class="req">*</span></label>
+          <div class="input-wrap">
+            <i class="fas fa-store"></i>
+            <input type="text" id="wz-biz-name" placeholder="Contoh: Warung Sawah Indah"/>
+          </div>
+        </div>
+        <div class="wz-field">
+          <label>Tipe Usaha</label>
+          <div class="input-wrap">
+            <i class="fas fa-tag"></i>
+            <select id="wz-biz-type">
+              <option value="restoran">🍽️ Restoran / Warung</option>
+              <option value="cafe">☕ Café / Coffee Shop</option>
+              <option value="wisata">🏞️ Tempat Wisata</option>
+              <option value="villa">🏡 Villa / Resort</option>
+              <option value="lainnya">✨ Lainnya</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button class="wz-btn-primary" onclick="wizardNext(2)">
+        Lanjutkan <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>
   </div>
 
-  <!-- SIDEBAR OVERLAY (mobile) -->
+  <!-- Step 2: Locations -->
 
-  <div id="sidebar-overlay"></div>
+  <div class="wizard-step" id="wizard-2">
+    <div class="wz-bg-art">
+      <div class="wz-orb wz-orb-1" style="background:var(--teal-glow);"></div>
+      <div class="wz-orb wz-orb-2"></div>
+    </div>
+    <div class="wizard-card wizard-card-wide">
+      <div class="wz-logo-mark" style="background:linear-gradient(135deg,#0d9488,#0891b2);">
+        <i class="fas fa-map-marker-alt"></i>
+      </div>
+      <div class="wz-step-indicator">
+        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
+        <div class="wz-step-line active"></div>
+        <div class="wz-step-dot active"></div>
+        <div class="wz-step-line"></div>
+        <div class="wz-step-dot"></div>
+      </div>
+      <div class="wz-eyebrow">Langkah 2 dari 3</div>
+      <h2 class="wz-title-sm">Tambah Lokasi <em>& Area</em></h2>
+      <p class="wz-subtitle">Tentukan tempat, meja, atau gazebo yang bisa dipesan tamu Anda.</p>
 
-  <!-- CUSTOM CONFIRM DIALOG -->
+  <div id="wz-locations-list" class="wz-added-list"></div>
 
-  <div id="confirm-modal">
-    <div class="confirm-box">
-      <h4 id="confirm-title">Konfirmasi</h4>
-      <p id="confirm-message">Apakah Anda yakin?</p>
-      <div class="confirm-actions">
-        <button class="btn-ghost" id="confirm-cancel-btn">Batal</button>
-        <button class="btn-danger" id="confirm-ok-btn">Ya, Lanjutkan</button>
+  <div class="wz-inline-form">
+    <div class="input-wrap">
+      <i class="fas fa-map-pin"></i>
+      <input type="text" id="wz-loc-name" placeholder="Nama lokasi (Gazebo A, VIP Room…)"/>
+    </div>
+    <div class="input-wrap input-wrap-sm">
+      <i class="fas fa-users"></i>
+      <input type="number" id="wz-loc-cap" min="1" placeholder="Kapasitas"/>
+    </div>
+    <button class="wz-btn-add" onclick="wizardAddLocation()">
+      <i class="fas fa-plus"></i>
+    </button>
+  </div>
+
+  <div class="wz-nav">
+    <button class="wz-btn-ghost" onclick="wizardNext(1)"><i class="fas fa-arrow-left"></i> Kembali</button>
+    <button class="wz-btn-primary" onclick="wizardNext(3)">Lanjutkan <i class="fas fa-arrow-right"></i></button>
+  </div>
+</div>
+
+  </div>
+
+  <!-- Step 3: Menus -->
+
+  <div class="wizard-step" id="wizard-3">
+    <div class="wz-bg-art">
+      <div class="wz-orb wz-orb-3" style="background:var(--amber-glow);"></div>
+      <div class="wz-orb wz-orb-1"></div>
+    </div>
+    <div class="wizard-card wizard-card-wide">
+      <div class="wz-logo-mark" style="background:linear-gradient(135deg,#d97706,#ea580c);">
+        <i class="fas fa-utensils"></i>
+      </div>
+      <div class="wz-step-indicator">
+        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
+        <div class="wz-step-line active"></div>
+        <div class="wz-step-dot done"><i class="fas fa-check"></i></div>
+        <div class="wz-step-line active"></div>
+        <div class="wz-step-dot active"></div>
+      </div>
+      <div class="wz-eyebrow">Langkah 3 dari 3</div>
+      <h2 class="wz-title-sm">Tambah Menu <em>& Paket</em></h2>
+      <p class="wz-subtitle">Opsional: Menu atau paket yang bisa dipilih saat tamu melakukan reservasi.</p>
+
+  <div id="wz-menus-list" class="wz-added-list"></div>
+
+  <div class="wz-menu-form">
+    <div class="input-wrap">
+      <i class="fas fa-bowl-food"></i>
+      <input type="text" id="wz-menu-name" placeholder="Nama paket (Paket Keluarga…)"/>
+    </div>
+    <div class="wz-form-row2">
+      <div class="input-wrap">
+        <span class="input-prefix">Rp</span>
+        <input type="number" id="wz-menu-price" min="0" placeholder="Harga"/>
+      </div>
+      <div class="input-wrap">
+        <i class="fas fa-list"></i>
+        <input type="text" id="wz-menu-detail" placeholder="Detail (pisahkan koma)"/>
       </div>
     </div>
+    <button class="wz-btn-add-full" onclick="wizardAddMenu()">
+      <i class="fas fa-plus"></i> Tambah Menu
+    </button>
   </div>
 
-  <!-- APP ROOT -->
+  <div class="wz-nav">
+    <button class="wz-btn-ghost" onclick="wizardNext(2)"><i class="fas fa-arrow-left"></i> Kembali</button>
+    <button class="wz-btn-finish" onclick="wizardFinish()">
+      <i class="fas fa-rocket"></i> Mulai Gunakan Proserva!
+    </button>
+  </div>
+</div>
 
-  <div id="app-root">
 
-```
-<!-- SIDEBAR -->
-<aside id="sidebar">
-  <div class="sb-header">
-    <div class="sb-logo">
-      <i class="fas fa-calendar-check"></i>
-      <span>Proserva</span>
-    </div>
-    <div id="biz-name" class="sb-biz">Restoran Saya</div>
   </div>
 
-  <nav class="sb-nav">
-    <div class="nav-item active" data-view="calendar">
-      <i class="fas fa-calendar"></i>
-      <span>Kalender</span>
-    </div>
-    <!--
-      FIX #3: Tambah nav-item "detail" agar Router.go('detail') bisa
-      meng-update active state dengan benar saat user klik tanggal kalender.
-      Item ini disembunyikan dari tampilan nav karena detail view
-      diakses via klik kalender, bukan nav langsung.
-    -->
-    <div class="nav-item hidden" data-view="detail">
-      <i class="fas fa-list"></i>
-      <span>Detail</span>
-    </div>
-    <div class="nav-item" data-view="menus">
-      <i class="fas fa-utensils"></i>
-      <span>Menu</span>
-    </div>
-    <div class="nav-item" data-view="analysis">
-      <i class="fas fa-chart-line"></i>
-      <span>Analisis</span>
-    </div>
-  </nav>
+</div><!-- /setup-wizard -->
 
-  <div class="sb-footer">
-    <div id="sidebar-trial-days">Trial aktif</div>
+<!-- ============================================================
+     APP SHELL
+     ============================================================ -->
+
+<div id="app-shell">
+
+  <!-- SIDEBAR -->
+
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="fas fa-calendar-check"></i></div>
+      <div class="brand-text">
+        <span class="brand-name">Proserva</span>
+        <span class="brand-sub">Reservation Engine</span>
+      </div>
+    </div>
+
+<div class="sidebar-biz" id="sidebar-biz-name">—</div>
+
+<nav class="sidebar-nav">
+  <div class="nav-group-label">Utama</div>
+  <div class="nav-item active" data-view="calendar" onclick="showView('calendar')">
+    <span class="nav-icon"><i class="fas fa-calendar-alt"></i></span>
+    <span class="nav-label">Kalender</span>
   </div>
-</aside>
+  <div class="nav-item" data-view="customers" onclick="showView('customers')">
+    <span class="nav-icon"><i class="fas fa-users"></i></span>
+    <span class="nav-label">Pelanggan</span>
+  </div>
+  <div class="nav-item" data-view="analysis" onclick="showView('analysis')">
+    <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+    <span class="nav-label">Analisis</span>
+  </div>
+  <div class="nav-item" data-view="broadcast" onclick="showView('broadcast')">
+    <span class="nav-icon"><i class="fas fa-bullhorn"></i></span>
+    <span class="nav-label">Broadcast</span>
+  </div>
 
-<!-- MAIN CONTENT -->
-<main id="content">
+  <div class="nav-group-label" style="margin-top:16px;">Pengaturan</div>
+  <div class="nav-item" data-view="menus" onclick="showView('menus')">
+    <span class="nav-icon"><i class="fas fa-book-open"></i></span>
+    <span class="nav-label">Menu & Paket</span>
+  </div>
+  <div class="nav-item" data-view="locations" onclick="showView('locations')">
+    <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span>
+    <span class="nav-label">Lokasi</span>
+  </div>
+</nav>
+
+<div class="sidebar-footer">
+  <div class="trial-pill">
+    <i class="fas fa-clock"></i>
+    <span id="sidebar-trial-days">7 hari tersisa</span>
+  </div>
+  <div class="sidebar-ver">Proserva v2.0 · Demo Mode</div>
+</div>
+
+  </aside>
 
   <!-- TOPBAR -->
-  <header class="topbar">
-    <div class="tb-left">
-      <button class="btn-icon" id="btn-toggle-sidebar">
-        <i class="fas fa-bars"></i>
-      </button>
-      <!--
-        FIX: Ganti id "topbar-breadcrumb" menjadi "page-title"
-        agar sinkron dengan Router._updatePageTitle() di app.js
-        yang mencari elemen #page-title, bukan #topbar-breadcrumb.
-      -->
-      <div id="page-title" class="tb-title">Kalender</div>
-    </div>
 
-    <!-- NOTIFICATION BELL -->
-    <div class="notif-wrapper">
-      <button id="notif-btn" class="btn-icon">
-        <i class="fas fa-bell"></i>
-        <span id="notif-dot"></span>
-      </button>
-      <div id="notif-dropdown">
-        <!--
-          FIX #6/#7: notif-list diisi oleh NotifSystem.render()
-          yang sudah di-alias di app.js (window.NotifSystem = { render(...) }).
-          Container id tetap "notif-list" agar UI Bridge menemukan elemen ini.
-        -->
-        <div id="notif-list">
-          <div class="nd-empty">Tidak ada notifikasi</div>
-        </div>
+  <header id="topbar">
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">
+      <i class="fas fa-bars"></i>
+    </button>
+
+<div class="topbar-center" id="topbar-breadcrumb">
+  <span class="tb-page-name">Kalender</span>
+</div>
+
+<div class="topbar-actions">
+  <!-- Notif Bell -->
+  <div class="topbar-btn icon-btn" id="notif-btn" onclick="toggleNotifDropdown(event)" title="Pengingat">
+    <i class="fas fa-bell"></i>
+    <span class="notif-dot" id="notif-dot" style="display:none;"></span>
+    <div id="notif-dropdown">
+      <div class="nd-header">
+        <i class="fas fa-bell"></i> Pengingat Ucapan Terima Kasih
+      </div>
+      <div id="notif-list">
+        <div class="nd-empty"><i class="fas fa-check-circle"></i><br/>Semua beres!</div>
       </div>
     </div>
+  </div>
+
+  <button class="topbar-btn" onclick="handleExport()" title="Export Data">
+    <i class="fas fa-upload"></i>
+    <span class="btn-label">Export</span>
+  </button>
+
+  <button class="topbar-btn topbar-btn-accent" onclick="openAddReservationModal()" id="btn-add-res" title="Tambah Reservasi">
+    <i class="fas fa-plus"></i>
+    <span class="btn-label">Reservasi Baru</span>
+  </button>
+</div>
+
   </header>
 
-  <!-- VIEW CONTAINER -->
-  <div id="view-container">
+  <!-- MAIN CONTENT -->
 
-    <!-- VIEW: CALENDAR -->
-    <div id="view-calendar" class="view active-view">
-      <div class="cal-header">
-        <div class="cal-title">
-          <h2>Reservasi</h2>
-          <!--
-            FIX #8: id="cal-subtitle" ditambahkan agar SettingsUIBridge
-            di app.js bisa update teks subtitle dengan businessName.
-          -->
-          <p id="cal-subtitle">Kelola booking harian</p>
+  <main id="content">
+
+<!-- ────────────────────────────────────────
+     VIEW: CALENDAR
+──────────────────────────────────────── -->
+<div id="view-calendar" class="view active-view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title" id="cal-biz-name">Dashboard Reservasi</h1>
+      <p class="view-sub" id="cal-subtitle">Kelola semua reservasi dengan mudah</p>
+    </div>
+    <div class="cal-nav-controls">
+      <button class="cal-arrow" onclick="navMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+      <span class="cal-month-label" id="cal-month-label">—</span>
+      <button class="cal-arrow" onclick="navMonth(1)"><i class="fas fa-chevron-right"></i></button>
+      <button class="btn-today" onclick="goToToday()">Hari Ini</button>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row" id="cal-stats-row">
+    <div class="stat-card">
+      <div class="stat-icon stat-orange"><i class="fas fa-calendar-check"></i></div>
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-label">Reservasi Bulan Ini</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-green"><i class="fas fa-users"></i></div>
+      <div class="stat-value" id="stat-pax">0</div>
+      <div class="stat-label">Total Tamu</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-blue"><i class="fas fa-money-bill-wave"></i></div>
+      <div class="stat-value" id="stat-dp">Rp0</div>
+      <div class="stat-label">Omzet DP</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stat-amber"><i class="fas fa-fire"></i></div>
+      <div class="stat-value" id="stat-busiest">—</div>
+      <div class="stat-label">Hari Tersibuk</div>
+    </div>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div class="calendar-card">
+    <div class="cal-weekdays">
+      <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
+    </div>
+    <div class="cal-grid" id="cal-days"></div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: DETAIL (per tanggal)
+──────────────────────────────────────── -->
+<div id="view-detail" class="view">
+  <div class="view-header detail-view-header">
+    <button class="back-btn" onclick="backToCalendar()">
+      <i class="fas fa-arrow-left"></i> Kalender
+    </button>
+    <div class="detail-title-wrap">
+      <h2 class="view-title" id="detail-title"></h2>
+    </div>
+    <div class="detail-actions">
+      <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="text" id="detail-search" placeholder="Cari reservasi…" oninput="filterDetailList(this.value)"/>
+      </div>
+      <button class="icon-action-btn" onclick="shareWA('day')" title="Share ke WhatsApp">
+        <i class="fab fa-whatsapp"></i>
+      </button>
+      <button class="icon-action-btn" onclick="showPrintOptions()" title="Cetak">
+        <i class="fas fa-print"></i>
+      </button>
+      <button class="btn-accent-sm" onclick="openAddReservationModal()">
+        <i class="fas fa-plus"></i> Tambah
+      </button>
+    </div>
+  </div>
+  <div id="detail-list" class="res-grid"></div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: MENUS
+──────────────────────────────────────── -->
+<div id="view-menus" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Menu & Paket</h1>
+      <p class="view-sub">Kelola semua paket yang tersedia untuk dipesan</p>
+    </div>
+    <button class="btn-accent" onclick="openMenuModal()"><i class="fas fa-plus"></i> Tambah Menu</button>
+  </div>
+  <div class="data-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
+        <tbody id="menus-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: LOCATIONS
+──────────────────────────────────────── -->
+<div id="view-locations" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Manajemen Lokasi</h1>
+      <p class="view-sub">Atur tempat duduk, gazebo, atau area yang bisa dipesan</p>
+    </div>
+    <button class="btn-accent" onclick="openLocationModal()"><i class="fas fa-plus"></i> Tambah Lokasi</button>
+  </div>
+  <div class="data-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nama Lokasi</th><th>Kapasitas</th><th>Aksi</th></tr></thead>
+        <tbody id="locations-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: CUSTOMERS
+──────────────────────────────────────── -->
+<div id="view-customers" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Data Pelanggan</h1>
+      <p class="view-sub">Semua pelanggan yang pernah melakukan reservasi</p>
+    </div>
+    <div class="search-wrap">
+      <i class="fas fa-search"></i>
+      <input type="text" id="customer-search" placeholder="Cari nama atau HP…" oninput="filterCustomers(this.value)"/>
+    </div>
+  </div>
+  <div class="data-card">
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Reservasi</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead>
+        <tbody id="customers-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: ANALYSIS
+──────────────────────────────────────── -->
+<div id="view-analysis" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Analisis Bisnis</h1>
+      <p class="view-sub">Wawasan mendalam tentang performa reservasi Anda</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select class="form-select-sm" id="anl-year" onchange="runAnalysis()"></select>
+      <select class="form-select-sm" id="anl-month" style="width:160px;" onchange="runAnalysis()"></select>
+    </div>
+  </div>
+  <div class="anl-stats-row" id="anl-stats"></div>
+  <div class="chart-card"><canvas id="anl-chart"></canvas></div>
+  <div class="insight-card" id="anl-insight"></div>
+  <div class="anl-bottom-grid">
+    <div class="data-card">
+      <div class="data-card-header"><i class="fas fa-crown"></i> Pelanggan Setia</div>
+      <ul class="rank-list" id="anl-frequent"></ul>
+    </div>
+    <div class="data-card">
+      <div class="data-card-header"><i class="fas fa-fire"></i> Menu Terlaris</div>
+      <ul class="rank-list" id="anl-menus"></ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ────────────────────────────────────────
+     VIEW: BROADCAST
+──────────────────────────────────────── -->
+<div id="view-broadcast" class="view">
+  <div class="view-header">
+    <div>
+      <h1 class="view-title">Broadcast Promo</h1>
+      <p class="view-sub">Kirim pesan promosi ke semua pelanggan via WhatsApp</p>
+    </div>
+  </div>
+  <div class="broadcast-layout">
+    <div class="data-card bc-compose-card">
+      <div class="data-card-header"><i class="fas fa-pen-nib"></i> Tulis Pesan</div>
+      <div class="bc-compose-body">
+        <div class="form-group">
+          <label class="form-label">Template Pesan Broadcast</label>
+          <textarea class="form-textarea" id="broadcast-msg" placeholder="Halo Kak! Ada promo spesial di tempat kami ✨…"></textarea>
+          <p class="form-hint">Gunakan kata "kak" untuk diganti otomatis dengan nama pelanggan.</p>
         </div>
-        <button id="btn-open-modal" class="btn-primary">
-          <i class="fas fa-plus"></i> Tambah
+        <button class="btn-accent" style="width:100%;" onclick="saveBroadcastMsg()">
+          <i class="fas fa-save"></i> Simpan Pesan
         </button>
       </div>
+    </div>
+    <div class="data-card bc-list-card">
+      <div class="data-card-header bc-list-header">
+        <span><i class="fas fa-users"></i> Daftar Penerima</span>
+        <div class="search-wrap search-sm">
+          <i class="fas fa-search"></i>
+          <input type="text" id="bc-search" placeholder="Cari…" oninput="filterBcList(this.value)"/>
+        </div>
+      </div>
+      <div id="bc-list" class="bc-list-body"></div>
+    </div>
+  </div>
+</div>
 
-      <div class="cal-nav">
-        <button id="btn-prev-month" class="btn-icon">
-          <i class="fas fa-chevron-left"></i>
+  </main><!-- /content -->
+
+</div><!-- /app-shell -->
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+
+<!-- Reservation Modal -->
+
+<div class="modal-overlay" id="modal-reservation">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3>
+      <button class="modal-close" onclick="closeModal('modal-reservation')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="res-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Tamu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div>
+          <div class="form-error" id="err-nama"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor HP</label>
+          <div class="input-wrap"><i class="fas fa-phone"></i><input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/></div>
+          <div class="form-error" id="err-hp"></div>
+        </div>
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label class="form-label">Jam <span class="req">*</span></label>
+          <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="res-jam" type="time"/></div>
+          <div class="form-error" id="err-jam"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jumlah Tamu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10"/></div>
+          <div class="form-error" id="err-jumlah"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lokasi <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-map-pin"></i><select class="form-input" id="res-tempat" onchange="onLocationChange()"></select></div>
+          <div class="form-error" id="err-tempat"></div>
+          <div class="form-hint" id="res-cap-hint"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">DP (Rp)</label>
+          <div class="input-wrap"><span class="input-prefix">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Metode Pembayaran DP</label>
+          <div class="input-wrap"><i class="fas fa-credit-card"></i>
+            <select class="form-input" id="res-tipe-dp">
+              <option value="">— Tanpa DP —</option>
+              <option>Cash</option><option>QRIS</option>
+              <option>Transfer BCA</option><option>Transfer Mandiri</option>
+              <option>Transfer BRI</option><option>Transfer BNI</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Menu & Paket Dipesan</label>
+        <div class="form-error" id="err-menus"></div>
+        <div id="res-menus-container" class="menus-container"></div>
+        <button class="add-menu-row-btn" onclick="addMenuRow('res-menus-container')">
+          <i class="fas fa-plus"></i> Tambah Paket
         </button>
-        <div id="calendar-month" class="cal-month"></div>
-        <button id="btn-next-month" class="btn-icon">
-          <i class="fas fa-chevron-right"></i>
-        </button>
       </div>
-
-      <div class="cal-weekdays">
-        <div>Ming</div><div>Sen</div><div>Sel</div><div>Rab</div>
-        <div>Kam</div><div>Jum</div><div>Sab</div>
-      </div>
-
-      <div id="calendar-grid" class="cal-grid"></div>
-    </div>
-
-    <!-- VIEW: DETAIL -->
-    <!--
-      FIX #3: View detail sudah ada di HTML tapi tidak bisa diakses
-      karena bug klik kalender. Setelah bug #1 dan #2 di app.js diperbaiki,
-      view ini akan tampil otomatis via Router.go('detail').
-      Tombol "Kembali" ditambahkan untuk navigasi balik ke kalender.
-    -->
-    <div id="view-detail" class="view">
-      <div class="detail-header">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <button class="btn-ghost" id="btn-back-to-calendar" style="padding:4px 8px; font-size:0.8rem;">
-            <i class="fas fa-chevron-left"></i> Kembali
-          </button>
-          <h3 id="detail-title">Detail Reservasi</h3>
-        </div>
-      </div>
-      <div class="detail-filters">
-        <input id="detail-search" type="text" class="input" placeholder="Cari nama / HP..." />
-        <select id="filter-status">
-          <option value="all">Semua Status</option>
-          <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="ongoing">Ongoing</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-        <input id="filter-date" type="date" class="input" />
-      </div>
-      <div id="reservation-list" class="detail-list"></div>
-    </div>
-
-    <!-- VIEW: MENUS -->
-    <div id="view-menus" class="view">
-      <div style="padding: 20px 0;">
-        <h2 style="font-size:1.1rem; margin-bottom:8px;">Menu</h2>
-        <p style="font-size:0.8rem; color:var(--ink-3);">Kelola daftar menu restoran</p>
-        <div id="menu-container" style="margin-top:16px;"></div>
+      <div class="form-group">
+        <label class="form-label">Catatan / Request Tambahan</label>
+        <textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan…"></textarea>
       </div>
     </div>
-
-    <!-- VIEW: ANALYSIS -->
-    <div id="view-analysis" class="view">
-      <div style="margin-bottom:14px;">
-        <h2 style="font-size:1.1rem; margin-bottom:4px;">Analisis</h2>
-        <p style="font-size:0.8rem; color:var(--ink-3);">Ringkasan performa reservasi</p>
-      </div>
-      <div id="anl-stats" class="anl-stats"></div>
-      <div id="anl-daily"></div>
-      <div id="anl-insight"></div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-reservation')">Batal</button>
+      <button class="btn-accent" onclick="saveReservation()"><i class="fas fa-save"></i> Simpan</button>
     </div>
+  </div>
+</div>
 
-  </div><!-- END VIEW CONTAINER -->
+<!-- Menu Modal -->
 
-  <!-- MODAL: RESERVATION -->
-  <div id="reservation-modal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 id="modal-title">Tambah Reservasi</h3>
-        <button id="modal-close" class="btn-icon">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-
-      <!--
-        FIX #5: Hapus atribut onsubmit="return false;" dari tag form.
-        Handler submit dikelola sepenuhnya oleh UI Bridge (satu handler).
-        app.js Part 14 (consolidateFormSubmit) akan clone & replace form
-        untuk membersihkan handler duplikat dari Form module.
-        onsubmit inline akan mengganggu proses clone tersebut.
-      -->
-      <form id="reservation-form" class="modal-body">
-        <div class="form-group">
-          <label>Nama</label>
-          <input id="input-name" class="input" type="text" placeholder="Nama pemesan" autocomplete="off" />
-          <span class="form-error" id="err-name">Nama minimal 2 karakter</span>
-        </div>
-        <div class="form-group">
-          <label>No HP</label>
-          <input id="input-phone" class="input" type="tel" placeholder="08xxxxxxxxxx" autocomplete="off" />
-        </div>
-        <div class="form-group">
-          <label>Tanggal</label>
-          <input id="input-date" class="input" type="date" />
-          <span class="form-error" id="err-date">Tanggal wajib diisi</span>
-        </div>
-        <div class="form-group">
-          <label>Jam</label>
-          <input id="input-time" class="input" type="time" />
-          <span class="form-error" id="err-time">Jam wajib diisi</span>
-        </div>
-        <div class="form-group">
-          <label>Jumlah Tamu</label>
-          <!--
-            FIX: Tambah name="guests" agar inputGuard di app.js
-            bisa mendeteksi field ini via el.name === 'guests'.
-          -->
-          <input id="input-guests" name="guests" class="input" type="number" min="1" placeholder="1" />
-          <span class="form-error" id="err-guests">Jumlah tamu tidak valid</span>
-        </div>
-        <div class="form-group">
-          <label>Nama Pemesan</label>
-          <!--
-            FIX: Tambah name="name" agar inputGuard bisa deteksi
-            field ini via el.name === 'name' untuk batasan 50 karakter.
-          -->
-          <input id="input-name-hidden" name="name" class="input hidden" type="text" aria-hidden="true" tabindex="-1" />
-        </div>
-        <div class="form-group">
-          <label>Catatan</label>
-          <textarea id="input-note" class="input" rows="3" placeholder="Permintaan khusus..."></textarea>
-        </div>
-
-        <!--
-          FIX #4: Container menu builder pakai id="menu-builder"
-          di dalam modal agar patchMenuBuilderIds di app.js bisa
-          menemukan elemen ini dan membuat alias #menu-container
-          + #btn-add-menu di dalamnya.
-          id="menu-container" di view menus TIDAK diubah karena
-          itu untuk halaman Menu terpisah.
-        -->
-        <div id="menu-builder"></div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-ghost" id="btn-cancel-modal">Batal</button>
-          <button type="submit" id="btn-submit" class="btn-primary">Simpan</button>
-        </div>
-      </form>
+<div class="modal-overlay" id="modal-menu">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3>
+      <button class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button>
     </div>
-  </div><!-- END MODAL -->
+    <div class="modal-body">
+      <input type="hidden" id="menu-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Menu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-bowl-food"></i><input class="form-input" id="menu-name" placeholder="Paket Keluarga"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga (Rp)</label>
+          <div class="input-wrap"><span class="input-prefix">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Detail Menu</label>
+        <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
+        <p class="form-hint">Pisahkan dengan koma untuk setiap item</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-menu')">Batal</button>
+      <button class="btn-accent" onclick="saveMenu()"><i class="fas fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
 
-</main>
-```
+<!-- Location Modal -->
 
-  </div><!-- END APP ROOT -->
+<div class="modal-overlay" id="modal-location">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3>
+      <button class="modal-close" onclick="closeModal('modal-location')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="loc-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Lokasi <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-map-pin"></i><input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room…"/></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kapasitas (orang) <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-location')">Batal</button>
+      <button class="btn-accent" onclick="saveLocation()"><i class="fas fa-save"></i> Simpan</button>
+    </div>
+  </div>
+</div>
 
-  <!-- ============================================================
-       ENV / CONFIG
-       Dideklarasikan sebelum semua script agar tersedia global.
-  ============================================================ -->
+<!-- Print Modal -->
 
-  <script>
-    window.PRO_SERVA_ENV = { mode: 'local', version: '2.1' };
-    window.CONFIG        = { DATA_MODE: 'local' };
-  </script>
+<div class="modal-overlay" id="modal-print">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-print"></i> Opsi Cetak</h3>
+      <button class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="form-hint" style="margin-bottom:14px;">Pilih informasi yang ingin ditampilkan saat mencetak:</p>
+      <div class="print-options-grid">
+        <label class="print-option"><input type="checkbox" id="po-menu" checked/> <i class="fas fa-utensils"></i> Detail Menu</label>
+        <label class="print-option"><input type="checkbox" id="po-hp" checked/> <i class="fas fa-phone"></i> Nomor HP</label>
+        <label class="print-option"><input type="checkbox" id="po-dp" checked/> <i class="fas fa-money-bill"></i> Info DP</label>
+        <label class="print-option"><input type="checkbox" id="po-tambahan" checked/> <i class="fas fa-comment-dots"></i> Catatan</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-print')">Batal</button>
+      <button class="btn-accent" onclick="executePrint()"><i class="fas fa-print"></i> Cetak Sekarang</button>
+    </div>
+  </div>
+</div>
 
-  <!-- ============================================================
-       UI HELPERS
-       Hanya helper presentasi murni: loading, skeleton, empty state,
-       notify toast, dan ConfirmDialog.
-       TIDAK ADA logic bisnis, routing, event bus, atau data di sini.
-  ============================================================ -->
+<!-- Export Modal -->
 
-  <script>
-  (function () {
-    'use strict';
+<div class="modal-overlay" id="modal-export">
+  <div class="modal">
+    <div class="modal-header">
+      <h3><i class="fas fa-upload"></i> Export & Backup Data</h3>
+      <button class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Kode Backup</label>
+        <textarea class="form-textarea code-textarea" id="export-output" readonly placeholder="Klik Export untuk menghasilkan kode…"></textarea>
+        <p class="form-hint">Salin kode ini untuk backup atau transfer ke perangkat lain.</p>
+      </div>
+      <div class="modal-divider"><span>atau import data</span></div>
+      <div class="form-group">
+        <label class="form-label">Import dari Backup</label>
+        <textarea class="form-textarea code-textarea" id="import-input" placeholder="Tempel kode backup di sini…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
+      <button class="btn-secondary" onclick="doImportData()"><i class="fas fa-download"></i> Import</button>
+      <button class="btn-accent" onclick="copyExport()"><i class="fas fa-copy"></i> Salin Kode</button>
+    </div>
+  </div>
+</div>
 
-    /* ---------- Loading overlay ---------- */
-    var _loader = document.getElementById('global-loading');
+<!-- Toast Container -->
 
-    window.showLoading  = function ()    { if (_loader) _loader.classList.add('active'); };
-    window.hideLoading  = function ()    { if (_loader) _loader.classList.remove('active'); };
-    window.withLoading  = async function (fn) {
-      try { showLoading(); return await fn(); }
-      finally { hideLoading(); }
-    };
+<div id="toast-container"></div>
 
-    /* ---------- Button loading state ---------- */
-    window.setBtnLoading = function (btn, state) {
-      if (btn) btn.classList.toggle('btn-loading', !!state);
-    };
+<!-- Scripts -->
 
-    /* ---------- Skeleton ---------- */
-    window.renderSkeleton = function (container, count) {
-      if (!container) return;
-      container.innerHTML = '';
-      for (var i = 0; i < (count || 5); i++) {
-        var d = document.createElement('div');
-        d.className = 'skeleton';
-        d.style.cssText = 'height:60px;margin-bottom:8px;';
-        container.appendChild(d);
-      }
-    };
+<script src="modules.js" defer></script>
+<script src="app.js" defer></script>
+<!-- DEBUG PANEL (HIDDEN) -->
+<div id="debug-panel" class="debug-hidden">
+  <div class="debug-header">
+    <span>🧪 Debug Console</span>
+    <button onclick="debugCopy()">Copy</button>
+    <button onclick="debugClear()">Clear</button>
+    <button onclick="debugClose()">✕</button>
+  </div>
 
-    /* ---------- Empty state ---------- */
-    window.renderEmpty = function (container, title, subtitle) {
-      if (!container) return;
-      container.innerHTML =
-        '<div class="empty-state"><strong>' + (title || '') +
-        '</strong><span>' + (subtitle || '') + '</span></div>';
-    };
-
-    /* ---------- Toast notifications ---------- */
-    var _colors = { success: '#22c55e', error: '#ef4444', info: '#3b82f6' };
-
-    function _toast(msg, type) {
-      var el = document.createElement('div');
-      el.style.cssText = [
-        'position:fixed', 'bottom:20px', 'right:20px', 'z-index:99999',
-        'background:' + (_colors[type] || '#333'),
-        'color:#fff', 'padding:10px 16px', 'border-radius:10px',
-        'font-size:0.85rem', 'font-family:inherit',
-        'box-shadow:0 4px 16px rgba(0,0,0,0.3)',
-        'opacity:0', 'transition:opacity 0.2s', 'max-width:300px'
-      ].join(';');
-      el.textContent = msg;
-      document.body.appendChild(el);
-      requestAnimationFrame(function () { el.style.opacity = '1'; });
-      setTimeout(function () {
-        el.style.opacity = '0';
-        setTimeout(function () { el.remove(); }, 300);
-      }, 3000);
-    }
-
-    window.Notify = {
-      success: function (m) { _toast(m, 'success'); },
-      error:   function (m) { _toast(m, 'error'); },
-      info:    function (m) { _toast(m, 'info'); }
-    };
-
-  })();
-  </script>
-
-  <!-- ============================================================
-       CONFIRM DIALOG
-       UI-only helper. Logic resolve/reject dipanggil oleh app.js
-       melalui ConfirmDialog.show() -> Promise<boolean>.
-  ============================================================ -->
-
-  <script>
-  (function () {
-    'use strict';
-
-    var _resolve  = null;
-    var modal     = document.getElementById('confirm-modal');
-    var titleEl   = document.getElementById('confirm-title');
-    var msgEl     = document.getElementById('confirm-message');
-    var okBtn     = document.getElementById('confirm-ok-btn');
-    var cancelBtn = document.getElementById('confirm-cancel-btn');
-
-    function show(opts) {
-      opts = opts || {};
-      if (titleEl) titleEl.textContent = opts.title   || 'Konfirmasi';
-      if (msgEl)   msgEl.textContent   = opts.message || 'Apakah Anda yakin?';
-      if (modal)   modal.classList.add('open');
-      return new Promise(function (resolve) { _resolve = resolve; });
-    }
-
-    function _resolve_true()  { _close(); if (_resolve) { _resolve(true);  _resolve = null; } }
-    function _resolve_false() { _close(); if (_resolve) { _resolve(false); _resolve = null; } }
-    function _close() { if (modal) modal.classList.remove('open'); }
-
-    if (okBtn)     okBtn.addEventListener('click', _resolve_true);
-    if (cancelBtn) cancelBtn.addEventListener('click', _resolve_false);
-    if (modal)     modal.addEventListener('click', function (e) { if (e.target === modal) _resolve_false(); });
-
-    window.ConfirmDialog = { show: show };
-
-  })();
-  </script>
-
-  <!-- ============================================================
-       UI BRIDGE
-       Menghubungkan elemen HTML ke app.js (Router, SafeReservation,
-       EventBridge). Tidak ada logic bisnis di sini - hanya wiring DOM.
-       Semua handler berjalan SETELAH app.js selesai di-load.
-  ============================================================ -->
-
-  <script>
-  (function () {
-    'use strict';
-
-    function _waitFor(condition, callback, maxMs) {
-      var elapsed  = 0;
-      var interval = 50;
-      var timer = setInterval(function () {
-        elapsed += interval;
-        if (condition()) {
-          clearInterval(timer);
-          callback();
-        } else if (elapsed >= (maxMs || 5000)) {
-          clearInterval(timer);
-          console.warn('[UI Bridge] Timeout waiting for app.js modules');
-        }
-      }, interval);
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-
-      /* ---- 1. SIDEBAR TOGGLE ---- */
-      var sb        = document.getElementById('sidebar');
-      var ov        = document.getElementById('sidebar-overlay');
-      var toggleBtn = document.getElementById('btn-toggle-sidebar');
-
-      function _openSidebar()  { if (sb) sb.classList.add('open');    if (ov) ov.classList.add('show'); }
-      function _closeSidebar() { if (sb) sb.classList.remove('open'); if (ov) ov.classList.remove('show'); }
-
-      if (toggleBtn) toggleBtn.addEventListener('click', function () {
-        sb && sb.classList.contains('open') ? _closeSidebar() : _openSidebar();
-      });
-      if (ov) ov.addEventListener('click', _closeSidebar);
-
-      /* ---- 2. NAVIGATION (.nav-item -> Router.go) ---- */
-      /*
-        FIX #3 + sinkronisasi app.js:
-        VIEW_LABELS sinkron dengan map di Router._updatePageTitle().
-        'detail' ditambahkan agar breadcrumb tampil benar saat view detail aktif.
-      */
-      var VIEW_LABELS = {
-        calendar: 'Kalender',
-        detail:   'Detail Reservasi',
-        menus:    'Menu',
-        analysis: 'Analisis'
-      };
-
-      function _updateBreadcrumb(name) {
-        var bc = document.getElementById('page-title');
-        if (bc) bc.textContent = VIEW_LABELS[name] || name;
-      }
-
-      function _updateNavActive(name) {
-        document.querySelectorAll('.nav-item').forEach(function (n) {
-          n.classList.toggle('active', n.dataset.view === name);
-        });
-      }
-
-      document.querySelectorAll('.nav-item').forEach(function (item) {
-        item.addEventListener('click', function () {
-          var view = item.dataset.view;
-          if (!view) return;
-          _closeSidebar();
-          if (window.Router) {
-            Router.go(view);
-          } else {
-            /* Fallback jika Router belum siap */
-            document.querySelectorAll('.view').forEach(function (v) {
-              v.classList.remove('active-view');
-            });
-            var target = document.getElementById('view-' + view);
-            if (target) target.classList.add('active-view');
-            _updateNavActive(view);
-            _updateBreadcrumb(view);
-          }
-        });
-      });
-
-      /* ---- 3. BREADCRUMB - update saat Router berubah ---- */
-      /*
-        FIX #6/#7 sinkronisasi: EventBridge tersedia via app.js.
-        Polling _waitFor memastikan kita tidak bind sebelum app.js siap.
-      */
-      _waitFor(
-        function () { return !!window.EventBridge; },
-        function () {
-          EventBridge.on('router:changed', function (name) {
-            _updateBreadcrumb(name);
-            _updateNavActive(name);
-          });
-        }
-      );
-
-      /* ---- 4. MODAL RESERVATION (open / close) ---- */
-      var resModal = document.getElementById('reservation-modal');
-
-      function _openModal()  { if (resModal) resModal.classList.add('open'); }
-      function _closeModal() {
-        if (resModal) resModal.classList.remove('open');
-        /* Reset editing state saat modal ditutup */
-        var form = document.getElementById('reservation-form');
-        if (form) form.dataset.editingId = '';
-        var modalTitle = document.getElementById('modal-title');
-        if (modalTitle) modalTitle.textContent = 'Tambah Reservasi';
-      }
-
-      var openBtn   = document.getElementById('btn-open-modal');
-      var closeBtn  = document.getElementById('modal-close');
-      var cancelBtn = document.getElementById('btn-cancel-modal');
-
-      if (openBtn)   openBtn.addEventListener('click', _openModal);
-      if (closeBtn)  closeBtn.addEventListener('click', _closeModal);
-      if (cancelBtn) cancelBtn.addEventListener('click', _closeModal);
-      if (resModal)  resModal.addEventListener('click', function (e) {
-        if (e.target === resModal) _closeModal();
-      });
-
-      /* ---- 5. FORM SUBMIT -> SafeReservation ---- */
-      /*
-        FIX #5: Satu-satunya submit handler ada di sini.
-        Form module dari modules.js akan di-patch oleh consolidateFormSubmit()
-        di app.js yang meng-clone form dan menghapus binding lama.
-        Handler ini adalah sumber kebenaran tunggal untuk submit.
-
-        Catatan: setelah consolidateFormSubmit() berjalan di app.js,
-        form element mungkin sudah di-clone/replace. Kita bind ulang
-        via event delegation ke #reservation-modal agar tetap bekerja.
-      */
-      var submitBtn = document.getElementById('btn-submit');
-
-      _waitFor(
-        function () { return !!window.SafeReservation; },
-        function () {
-          /* Gunakan event delegation ke modal agar tetap bekerja
-             meski form di-clone oleh consolidateFormSubmit di app.js */
-          if (resModal) {
-            resModal.addEventListener('submit', async function (e) {
-              e.preventDefault();
-
-              /* Cegah double-submit: cek apakah ada SafeReservation dulu */
-              if (!window.SafeReservation) {
-                Notify.error('SafeReservation belum siap');
-                return;
-              }
-
-              var form = document.getElementById('reservation-form');
-              var data = {
-                name:   (document.getElementById('input-name') ? document.getElementById('input-name').value : '').trim(),
-                phone:  (document.getElementById('input-phone') ? document.getElementById('input-phone').value : '').trim(),
-                date:    document.getElementById('input-date') ? document.getElementById('input-date').value : '',
-                time:    document.getElementById('input-time') ? document.getElementById('input-time').value : '',
-                guests:  Number(document.getElementById('input-guests') ? document.getElementById('input-guests').value : 0),
-                note:   (document.getElementById('input-note') ? document.getElementById('input-note').value : '').trim(),
-                menus:  (window.Menu && Menu.getData) ? Menu.getData() : []
-              };
-
-              /* Validasi minimal sebelum kirim */
-              if (!data.name || data.name.length < 2) {
-                var errName = document.getElementById('err-name');
-                if (errName) errName.classList.add('show');
-                document.getElementById('input-name') && document.getElementById('input-name').classList.add('error');
-                return;
-              }
-              if (!data.date) {
-                var errDate = document.getElementById('err-date');
-                if (errDate) errDate.classList.add('show');
-                document.getElementById('input-date') && document.getElementById('input-date').classList.add('error');
-                return;
-              }
-
-              /* Bersihkan error sebelumnya */
-              ['err-name','err-date','err-time','err-guests'].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) el.classList.remove('show');
-              });
-              ['input-name','input-date','input-time','input-guests'].forEach(function (id) {
-                var el = document.getElementById(id);
-                if (el) el.classList.remove('error');
-              });
-
-              setBtnLoading(submitBtn, true);
-
-              try {
-                var editingId = form ? (form.dataset.editingId || '') : '';
-                if (editingId) {
-                  await SafeReservation.update(editingId, data);
-                } else {
-                  await SafeReservation.create(data);
-                }
-                _closeModal();
-                /* Reset form setelah sukses */
-                if (form) {
-                  form.reset();
-                  form.dataset.editingId = '';
-                }
-                if (window.EventBridge) EventBridge.emit('reservation:changed');
-              } catch (err) {
-                /* Error sudah di-handle oleh SafeReservation / ErrorHandler */
-              } finally {
-                setBtnLoading(submitBtn, false);
-              }
-            });
-          }
-        }
-      );
-
-      /* ---- 5b. BERSIHKAN validation error saat input berubah ---- */
-      ['input-name','input-date','input-time','input-guests'].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('input', function () {
-          this.classList.remove('error');
-          var errId = this.id.replace('input-', 'err-');
-          var errEl = document.getElementById(errId);
-          if (errEl) errEl.classList.remove('show');
-        });
-      });
-
-      /* ---- 6. TOMBOL KEMBALI di detail view ---- */
-      /*
-        FIX #3: Tombol kembali memanggil backToCalendar()
-        yang di-expose oleh app.js sebagai window.backToCalendar.
-        Polling memastikan fungsi tersedia saat diklik.
-      */
-      var backBtn = document.getElementById('btn-back-to-calendar');
-      if (backBtn) {
-        backBtn.addEventListener('click', function () {
-          if (window.backToCalendar) {
-            backToCalendar();
-          } else if (window.Router) {
-            Router.go('calendar');
-          }
-        });
-      }
-
-      /* ---- 7. NOTIFICATION DROPDOWN TOGGLE ---- */
-      /*
-        FIX #6/#7: Sinkronisasi dengan NotifSystem di app.js.
-        app.js mengekspos window.NotifSystem = { render(container, list) }.
-        Kita kirim container #notif-list ke render(), bukan window.NotifSystem.render().
-        List notifikasi diambil dari Notify jika tersedia, atau array kosong.
-      */
-      var notifBtn = document.getElementById('notif-btn');
-      var notifDd  = document.getElementById('notif-dropdown');
-      var notifList = document.getElementById('notif-list');
-
-      if (notifBtn) {
-        notifBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          if (!notifDd) return;
-          var isOpen = notifDd.classList.toggle('open');
-          if (isOpen && window.NotifSystem && NotifSystem.render && notifList) {
-            /* Ambil list notif jika ada, fallback ke array kosong */
-            var list = (window.Notify && window.Notify.getList) ? window.Notify.getList() : [];
-            NotifSystem.render(notifList, list);
-          }
-        });
-      }
-
-      document.addEventListener('click', function (e) {
-        if (!e.target.closest('.notif-wrapper') && notifDd) {
-          notifDd.classList.remove('open');
-        }
-      });
-
-      /* ---- 8. FILTER UI -> EventBridge ---- */
-      var searchEl = document.getElementById('detail-search');
-      var statusEl = document.getElementById('filter-status');
-      var dateEl   = document.getElementById('filter-date');
-
-      function _debounce(fn, delay) {
-        var t;
-        return function () {
-          var args = arguments;
-          clearTimeout(t);
-          t = setTimeout(function () { fn.apply(null, args); }, delay);
-        };
-      }
-
-      function _emitFilter() {
-        if (!window.EventBridge) return;
-        EventBridge.emit('filter:changed', {
-          keyword: searchEl ? searchEl.value : '',
-          status:  statusEl ? statusEl.value : 'all',
-          date:    dateEl   ? dateEl.value   : ''
-        });
-      }
-
-      if (searchEl) searchEl.addEventListener('input',  _debounce(_emitFilter, 250));
-      if (statusEl) statusEl.addEventListener('change', _emitFilter);
-      if (dateEl)   dateEl.addEventListener('change',   _emitFilter);
-
-    }); /* END DOMContentLoaded */
-
-  })();
-  </script>
-
-  <!-- ============================================================
-       SCRIPT LOAD ORDER:
-       1. modules.js  - Reservation, Calendar, UI, Analytics,
-                        Settings, Sync, Menu, Backup, LocalDB
-       2. app.js      - Router, EventBridge, SafeReservation,
-                        ReservationService, RefreshBus, App.init()
-  ============================================================ -->
-
-  <script src="modules.js"></script>
-
-  <script src="app.js"></script>
-
+  <div id="debug-content"></div>
+</div>
 </body>
 </html>
