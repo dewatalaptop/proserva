@@ -1,2532 +1,1932 @@
-'use strict';
+‘use strict’;
 
 /* ============================================================
-   PROSERVA MODULES
-   PART 1/15
-   FOUNDATION + CONFIG + HELPERS + EVENT BUS
-   ============================================================ */
+PROSERVA MODULES v2.1 — FULLY PATCHED
+Sinkron dengan app.js v1.2.1 dan index.html (fixed)
+
+DAFTAR FIX UTAMA:
+M1. CONFIG tidak didefinisikan ulang — sudah ada di index.html
+window.CONFIG = { DATA_MODE: ‘local’ }. Hanya tambahkan
+properti yang belum ada agar tidak overwrite app.js.
+M2. Calendar.getYear() dan Calendar.getMonth() ditambahkan
+agar patchCalendarRender di app.js bisa membaca state bulan.
+M3. Calendar.select() menyimpan state dan sync ke STATE global.
+M4. UI.renderCalendar() tidak lagi bind click langsung ke cell —
+app.js sudah pakai event delegation via #calendar-grid.
+Klik di sini hanya menjadi fallback lokal (tidak trigger Router).
+M5. Form.init() tidak lagi bind submit ke Reservation.create()
+langsung — consolidateFormSubmit di app.js akan override ini.
+Form.getValues() diekspos agar SafeReservation bisa ambil data.
+M6. Menu module mencari #menu-builder (bukan #menu-container)
+saat berada di konteks modal. patchMenuBuilderIds di app.js
+sudah membuat alias, jadi Menu.init() akan menemukan container.
+M7. Semua string literal menggunakan tanda kutip ASCII (tidak ada
+smart quotes / curly quotes).
+M8. Logger didefinisikan sebelum CONFIG agar tidak crash saat boot.
+M9. UI.renderReservationCard() diekspos agar VirtualList di app.js
+bisa memanggil fungsi ini per item.
+M10. Calendar.resetToToday() memperbarui STATE.selectedDate.
+M11. Filter.init() tidak bind submit form — hanya filter UI.
+M12. Backup dan Settings menggunakan KEYS yang didefinisikan di
+modul ini, bukan dari variabel luar yang belum tentu ada.
+============================================================ */
 
 /* ============================================================
-   1. GLOBAL CONFIG (FUTURE SAFE)
-   ============================================================ */
-
-const CONFIG = {
-
-  // Mode data source (future: firebase)
-  DATA_MODE: 'local', // 'local' | 'firebase'
-
-  // Reservation rules (bisa dipakai nanti)
-  MAX_CAPACITY_PER_SLOT: 20,
-
-  // Debug
-  DEBUG: true
-
-};
-
-
-/* ============================================================
-   2. GLOBAL STATE (LIGHTWEIGHT)
-   ============================================================ */
-
-const STATE = {
-
-  selectedDate: null,
-  selectedMonth: new Date().getMonth(),
-  selectedYear: new Date().getFullYear(),
-
-  reservationsCache: null // cache untuk performa
-
-};
-
-
-/* ============================================================
-   3. SAFE LOGGER (ANTI SPAM PRODUCTION)
-   ============================================================ */
+BAGIAN 1 — SAFE LOGGER
+Didefinisikan PERTAMA karena semua modul lain memakainya.
+============================================================ */
 
 const Logger = (() => {
 
-  function log(...args) {
-    if (!CONFIG.DEBUG) return;
-    console.log('[Proserva]', ...args);
-  }
+function log(…args) {
+if (typeof CONFIG !== ‘undefined’ && !CONFIG.DEBUG) return;
+console.log(’[Proserva]’, …args);
+}
 
-  function warn(...args) {
-    if (!CONFIG.DEBUG) return;
-    console.warn('[Proserva]', ...args);
-  }
+function warn(…args) {
+if (typeof CONFIG !== ‘undefined’ && !CONFIG.DEBUG) return;
+console.warn(’[Proserva]’, …args);
+}
 
-  function error(...args) {
-    console.error('[Proserva]', ...args);
-  }
+function error(…args) {
+console.error(’[Proserva]’, …args);
+}
 
-  return {
-    log,
-    warn,
-    error
-  };
+return { log, warn, error };
 
 })();
 
+/* ============================================================
+BAGIAN 2 — CONFIG
+M1: Tidak redeclare CONFIG (sudah ada di index.html sebagai
+window.CONFIG). Kita hanya tambahkan properti default yang
+belum ada agar tidak crash saat diakses modul lain.
+============================================================ */
+
+(function patchConfig() {
+if (typeof window.CONFIG === ‘undefined’) {
+window.CONFIG = {};
+}
+const defaults = {
+DATA_MODE: ‘local’,
+MAX_CAPACITY_PER_SLOT: 20,
+DEBUG: true,
+FEATURES: {}
+};
+Object.keys(defaults).forEach(function (k) {
+if (window.CONFIG[k] === undefined) {
+window.CONFIG[k] = defaults[k];
+}
+});
+})();
 
 /* ============================================================
-   4. UTILS (NO DEPENDENCY, PURE)
-   ============================================================ */
+BAGIAN 3 — GLOBAL STATE
+============================================================ */
+
+const STATE = {
+selectedDate: null,
+selectedMonth: new Date().getMonth(),
+selectedYear: new Date().getFullYear(),
+reservationsCache: null
+};
+
+/* ============================================================
+BAGIAN 4 — UTILS (PURE, NO DEPENDENCY)
+============================================================ */
 
 const Utils = (() => {
 
-  function generateId() {
-    return crypto.randomUUID();
-  }
+function generateId() {
+if (typeof crypto !== ‘undefined’ && crypto.randomUUID) {
+return crypto.randomUUID();
+}
+/* Fallback untuk browser lama */
+return ‘xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx’.replace(/[xy]/g, function (c) {
+const r = Math.random() * 16 | 0;
+const v = c === ‘x’ ? r : (r & 0x3 | 0x8);
+return v.toString(16);
+});
+}
 
-  function formatDate(year, month, day) {
-    const m = String(month + 1).padStart(2, '0');
-    const d = String(day).padStart(2, '0');
-    return `${year}-${m}-${d}`;
-  }
+/* M2: formatDate menerima month sebagai 0-based (sama seperti Date API) */
+function formatDate(year, month, day) {
+const m = String(month + 1).padStart(2, ‘0’);
+const d = String(day).padStart(2, ‘0’);
+return year + ‘-’ + m + ‘-’ + d;
+}
 
-  function today() {
-    const now = new Date();
-    return formatDate(now.getFullYear(), now.getMonth(), now.getDate());
-  }
+function today() {
+const now = new Date();
+return formatDate(now.getFullYear(), now.getMonth(), now.getDate());
+}
 
-  function clamp(num, min, max) {
-    return Math.min(Math.max(num, min), max);
-  }
+function clamp(num, min, max) {
+return Math.min(Math.max(num, min), max);
+}
 
-  function debounce(fn, delay = 300) {
-    let t;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn(...args), delay);
-    };
-  }
+function debounce(fn, delay) {
+delay = delay || 300;
+let t;
+return function () {
+const args = arguments;
+clearTimeout(t);
+t = setTimeout(function () { fn.apply(null, args); }, delay);
+};
+}
 
-  return {
-    generateId,
-    formatDate,
-    today,
-    clamp,
-    debounce
-  };
+return { generateId, formatDate, today, clamp, debounce };
 
 })();
 
-
 /* ============================================================
-   5. EVENT BUS (CRITICAL FOR SCALING UI)
-   ============================================================ */
+BAGIAN 5 — EVENT BUS
+Digunakan oleh DB dan Sync untuk broadcast perubahan data.
+app.js juga listen via Events.on() melalui Sync.subscribe().
+============================================================ */
 
 const Events = (() => {
 
-  const listeners = {};
+const listeners = {};
 
-  function on(event, callback) {
-    if (!listeners[event]) listeners[event] = [];
-    listeners[event].push(callback);
-  }
+function on(event, callback) {
+if (!listeners[event]) listeners[event] = [];
+/* Cegah duplikasi listener yang sama */
+if (listeners[event].indexOf(callback) === -1) {
+listeners[event].push(callback);
+}
+}
 
-  function off(event, callback) {
-    if (!listeners[event]) return;
-    listeners[event] = listeners[event].filter(cb => cb !== callback);
-  }
+function off(event, callback) {
+if (!listeners[event]) return;
+listeners[event] = listeners[event].filter(function (cb) {
+return cb !== callback;
+});
+}
 
-  function emit(event, data) {
-    if (!listeners[event]) return;
-    listeners[event].forEach(cb => cb(data));
-  }
+function emit(event, data) {
+if (!listeners[event]) return;
+listeners[event].forEach(function (cb) {
+try { cb(data); }
+catch (err) { Logger.error(’[Events] listener error:’, err); }
+});
+}
 
-  return {
-    on,
-    off,
-    emit
-  };
+return { on, off, emit };
 
 })();
 
-
 /* ============================================================
-   6. DOM HELPERS (SAFE QUERY)
-   ============================================================ */
+BAGIAN 6 — DOM HELPERS
+============================================================ */
 
 const DOM = (() => {
 
-  function get(selector) {
-    return document.querySelector(selector);
-  }
+function get(selector) {
+return document.querySelector(selector);
+}
 
-  function getAll(selector) {
-    return document.querySelectorAll(selector);
-  }
+function getAll(selector) {
+return document.querySelectorAll(selector);
+}
 
-  function html(el, content) {
-    if (!el) return;
-    el.innerHTML = content;
-  }
+function html(el, content) {
+if (!el) return;
+el.innerHTML = content;
+}
 
-  function show(el) {
-    if (!el) return;
-    el.classList.remove('hidden');
-  }
+function show(el) {
+if (!el) return;
+el.classList.remove(‘hidden’);
+}
 
-  function hide(el) {
-    if (!el) return;
-    el.classList.add('hidden');
-  }
+function hide(el) {
+if (!el) return;
+el.classList.add(‘hidden’);
+}
 
-  return {
-    get,
-    getAll,
-    html,
-    show,
-    hide
-  };
+return { get, getAll, html, show, hide };
 
 })();
 
-
 /* ============================================================
-   7. SAFE INIT GUARD
-   ============================================================ */
+BAGIAN 7 — SAFE INIT GUARD
+============================================================ */
 
-let __APP_INITIALIZED__ = false;
+let **APP_INITIALIZED** = false;
 
 function guardInit() {
-  if (__APP_INITIALIZED__) {
-    Logger.warn('App already initialized');
-    return false;
-  }
-  __APP_INITIALIZED__ = true;
-  return true;
+if (**APP_INITIALIZED**) {
+Logger.warn(‘App already initialized’);
+return false;
 }
-/* ============================================================
-   PROSERVA MODULES
-   PART 2/15
-   DATA LAYER (DB) — LOCAL + FIREBASE READY
-   ============================================================ */
+**APP_INITIALIZED** = true;
+return true;
+}
 
 /* ============================================================
-   1. STORAGE KEYS
-   ============================================================ */
+BAGIAN 8 — STORAGE KEYS
+Didefinisikan di sini agar Backup dan Settings bisa akses
+tanpa bergantung pada variabel dari file lain.
+============================================================ */
 
 const KEYS = {
-  reservations: 'psv_reservations_v1',
-  settings: 'psv_settings_v1'
+reservations: ‘psv_reservations_v1’,
+settings: ‘psv_settings_v1’
 };
 
-
 /* ============================================================
-   2. INTERNAL STORAGE (LOCAL)
-   ============================================================ */
+BAGIAN 9 — LOCAL DB
+============================================================ */
 
 const LocalDB = (() => {
 
-  function read(key) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : [];
-    } catch (err) {
-      Logger.error('LocalDB read error', err);
-      return [];
-    }
-  }
+function read(key) {
+try {
+const raw = localStorage.getItem(key);
+return raw ? JSON.parse(raw) : [];
+} catch (err) {
+Logger.error(‘LocalDB read error’, err);
+return [];
+}
+}
 
-  function write(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (err) {
-      Logger.error('LocalDB write error', err);
-    }
-  }
+function write(key, value) {
+try {
+localStorage.setItem(key, JSON.stringify(value));
+} catch (err) {
+Logger.error(‘LocalDB write error’, err);
+}
+}
 
-  return {
-    read,
-    write
-  };
+return { read, write };
 
 })();
 
-
 /* ============================================================
-   3. DB ADAPTER (ABSTRACTION LAYER)
-   ============================================================ */
+BAGIAN 10 — DB ADAPTER
+============================================================ */
 
 const DB = (() => {
 
-  /* =========================
-     CACHE SYSTEM
-     ========================= */
+function invalidateCache() {
+STATE.reservationsCache = null;
+}
 
-  function invalidateCache() {
-    STATE.reservationsCache = null;
-  }
+function setCache(data) {
+STATE.reservationsCache = data;
+}
 
-  function setCache(data) {
-    STATE.reservationsCache = data;
-  }
+function getCache() {
+return STATE.reservationsCache;
+}
 
-  function getCache() {
-    return STATE.reservationsCache;
-  }
+async function getAllReservations() {
+if (getCache()) return getCache();
 
-  /* =========================
-     CORE METHODS
-     ========================= */
+```
+let data;
+if (CONFIG.DATA_MODE === 'local') {
+  data = LocalDB.read(KEYS.reservations);
+} else {
+  data = []; /* placeholder firebase */
+}
 
-  async function getAllReservations() {
+/* Pastikan selalu array */
+if (!Array.isArray(data)) data = [];
 
-    // gunakan cache dulu
-    if (getCache()) {
-      return getCache();
-    }
+setCache(data);
+return data;
+```
 
-    let data;
+}
 
-    if (CONFIG.DATA_MODE === 'local') {
-      data = LocalDB.read(KEYS.reservations);
-    } else {
-      // 🔥 placeholder firebase
-      data = [];
-    }
+async function insertReservation(item) {
+const data = await getAllReservations();
+data.push(item);
 
-    setCache(data);
-    return data;
-  }
+```
+if (CONFIG.DATA_MODE === 'local') {
+  LocalDB.write(KEYS.reservations, data);
+}
 
+invalidateCache();
+Events.emit('reservation:changed');
+return item;
+```
 
-  async function insertReservation(item) {
+}
 
-    let data = await getAllReservations();
+async function updateReservation(id, patch) {
+const data = await getAllReservations();
+const idx = data.findIndex(function (r) { return r.id === id; });
+if (idx === -1) return null;
 
-    data.push(item);
+```
+data[idx] = Object.assign({}, data[idx], patch);
 
-    if (CONFIG.DATA_MODE === 'local') {
-      LocalDB.write(KEYS.reservations, data);
-    } else {
-      // firebase nanti
-    }
+if (CONFIG.DATA_MODE === 'local') {
+  LocalDB.write(KEYS.reservations, data);
+}
 
-    invalidateCache();
+invalidateCache();
+Events.emit('reservation:changed');
+return data[idx];
+```
 
-    Events.emit('reservation:changed');
+}
 
-    return item;
-  }
+async function deleteReservation(id) {
+let data = await getAllReservations();
+data = data.filter(function (r) { return r.id !== id; });
 
+```
+if (CONFIG.DATA_MODE === 'local') {
+  LocalDB.write(KEYS.reservations, data);
+}
 
-  async function updateReservation(id, patch) {
+invalidateCache();
+Events.emit('reservation:changed');
+```
 
-    let data = await getAllReservations();
+}
 
-    const idx = data.findIndex(r => r.id === id);
-    if (idx === -1) return null;
+async function getByDate(date) {
+const data = await getAllReservations();
+return data.filter(function (r) { return r.date === date; });
+}
 
-    data[idx] = { ...data[idx], ...patch };
+async function getByStatus(status) {
+const data = await getAllReservations();
+return data.filter(function (r) { return r.status === status; });
+}
 
-    if (CONFIG.DATA_MODE === 'local') {
-      LocalDB.write(KEYS.reservations, data);
-    } else {
-      // firebase nanti
-    }
-
-    invalidateCache();
-
-    Events.emit('reservation:changed');
-
-    return data[idx];
-  }
-
-
-  async function deleteReservation(id) {
-
-    let data = await getAllReservations();
-
-    data = data.filter(r => r.id !== id);
-
-    if (CONFIG.DATA_MODE === 'local') {
-      LocalDB.write(KEYS.reservations, data);
-    } else {
-      // firebase nanti
-    }
-
-    invalidateCache();
-
-    Events.emit('reservation:changed');
-  }
-
-
-  /* =========================
-     FILTER HELPERS
-     ========================= */
-
-  async function getByDate(date) {
-    const data = await getAllReservations();
-    return data.filter(r => r.date === date);
-  }
-
-
-  async function getByStatus(status) {
-    const data = await getAllReservations();
-    return data.filter(r => r.status === status);
-  }
-
-
-  return {
-    getAllReservations,
-    insertReservation,
-    updateReservation,
-    deleteReservation,
-    getByDate,
-    getByStatus
-  };
+return {
+getAllReservations,
+insertReservation,
+updateReservation,
+deleteReservation,
+getByDate,
+getByStatus
+};
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 3/15 (FIXED)
-   RESERVATION MODULE (BUSINESS LOGIC CORE)
-   ============================================================ */
+BAGIAN 11 — RESERVATION MODULE
+============================================================ */
 
 const Reservation = (() => {
 
-  /* ============================================================
-     1. CONSTANTS
-     ============================================================ */
+const STATUS = {
+PENDING:   ‘pending’,
+CONFIRMED: ‘confirmed’,
+ONGOING:   ‘ongoing’,
+COMPLETED: ‘completed’,
+CANCELLED: ‘cancelled’
+};
 
-  const STATUS = {
-    PENDING: 'pending',
-    CONFIRMED: 'confirmed',
-    ONGOING: 'ongoing',
-    COMPLETED: 'completed',
-    CANCELLED: 'cancelled'
-  };
+function validate(payload) {
+if (!payload.name || String(payload.name).trim().length < 2) {
+throw new Error(‘Nama minimal 2 karakter’);
+}
+if (!payload.date) {
+throw new Error(‘Tanggal wajib diisi’);
+}
+if (!payload.time) {
+throw new Error(‘Waktu wajib diisi’);
+}
+if (!payload.guests || Number(payload.guests) < 1) {
+throw new Error(‘Jumlah tamu tidak valid’);
+}
+return true;
+}
 
+function normalize(payload) {
+return {
+id:        Utils.generateId(),
+name:      String(payload.name || ‘’).trim(),
+phone:     String(payload.phone || ‘’),
+note:      String(payload.note || ‘’),
+date:      payload.date,
+time:      payload.time,
+guests:    Number(payload.guests) || 1,
+table:     payload.table || null,
+status:    STATUS.PENDING,
+menus:     Array.isArray(payload.menus) ? payload.menus : [],
+reminderSent: false,
+createdAt: Date.now(),
+updatedAt: Date.now()
+};
+}
 
-  /* ============================================================
-     2. VALIDATION
-     ============================================================ */
+async function checkCapacity(date, guests) {
+const list = await DB.getByDate(date);
+const totalGuests = list.reduce(function (sum, r) {
+if (r.status === STATUS.CANCELLED) return sum;
+return sum + (r.guests || 0);
+}, 0);
 
-  function validate(payload) {
+```
+const max = CONFIG.MAX_CAPACITY_PER_SLOT || 20;
+if ((totalGuests + guests) > max) {
+  throw new Error('Kapasitas penuh untuk tanggal tersebut');
+}
+return true;
+```
 
-    if (!payload.name || payload.name.trim().length < 2) {
-      throw new Error('Nama minimal 2 karakter');
-    }
+}
 
-    if (!payload.date) {
-      throw new Error('Tanggal wajib diisi');
-    }
+async function create(payload) {
+validate(payload);
+await checkCapacity(payload.date, Number(payload.guests));
+const data = normalize(payload);
+return DB.insertReservation(data);
+}
 
-    if (!payload.time) {
-      throw new Error('Waktu wajib diisi');
-    }
+async function update(id, patch) {
+patch.updatedAt = Date.now();
+return DB.updateReservation(id, patch);
+}
 
-    if (!payload.guests || payload.guests < 1) {
-      throw new Error('Jumlah tamu tidak valid');
-    }
+async function remove(id) {
+return DB.deleteReservation(id);
+}
 
-    return true;
-  }
+function getNextStatus(current) {
+switch (current) {
+case STATUS.PENDING:   return STATUS.CONFIRMED;
+case STATUS.CONFIRMED: return STATUS.ONGOING;
+case STATUS.ONGOING:   return STATUS.COMPLETED;
+default:               return current;
+}
+}
 
+async function advanceStatus(id) {
+const list = await DB.getAllReservations();
+const item = list.find(function (r) { return r.id === id; });
+if (!item) return null;
+return update(id, { status: getNextStatus(item.status) });
+}
 
-  /* ============================================================
-     3. NORMALIZATION
-     ============================================================ */
+async function cancel(id) {
+return update(id, { status: STATUS.CANCELLED });
+}
 
-  function normalize(payload) {
-    return {
-      id: Utils.generateId(), // ✅ FIXED (sebelumnya Utils.uuid)
+async function getAll() {
+return DB.getAllReservations();
+}
 
-      name: payload.name.trim(),
-      phone: payload.phone || '',
-      note: payload.note || '',
+async function getByDate(date) {
+return DB.getByDate(date);
+}
 
-      date: payload.date,
-      time: payload.time,
-
-      guests: Number(payload.guests) || 1,
-
-      table: payload.table || null,
-
-      status: STATUS.PENDING,
-
-      menus: payload.menus || [],
-
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-  }
-
-
-  /* ============================================================
-     4. CAPACITY GUARD (ANTI OVERBOOKING)
-     ============================================================ */
-
-  async function checkCapacity(date, guests) {
-
-    const list = await DB.getByDate(date);
-
-    const totalGuests = list.reduce((sum, r) => {
-      if (r.status === STATUS.CANCELLED) return sum;
-      return sum + (r.guests || 0);
-    }, 0);
-
-    const max = CONFIG.MAX_CAPACITY_PER_SLOT; // ✅ FIXED
-
-    if ((totalGuests + guests) > max) {
-      throw new Error('Kapasitas penuh');
-    }
-
-    return true;
-  }
-
-
-  /* ============================================================
-     5. CREATE RESERVATION
-     ============================================================ */
-
-  async function create(payload) {
-
-    validate(payload);
-
-    await checkCapacity(payload.date, payload.guests);
-
-    const data = normalize(payload);
-
-    return DB.insertReservation(data);
-  }
-
-
-  /* ============================================================
-     6. UPDATE RESERVATION
-     ============================================================ */
-
-  async function update(id, patch) {
-
-    patch.updatedAt = Date.now();
-
-    return DB.updateReservation(id, patch);
-  }
-
-
-  /* ============================================================
-     7. DELETE
-     ============================================================ */
-
-  async function remove(id) {
-    return DB.deleteReservation(id);
-  }
-
-
-  /* ============================================================
-     8. STATUS FLOW (CONTROLLED)
-     ============================================================ */
-
-  function getNextStatus(current) {
-
-    switch (current) {
-      case STATUS.PENDING:
-        return STATUS.CONFIRMED;
-
-      case STATUS.CONFIRMED:
-        return STATUS.ONGOING;
-
-      case STATUS.ONGOING:
-        return STATUS.COMPLETED;
-
-      default:
-        return current;
-    }
-  }
-
-
-  async function advanceStatus(id) {
-
-    const list = await DB.getAllReservations();
-    const item = list.find(r => r.id === id);
-
-    if (!item) return null;
-
-    const next = getNextStatus(item.status);
-
-    return update(id, { status: next });
-  }
-
-
-  async function cancel(id) {
-    return update(id, { status: STATUS.CANCELLED });
-  }
-
-
-  /* ============================================================
-     9. HELPERS
-     ============================================================ */
-
-  async function getAll() {
-    return DB.getAllReservations();
-  }
-
-  async function getByDate(date) {
-    return DB.getByDate(date);
-  }
-
-
-  return {
-    STATUS,
-    create,
-    update,
-    remove,
-    advanceStatus,
-    cancel,
-    getAll,
-    getByDate
-  };
+return {
+STATUS,
+create,
+update,
+remove,
+advanceStatus,
+cancel,
+getAll,
+getByDate
+};
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 4/15 (FIXED)
-   CALENDAR MODULE (ENGINE + DATA MAPPING)
-   ============================================================ */
+BAGIAN 12 — CALENDAR MODULE
+M2: Tambahkan getYear() dan getMonth() agar patchCalendarRender
+di app.js bisa membaca tahun & bulan yang sedang ditampilkan.
+M3: select() sync ke STATE global.
+M10: resetToToday() update STATE.selectedDate.
+============================================================ */
 
 const Calendar = (() => {
 
-  /* ============================================================
-     1. STATE
-     ============================================================ */
+/* State internal — bulan yang sedang DITAMPILKAN di grid */
+let _current = new Date();
+let _selectedDate = null;
 
-  let current = new Date(); // bulan aktif
-  let selectedDate = null;
+/* –– helpers –– */
 
+function _fmt(date) {
+/* Format ke YYYY-MM-DD tanpa timezone shift */
+const y = date.getFullYear();
+const m = String(date.getMonth() + 1).padStart(2, ‘0’);
+const d = String(date.getDate()).padStart(2, ‘0’);
+return y + ‘-’ + m + ‘-’ + d;
+}
 
-  /* ============================================================
-     2. DATE HELPERS
-     ============================================================ */
+function _isToday(date) {
+return _fmt(new Date()) === _fmt(date);
+}
 
-  function formatDate(date) {
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+/* –– grid generator –– */
+
+function _generateGrid(baseDate) {
+const year     = baseDate.getFullYear();
+const month    = baseDate.getMonth();
+const firstDay = new Date(year, month, 1).getDay(); /* 0=Minggu */
+const daysInMonth = new Date(year, month + 1, 0).getDate();
+const grid = [];
+
+```
+for (let i = 0; i < 42; i++) {
+  const dayIndex = i - firstDay + 1;
+
+  if (dayIndex < 1 || dayIndex > daysInMonth) {
+    grid.push({ empty: true });
+    continue;
   }
 
-  function isToday(date) {
-    const today = new Date();
-    return formatDate(today) === formatDate(date);
-  }
+  const date    = new Date(year, month, dayIndex);
+  const dateStr = _fmt(date);
 
-  function clone(date) {
-    return new Date(date.getTime());
-  }
+  grid.push({
+    date:     date,
+    dateStr:  dateStr,
+    day:      dayIndex,
+    today:    _isToday(date),
+    selected: _selectedDate === dateStr,
+    empty:    false
+  });
+}
 
+return grid;
+```
 
-  /* ============================================================
-     3. GENERATE GRID (42 CELLS SAFE)
-     ============================================================ */
+}
 
-  function generateGrid(baseDate) {
+/* –– capacity classifier –– */
 
-    const year = baseDate.getFullYear();
-    const month = baseDate.getMonth();
+function _capacityLevel(totalGuests) {
+const max = CONFIG.MAX_CAPACITY_PER_SLOT || 20;
+if (totalGuests <= max * 0.4) return ‘low’;
+if (totalGuests <= max * 0.8) return ‘medium’;
+return ‘high’;
+}
 
-    const firstDay = new Date(year, month, 1);
-    const startDay = firstDay.getDay(); // 0 = Minggu
+/* –– attach reservation data –– */
 
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+async function _attachReservations(grid) {
+const reservations = await Reservation.getAll();
+const map = {};
 
-    const grid = [];
+```
+reservations.forEach(function (r) {
+  if (!map[r.date]) map[r.date] = [];
+  map[r.date].push(r);
+});
 
-    // selalu 42 cell (6 minggu)
-    for (let i = 0; i < 42; i++) {
+return grid.map(function (cell) {
+  if (cell.empty) return cell;
 
-      const dayIndex = i - startDay + 1;
+  const list = map[cell.dateStr] || [];
+  const activeList = list.filter(function (r) {
+    return r.status !== Reservation.STATUS.CANCELLED;
+  });
+  const totalGuests = activeList.reduce(function (sum, r) {
+    return sum + (r.guests || 0);
+  }, 0);
 
-      if (dayIndex < 1 || dayIndex > daysInMonth) {
-        grid.push({
-          empty: true
-        });
-        continue;
-      }
+  return Object.assign({}, cell, {
+    reservations: list,
+    total:        list.length,
+    guests:       totalGuests,
+    level:        _capacityLevel(totalGuests),
+    preview:      activeList.slice(0, 3).map(function (r) { return r.name; })
+  });
+});
+```
 
-      const date = new Date(year, month, dayIndex);
-      const dateStr = formatDate(date);
+}
 
-      grid.push({
-        date,
-        dateStr,
-        day: dayIndex,
-        today: isToday(date),
-        selected: selectedDate === dateStr,
-        empty: false
-      });
-    }
+/* –– public API –– */
 
-    return grid;
-  }
+async function getCalendar() {
+const grid     = _generateGrid(_current);
+const enriched = await _attachReservations(grid);
+return {
+month: _current.getMonth(),
+year:  _current.getFullYear(),
+grid:  enriched
+};
+}
 
+function nextMonth() {
+_current = new Date(_current.getFullYear(), _current.getMonth() + 1, 1);
+/* Sync ke STATE global */
+STATE.selectedMonth = _current.getMonth();
+STATE.selectedYear  = _current.getFullYear();
+}
 
-  /* ============================================================
-     4. CAPACITY CLASSIFIER
-     ============================================================ */
+function prevMonth() {
+_current = new Date(_current.getFullYear(), _current.getMonth() - 1, 1);
+STATE.selectedMonth = _current.getMonth();
+STATE.selectedYear  = _current.getFullYear();
+}
 
-  function getCapacityLevel(totalGuests) {
+/* M3: select() sync ke STATE */
+function select(dateStr) {
+_selectedDate          = dateStr;
+STATE.selectedDate     = dateStr;
+}
 
-    const max = CONFIG.MAX_CAPACITY_PER_SLOT; // ✅ FIXED
+function getSelected() {
+return _selectedDate;
+}
 
-    if (!max) return 'low';
+/* M2: Getter untuk tahun & bulan yang SEDANG DITAMPILKAN
+Dipanggil oleh patchCalendarRender di app.js */
+function getYear() {
+return _current.getFullYear();
+}
 
-    if (totalGuests <= max * 0.4) return 'low';
-    if (totalGuests <= max * 0.8) return 'medium';
-    return 'high';
-  }
+function getMonth() {
+return _current.getMonth(); /* 0-based, sama seperti Date API */
+}
 
+/* M10: resetToToday() update STATE */
+function resetToToday() {
+_current           = new Date();
+_selectedDate      = _fmt(_current);
+STATE.selectedDate = _selectedDate;
+STATE.selectedMonth = _current.getMonth();
+STATE.selectedYear  = _current.getFullYear();
+}
 
-  /* ============================================================
-     5. ATTACH RESERVATION DATA
-     ============================================================ */
-
-  async function attachReservations(grid) {
-
-    const reservations = await Reservation.getAll();
-
-    const map = {};
-
-    // group by date
-    reservations.forEach(r => {
-      if (!map[r.date]) map[r.date] = [];
-      map[r.date].push(r);
-    });
-
-    return grid.map(cell => {
-
-      if (cell.empty) return cell;
-
-      const list = map[cell.dateStr] || [];
-
-      const activeList = list.filter(
-        r => r.status !== Reservation.STATUS.CANCELLED
-      );
-
-      const totalGuests = activeList.reduce(
-        (sum, r) => sum + (r.guests || 0),
-        0
-      );
-
-      return {
-        ...cell,
-
-        reservations: list,
-        total: list.length,
-        guests: totalGuests,
-
-        level: getCapacityLevel(totalGuests),
-
-        preview: activeList.slice(0, 3).map(r => r.name)
-      };
-    });
-  }
-
-
-  /* ============================================================
-     6. PUBLIC API: GET CALENDAR DATA
-     ============================================================ */
-
-  async function getCalendar() {
-
-    const grid = generateGrid(current);
-    const enriched = await attachReservations(grid);
-
-    return {
-      month: current.getMonth(),
-      year: current.getFullYear(),
-      grid: enriched
-    };
-  }
-
-
-  /* ============================================================
-     7. NAVIGATION
-     ============================================================ */
-
-  function nextMonth() {
-    current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
-  }
-
-  function prevMonth() {
-    current = new Date(current.getFullYear(), current.getMonth() - 1, 1);
-  }
-
-
-  /* ============================================================
-     8. SELECTION
-     ============================================================ */
-
-  function select(dateStr) {
-    selectedDate = dateStr;
-  }
-
-  function getSelected() {
-    return selectedDate;
-  }
-
-
-  /* ============================================================
-     9. RESET
-     ============================================================ */
-
-  function resetToToday() {
-    current = new Date();
-    selectedDate = formatDate(current);
-  }
-
-
-  return {
-    getCalendar,
-    nextMonth,
-    prevMonth,
-    select,
-    getSelected,
-    resetToToday
-  };
+return {
+getCalendar,
+nextMonth,
+prevMonth,
+select,
+getSelected,
+getYear,
+getMonth,
+resetToToday
+};
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 5/15
-   UI CONTROLLER (RENDER + EVENT BRIDGE)
-   ============================================================ */
+BAGIAN 13 — UI CONTROLLER
+M4: renderCalendar() TIDAK lagi bind click langsung di tiap cell.
+app.js sudah pakai event delegation di #calendar-grid melalui
+bindCalendarClicks() + patchCalendarRender(). Klik di sini
+hanya untuk navigasi internal (update selected visual) tanpa
+memicu Router.go() — itu urusan app.js.
+M9: renderReservationCard() diekspos untuk VirtualList di app.js.
+============================================================ */
 
 const UI = (() => {
 
-  /* ============================================================
-     1. ELEMENT REFERENCES (CACHE)
-     ============================================================ */
+/* –– element cache –– */
+function _el(id) {
+return document.getElementById(id);
+}
 
-  const el = {
-    calendarGrid: document.getElementById('calendar-grid'),
-    monthLabel: document.getElementById('calendar-month'),
+/* –– month formatter –– */
+function _formatMonth(month, year) {
+const names = [
+‘Januari’, ‘Februari’, ‘Maret’, ‘April’, ‘Mei’, ‘Juni’,
+‘Juli’, ‘Agustus’, ‘September’, ‘Oktober’, ‘November’, ‘Desember’
+];
+return names[month] + ’ ’ + year;
+}
 
-    prevBtn: document.getElementById('btn-prev-month'),
-    nextBtn: document.getElementById('btn-next-month'),
+/* –– escapeHtml (fallback jika app.js belum load) –– */
+function _esc(str) {
+if (typeof escapeHtml === ‘function’) return escapeHtml(str);
+return String(str == null ? ‘’ : str)
+.replace(/&/g, ‘&’)
+.replace(/</g, ‘<’)
+.replace(/>/g, ‘>’)
+.replace(/”/g, ‘"’)
+.replace(/’/g, ‘'’);
+}
 
-    detailList: document.getElementById('reservation-list'),
+/* –– empty state helper –– */
+function empty(title, subtitle) {
+subtitle = subtitle || ‘’;
+return ‘<div class="empty-state"><strong>’ + _esc(title) + ‘</strong>’ +
+(subtitle ? ‘<span>’ + _esc(subtitle) + ‘</span>’ : ‘’) + ‘</div>’;
+}
 
-    emptyState: document.getElementById('empty-state')
-  };
+/* ============================================================
+RENDER CALENDAR
+M4: Tidak bind click ke tiap cell — app.js pakai delegation.
+Cell hanya diberi class dan konten visual.
+dataset.date di-set di sini juga sebagai fallback sebelum
+patchCalendarRender di app.js berjalan.
+============================================================ */
 
+async function renderCalendar() {
+const monthLabel = _el(‘calendar-month’);
+const grid       = _el(‘calendar-grid’);
+if (!grid) return;
 
-  /* ============================================================
-     2. FORMATTER
-     ============================================================ */
+```
+const data = await Calendar.getCalendar();
 
-  function formatMonth(month, year) {
-    const names = [
-      'Januari','Februari','Maret','April','Mei','Juni',
-      'Juli','Agustus','September','Oktober','November','Desember'
-    ];
-    return `${names[month]} ${year}`;
+if (monthLabel) {
+  monthLabel.textContent = _formatMonth(data.month, data.year);
+}
+
+grid.innerHTML = '';
+
+data.grid.forEach(function (day) {
+  const div = document.createElement('div');
+  div.className = 'cal-day';
+
+  if (day.empty) {
+    div.classList.add('empty');
+    grid.appendChild(div);
+    return;
   }
 
+  /* State classes */
+  if (day.today)    div.classList.add('today');
+  if (day.selected) div.classList.add('selected');
+  if (day.level)    div.classList.add(day.level);
 
-  /* ============================================================
-     3. RENDER CALENDAR
-     ============================================================ */
+  /* M4: Set dataset.date untuk event delegation di app.js */
+  div.dataset.date = day.dateStr;
 
-  async function renderCalendar() {
+  /* Konten */
+  div.innerHTML =
+    '<div class="cal-day-num">' + day.day + '</div>' +
+    (day.total > 0
+      ? '<div class="cal-res-pill">' + day.total + ' reservasi</div>'
+      : '') +
+    '<div class="cal-mini-names">' +
+      (day.preview || []).map(function (n) {
+        return '<div class="cal-mini-name">' + _esc(n) + '</div>';
+      }).join('') +
+    '</div>';
 
-    const data = await Calendar.getCalendar();
+  grid.appendChild(div);
+});
 
-    // update title
-    el.monthLabel.textContent = formatMonth(data.month, data.year);
+Logger.log('[UI] calendar rendered', data.month + 1 + '/' + data.year);
+```
 
-    // clear grid
-    el.calendarGrid.innerHTML = '';
+}
 
-    data.grid.forEach(day => {
+/* ============================================================
+RENDER RESERVATION CARD
+M9: Diekspos sebagai UI.renderReservationCard() agar VirtualList
+di app.js bisa memanggil fungsi ini per item.
+Mengembalikan elemen DOM (bukan string HTML).
+============================================================ */
 
-      const div = document.createElement('div');
+function renderReservationCard(item) {
+const card = document.createElement(‘div’);
+card.className = ‘res-card’;
+card.dataset.id     = item.id;
+card.dataset.status = item.status;
 
-      div.className = 'cal-day';
+```
+const initials = item.name ? item.name.charAt(0).toUpperCase() : '?';
 
-      if (day.empty) {
-        div.classList.add('empty');
-        el.calendarGrid.appendChild(div);
-        return;
-      }
+card.innerHTML =
+  '<div class="rc-top">' +
+    '<div class="rc-name">' +
+      '<div class="rc-avatar">' + _esc(initials) + '</div>' +
+      _esc(item.name || '-') +
+    '</div>' +
+    '<div class="rc-badges">' +
+      '<div class="status status-' + _esc(item.status || 'pending') + '">' +
+        _esc(item.status || 'pending') +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="rc-info">' +
+    '<div>\u23F0 ' + _esc(item.time || '-') + '</div>' +
+    '<div>\uD83D\uDC65 ' + (item.guests || 0) + ' orang</div>' +
+    (item.phone ? '<div>\uD83D\uDCF1 ' + _esc(item.phone) + '</div>' : '') +
+    (item.note  ? '<div>\uD83D\uDCDD ' + _esc(item.note)  + '</div>' : '') +
+  '</div>' +
+  '<div class="rc-footer">' +
+    '<button class="btn-primary" style="font-size:0.75rem;padding:5px 10px;" data-action="next">Lanjut</button>' +
+    '<button class="btn-danger"  style="font-size:0.75rem;padding:5px 10px;" data-action="cancel">Batalkan</button>' +
+    '<button class="btn-ghost"   style="font-size:0.75rem;padding:5px 10px;color:var(--danger);" data-action="delete">Hapus</button>' +
+    (item.phone
+      ? '<button class="btn-ghost" style="font-size:0.75rem;padding:5px 10px;" data-action="wa">WA</button>'
+      : '') +
+  '</div>';
 
-      // state
-      if (day.today) div.classList.add('today');
-      if (day.selected) div.classList.add('selected');
+return card;
+```
 
-      // capacity
-      if (day.level) div.classList.add(day.level);
+}
 
-      // click
-      div.addEventListener('click', () => {
-        Calendar.select(day.dateStr);
-        renderCalendar();
-        renderDetail(day.dateStr);
+/* ============================================================
+RENDER DETAIL LIST
+Dipanggil oleh DateController.select() via app.js.
+Jika list > 50 item, VirtualList di app.js akan override ini.
+============================================================ */
+
+async function renderDetail(dateStr) {
+const container = _el(‘reservation-list’);
+if (!container) return;
+
+```
+if (!dateStr) {
+  container.innerHTML = '';
+  return;
+}
+
+container.innerHTML = empty('Memuat...', '');
+
+try {
+  const list = await Reservation.getByDate(dateStr);
+
+  if (!list || !list.length) {
+    container.innerHTML = empty('Belum ada reservasi', 'Tidak ada reservasi untuk tanggal ini');
+    return;
+  }
+
+  container.innerHTML = '';
+
+  list.forEach(function (item) {
+    const card = renderReservationCard(item);
+
+    /* Bind action buttons — app.js bindDetailActions() juga
+       listen via delegation, tapi listener lokal ini sebagai
+       fallback jika view-detail dirender sebelum app.js siap. */
+    const nextBtn   = card.querySelector('[data-action="next"]');
+    const cancelBtn = card.querySelector('[data-action="cancel"]');
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', async function () {
+        try {
+          await Reservation.advanceStatus(item.id);
+          renderDetail(dateStr);
+          renderCalendar();
+        } catch (err) {
+          Logger.error('[UI] advanceStatus error', err);
+        }
       });
-
-      // content
-      div.innerHTML = `
-        <div class="cal-day-num">${day.day}</div>
-
-        ${day.total > 0 ? `
-          <div class="cal-res-pill">${day.total} reservasi</div>
-        ` : ''}
-
-        <div class="cal-mini-names">
-          ${day.preview.map(n => `<div class="cal-mini-name">${n}</div>`).join('')}
-        </div>
-      `;
-
-      el.calendarGrid.appendChild(div);
-    });
-  }
-
-
-  /* ============================================================
-     4. RENDER DETAIL LIST
-     ============================================================ */
-
-  async function renderDetail(dateStr) {
-
-    if (!dateStr) {
-      el.detailList.innerHTML = '';
-      return;
     }
 
-    const list = await Reservation.getByDate(dateStr);
-
-    if (!list.length) {
-      el.detailList.innerHTML = `
-        <div class="empty-state">Belum ada reservasi</div>
-      `;
-      return;
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', async function () {
+        try {
+          await Reservation.cancel(item.id);
+          renderDetail(dateStr);
+          renderCalendar();
+        } catch (err) {
+          Logger.error('[UI] cancel error', err);
+        }
+      });
     }
 
-    el.detailList.innerHTML = '';
+    container.appendChild(card);
+  });
 
-    list.forEach(item => {
+} catch (err) {
+  Logger.error('[UI] renderDetail error', err);
+  container.innerHTML = empty('Gagal memuat data');
+}
+```
 
-      const card = document.createElement('div');
-      card.className = 'res-card';
-      card.dataset.status = item.status;
+}
 
-      card.innerHTML = `
-        <div class="rc-top">
-          <div class="rc-name">
-            <div class="rc-avatar">${item.name.charAt(0).toUpperCase()}</div>
-            ${item.name}
-          </div>
+/* –– navigation binding –– */
 
-          <div class="rc-badges">
-            <div class="status status-${item.status}">${item.status}</div>
-          </div>
-        </div>
+function _bindNav() {
+const prevBtn = _el(‘btn-prev-month’);
+const nextBtn = _el(‘btn-next-month’);
 
-        <div class="rc-info">
-          <div>⏰ ${item.time}</div>
-          <div>👥 ${item.guests} orang</div>
-        </div>
-
-        <div class="rc-footer">
-          <button class="btn btn-sm btn-done" data-action="next">Next</button>
-          <button class="btn btn-sm btn-cancel" data-action="cancel">Cancel</button>
-        </div>
-      `;
-
-      // ACTIONS
-      card.querySelector('[data-action="next"]').addEventListener('click', async () => {
-        await Reservation.advanceStatus(item.id);
-        renderDetail(dateStr);
-        renderCalendar();
-      });
-
-      card.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-        await Reservation.cancel(item.id);
-        renderDetail(dateStr);
-        renderCalendar();
-      });
-
-      el.detailList.appendChild(card);
-    });
-  }
-
-
-  /* ============================================================
-     5. NAVIGATION EVENTS
-     ============================================================ */
-
-  function bindNav() {
-
-    el.prevBtn.addEventListener('click', () => {
-      Calendar.prevMonth();
-      renderCalendar();
-    });
-
-    el.nextBtn.addEventListener('click', () => {
-      Calendar.nextMonth();
-      renderCalendar();
-    });
-
-  }
-
-
-  /* ============================================================
-     6. INITIAL LOAD
-     ============================================================ */
-
-  async function init() {
-    Calendar.resetToToday();
-
+```
+if (prevBtn) {
+  prevBtn.addEventListener('click', async function () {
+    Calendar.prevMonth();
     await renderCalendar();
+  });
+}
 
-    const today = Calendar.getSelected();
-    await renderDetail(today);
+if (nextBtn) {
+  nextBtn.addEventListener('click', async function () {
+    Calendar.nextMonth();
+    await renderCalendar();
+  });
+}
+```
 
-    bindNav();
-  }
+}
 
+/* –– init –– */
 
-  return {
-    init,
-    renderCalendar,
-    renderDetail
-  };
+async function init() {
+Calendar.resetToToday();
+_bindNav();
+await renderCalendar();
+/* Jangan render detail saat init — app.js Router.go(‘calendar’)
+yang mengatur view aktif. renderDetail dipanggil saat user
+klik tanggal via DateController.select() di app.js. */
+Logger.log(’[UI] initialized’);
+}
+
+return {
+init,
+renderCalendar,
+renderDetail,
+renderReservationCard,
+empty
+};
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 6/15
-   MODAL + FORM CONTROLLER
-   ============================================================ */
+BAGIAN 14 — FORM MODULE
+M5: handleSubmit() TIDAK langsung create ke Reservation.
+consolidateFormSubmit() di app.js akan clone form dan
+mengganti handler ini dengan SafeReservation.create().
+Yang penting: getValues() dan close() tetap diekspos.
+============================================================ */
 
 const Form = (() => {
 
-  /* ============================================================
-     1. ELEMENT REFERENCES
-     ============================================================ */
+function _el(id) { return document.getElementById(id); }
 
-  const el = {
-    modal: document.getElementById('reservation-modal'),
-    openBtn: document.getElementById('btn-open-modal'),
-    closeBtn: document.getElementById('modal-close'),
+/* –– modal control –– */
 
-    form: document.getElementById('reservation-form'),
+function open() {
+const modal = _el(‘reservation-modal’);
+if (modal) modal.classList.add(‘open’);
+document.body.classList.add(‘lock-scroll’);
+}
 
-    name: document.getElementById('input-name'),
-    phone: document.getElementById('input-phone'),
-    date: document.getElementById('input-date'),
-    time: document.getElementById('input-time'),
-    guests: document.getElementById('input-guests'),
-    note: document.getElementById('input-note'),
+function close() {
+const modal = _el(‘reservation-modal’);
+if (modal) modal.classList.remove(‘open’);
+document.body.classList.remove(‘lock-scroll’);
+resetForm();
+}
 
-    submit: document.getElementById('btn-submit')
-  };
+/* –– form utilities –– */
 
+function getValues() {
+return {
+name:   (_el(‘input-name’)   ? _el(‘input-name’).value   : ‘’).trim(),
+phone:  (_el(‘input-phone’)  ? _el(‘input-phone’).value  : ‘’).trim(),
+date:    _el(‘input-date’)   ? _el(‘input-date’).value   : ‘’,
+time:    _el(‘input-time’)   ? _el(‘input-time’).value   : ‘’,
+guests:  Number(_el(‘input-guests’) ? _el(‘input-guests’).value : 0),
+note:   (_el(‘input-note’)   ? _el(‘input-note’).value   : ‘’).trim(),
+menus:   (typeof Menu !== ‘undefined’ && Menu.getData) ? Menu.getData() : []
+};
+}
 
-  /* ============================================================
-     2. MODAL CONTROL
-     ============================================================ */
+function resetForm() {
+const form = _el(‘reservation-form’);
+if (form) {
+form.reset();
+form.dataset.editingId = ‘’;
+}
+clearErrors();
+/* Reset menu builder juga */
+if (typeof Menu !== ‘undefined’ && Menu.reset) {
+Menu.reset();
+}
+}
 
-  function open() {
-    el.modal.classList.add('open');
-    document.body.classList.add('lock-scroll');
-  }
+/* –– error UI –– */
 
-  function close() {
-    el.modal.classList.remove('open');
-    document.body.classList.remove('lock-scroll');
-    resetForm();
-  }
+function showError(inputEl, message) {
+if (!inputEl) return;
+inputEl.classList.add(‘error’);
+let err = inputEl.parentElement
+? inputEl.parentElement.querySelector(’.form-error’)
+: null;
+if (!err) {
+err = document.createElement(‘div’);
+err.className = ‘form-error’;
+if (inputEl.parentElement) inputEl.parentElement.appendChild(err);
+}
+err.textContent = message;
+err.classList.add(‘show’);
+}
 
+function clearErrors() {
+const form = _el(‘reservation-form’);
+if (!form) return;
+form.querySelectorAll(’.input’).forEach(function (i) {
+i.classList.remove(‘error’);
+});
+form.querySelectorAll(’.form-error’).forEach(function (e) {
+e.classList.remove(‘show’);
+});
+}
 
-  /* ============================================================
-     3. FORM UTILITIES
-     ============================================================ */
+/* –– validation (UI level) –– */
 
-  function getValues() {
-    return {
-      name: el.name.value,
-      phone: el.phone.value,
-      date: el.date.value,
-      time: el.time.value,
-      guests: Number(el.guests.value),
-      note: el.note.value
-    };
-  }
+function validateUI(values) {
+clearErrors();
+let valid = true;
 
-  function resetForm() {
-    el.form.reset();
-    clearErrors();
-  }
+```
+if (!values.name || values.name.length < 2) {
+  showError(_el('input-name'), 'Nama minimal 2 karakter');
+  valid = false;
+}
+if (!values.date) {
+  showError(_el('input-date'), 'Tanggal wajib diisi');
+  valid = false;
+}
+if (!values.time) {
+  showError(_el('input-time'), 'Waktu wajib diisi');
+  valid = false;
+}
+if (!values.guests || values.guests < 1) {
+  showError(_el('input-guests'), 'Jumlah tamu tidak valid');
+  valid = false;
+}
 
+return valid;
+```
 
-  /* ============================================================
-     4. ERROR HANDLING (UI ONLY)
-     ============================================================ */
+}
 
-  function showError(input, message) {
-    input.classList.add('error');
+/* –– submit handler (AKAN DI-OVERRIDE oleh app.js) ––
+M5: Handler ini hanya placeholder. consolidateFormSubmit()
+di app.js akan clone form dan memasang SafeReservation.create()
+sebagai handler tunggal. Jika app.js belum aktif, handler ini
+tetap bisa create langsung ke Reservation (fallback). */
 
-    let err = input.parentElement.querySelector('.form-error');
+async function _handleSubmit(e) {
+e.preventDefault();
 
-    if (!err) {
-      err = document.createElement('div');
-      err.className = 'form-error';
-      input.parentElement.appendChild(err);
+```
+const values = getValues();
+if (!validateUI(values)) return;
+
+const submitBtn = _el('btn-submit');
+
+try {
+  if (submitBtn) submitBtn.classList.add('btn-loading');
+
+  /* Gunakan SafeReservation jika tersedia (app.js sudah load) */
+  if (typeof SafeReservation !== 'undefined') {
+    const form = _el('reservation-form');
+    const editingId = form ? (form.dataset.editingId || '') : '';
+    if (editingId) {
+      await SafeReservation.update(editingId, values);
+    } else {
+      await SafeReservation.create(values);
     }
-
-    err.textContent = message;
-    err.classList.add('show');
-  }
-
-  function clearErrors() {
-    el.form.querySelectorAll('.input').forEach(i => {
-      i.classList.remove('error');
-    });
-
-    el.form.querySelectorAll('.form-error').forEach(e => {
-      e.classList.remove('show');
-    });
-  }
-
-
-  /* ============================================================
-     5. VALIDATION (UI LEVEL)
-     ============================================================ */
-
-  function validate(values) {
-
-    clearErrors();
-
-    let valid = true;
-
-    if (!values.name || values.name.length < 2) {
-      showError(el.name, 'Nama minimal 2 karakter');
-      valid = false;
-    }
-
-    if (!values.date) {
-      showError(el.date, 'Tanggal wajib diisi');
-      valid = false;
-    }
-
-    if (!values.time) {
-      showError(el.time, 'Waktu wajib diisi');
-      valid = false;
-    }
-
-    if (!values.guests || values.guests < 1) {
-      showError(el.guests, 'Jumlah tamu tidak valid');
-      valid = false;
-    }
-
-    return valid;
-  }
-
-
-  /* ============================================================
-     6. SUBMIT HANDLER
-     ============================================================ */
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-
-    const values = getValues();
-
-    if (!validate(values)) return;
-
-    try {
-
-      el.submit.classList.add('btn-loading');
-
-      await Reservation.create(values);
-
-      close();
-
-      // refresh UI
-      UI.renderCalendar();
-
-      const selected = Calendar.getSelected();
-      if (selected) UI.renderDetail(selected);
-
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      el.submit.classList.remove('btn-loading');
+  } else {
+    /* Fallback langsung */
+    await Reservation.create(values);
+    if (typeof Events !== 'undefined') {
+      Events.emit('reservation:changed');
     }
   }
 
+  close();
 
-  /* ============================================================
-     7. EVENT BINDING
-     ============================================================ */
-
-  function bind() {
-
-    // open modal
-    el.openBtn.addEventListener('click', open);
-
-    // close modal
-    el.closeBtn.addEventListener('click', close);
-
-    // click outside
-    el.modal.addEventListener('click', (e) => {
-      if (e.target === el.modal) close();
-    });
-
-    // submit
-    el.form.addEventListener('submit', handleSubmit);
+} catch (err) {
+  Logger.error('[Form] submit error', err);
+  /* Jangan pakai alert — Notify sudah di-setup di index.html */
+  if (typeof Notify !== 'undefined' && Notify.error) {
+    Notify.error(err.message || 'Gagal menyimpan reservasi');
   }
+} finally {
+  if (submitBtn) submitBtn.classList.remove('btn-loading');
+}
+```
 
+}
 
-  /* ============================================================
-     8. INIT
-     ============================================================ */
+/* –– bind: hanya open/close modal, bukan submit ––
+M5: Submit tidak di-bind di sini karena akan di-override app.js.
+Kita bind submit juga sebagai fallback, tapi app.js nanti
+clone form dan menghapus binding ini. */
 
-  function init() {
-    bind();
-  }
+function _bind() {
+const openBtn  = _el(‘btn-open-modal’);
+const closeBtn = _el(‘modal-close’);
+const modal    = _el(‘reservation-modal’);
+const form     = _el(‘reservation-form’);
 
+```
+/* open */
+if (openBtn) {
+  openBtn.addEventListener('click', open);
+}
 
-  return {
-    init,
-    open,
-    close
-  };
+/* close buttons */
+if (closeBtn) {
+  closeBtn.addEventListener('click', close);
+}
+
+/* click outside modal */
+if (modal) {
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) close();
+  });
+}
+
+/* submit fallback — akan di-clone/replace oleh consolidateFormSubmit */
+if (form) {
+  form.addEventListener('submit', _handleSubmit);
+}
+```
+
+}
+
+function init() {
+_bind();
+Logger.log(’[Form] initialized’);
+}
+
+return {
+init,
+open,
+close,
+getValues,
+resetForm,
+clearErrors
+};
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 7/15 (FIXED)
-   MENU SYSTEM (DYNAMIC ORDER BUILDER)
-   ============================================================ */
+BAGIAN 15 — MENU SYSTEM
+M6: Menu.init() mencari container dengan ID yang benar.
+patchMenuBuilderIds di app.js mengubah #menu-builder
+menjadi #menu-container di dalam modal, sehingga
+document.getElementById(‘menu-container’) akan menemukan
+elemen yang tepat di saat init() dipanggil SETELAH patch.
+============================================================ */
 
 const Menu = (() => {
 
-  /* ============================================================
-     1. STATE
-     ============================================================ */
+let _items = [];
 
-  let items = [];
+/* Mock menu data — future: dari Firestore/API */
+const MENU_LIST = [
+{ id: ‘m1’, name: ‘Ayam Bakar’,  price: 25000 },
+{ id: ‘m2’, name: ‘Nasi Goreng’, price: 20000 },
+{ id: ‘m3’, name: ‘Mie Goreng’,  price: 18000 },
+{ id: ‘m4’, name: ‘Es Teh’,      price: 5000  },
+{ id: ‘m5’, name: ‘Jus Jeruk’,   price: 10000 }
+];
 
-  const el = {
-    container: document.getElementById('menu-container'),
-    addBtn: document.getElementById('btn-add-menu'),
-    total: document.getElementById('menu-total')
-  };
+function _formatRupiah(num) {
+return ’Rp ’ + (Number(num) || 0).toLocaleString(‘id-ID’);
+}
 
+function _getMenuById(id) {
+return MENU_LIST.find(function (m) { return m.id === id; }) || MENU_LIST[0];
+}
 
-  /* ============================================================
-     2. MOCK MENU DATA (FUTURE: FIREBASE)
-     ============================================================ */
+/* –– container resolver ––
+M6: Cari container dengan prioritas:
+1. #menu-container (sudah di-alias oleh patchMenuBuilderIds)
+2. #menu-builder (fallback jika patch belum jalan) */
+function _getContainer() {
+return document.getElementById(‘menu-container’) ||
+document.getElementById(‘menu-builder’);
+}
 
-  const MENU_LIST = [
-    { id: 'm1', name: 'Ayam Bakar', price: 25000 },
-    { id: 'm2', name: 'Nasi Goreng', price: 20000 },
-    { id: 'm3', name: 'Mie Goreng', price: 18000 },
-    { id: 'm4', name: 'Es Teh', price: 5000 },
-    { id: 'm5', name: 'Jus Jeruk', price: 10000 }
-  ];
+function _getAddBtn() {
+return document.getElementById(‘btn-add-menu’);
+}
 
+/* –– render –– */
 
-  /* ============================================================
-     3. UTIL
-     ============================================================ */
+function _render() {
+const container = _getContainer();
+if (!container) return;
 
-  function formatRupiah(num) {
-    return 'Rp ' + (Number(num) || 0).toLocaleString('id-ID');
-  }
+```
+container.innerHTML = '';
 
-  function getMenuById(id) {
-    return MENU_LIST.find(m => m.id === id) || MENU_LIST[0];
-  }
+if (!_items.length) {
+  container.innerHTML = '<div style="font-size:0.75rem;color:var(--ink-3);padding:6px 0;">Belum ada item menu. Klik tambah untuk menambahkan.</div>';
+}
 
+_items.forEach(function (item) {
+  const menu = _getMenuById(item.menuId);
+  const row  = document.createElement('div');
+  row.className = 'menu-row';
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;';
 
-  /* ============================================================
-     4. CREATE ROW
-     ============================================================ */
+  /* Buat select options */
+  const options = MENU_LIST.map(function (m) {
+    return '<option value="' + m.id + '"' + (m.id === item.menuId ? ' selected' : '') + '>' +
+      m.name + ' - ' + _formatRupiah(m.price) + '</option>';
+  }).join('');
 
-  function createRow(data = {}) {
+  row.innerHTML =
+    '<select class="input menu-select" style="flex:1;font-size:0.8rem;">' + options + '</select>' +
+    '<input type="number" class="input qty" value="' + item.qty + '" min="1" ' +
+      'style="width:60px;font-size:0.8rem;" />' +
+    '<div class="price" style="font-size:0.75rem;color:var(--ink-2);min-width:80px;text-align:right;">' +
+      _formatRupiah(menu.price * item.qty) +
+    '</div>' +
+    '<button type="button" class="btn-icon remove" style="color:var(--danger);">' +
+      '<i class="fas fa-times"></i>' +
+    '</button>';
 
-    const row = {
-      id: Utils.generateId(), // ✅ FIXED
-      menuId: data.menuId || MENU_LIST[0].id,
-      qty: Number(data.qty) > 0 ? Number(data.qty) : 1
-    };
+  /* Events */
+  row.querySelector('.menu-select').addEventListener('change', function (e) {
+    item.menuId = e.target.value;
+    _render();
+  });
 
-    items.push(row);
+  row.querySelector('.qty').addEventListener('input', function (e) {
+    const qty = parseInt(e.target.value, 10);
+    item.qty = qty > 0 ? qty : 1;
+    _render();
+  });
 
-    render();
-  }
+  row.querySelector('.remove').addEventListener('click', function () {
+    _items = _items.filter(function (i) { return i.id !== item.id; });
+    _render();
+  });
 
+  container.appendChild(row);
+});
 
-  /* ============================================================
-     5. REMOVE ROW
-     ============================================================ */
+/* Total */
+const total = _items.reduce(function (sum, i) {
+  const m = _getMenuById(i.menuId);
+  return sum + (m.price * i.qty);
+}, 0);
 
-  function removeRow(id) {
-    items = items.filter(i => i.id !== id);
-    render();
-  }
+const totalEl = document.getElementById('menu-total');
+if (totalEl) totalEl.textContent = _formatRupiah(total);
+```
 
+}
 
-  /* ============================================================
-     6. UPDATE ROW
-     ============================================================ */
+/* –– public API –– */
 
-  function updateRow(id, patch) {
+function addItem(data) {
+data = data || {};
+_items.push({
+id:     Utils.generateId(),
+menuId: data.menuId || MENU_LIST[0].id,
+qty:    Number(data.qty) > 0 ? Number(data.qty) : 1
+});
+_render();
+}
 
-    const item = items.find(i => i.id === id);
-    if (!item) return;
+function reset() {
+_items = [];
+_render();
+}
 
-    if (patch.menuId !== undefined) {
-      item.menuId = patch.menuId;
-    }
+function getData() {
+return _items.map(function (i) {
+const menu = _getMenuById(i.menuId);
+return {
+menuId:   menu.id,
+name:     menu.name,
+price:    menu.price,
+qty:      i.qty,
+subtotal: menu.price * i.qty
+};
+});
+}
 
-    if (patch.qty !== undefined) {
-      const qty = Number(patch.qty);
-      item.qty = qty > 0 ? qty : 1; // prevent 0 / NaN
-    }
+function init() {
+/* M6: addBtn ditemukan setelah patchMenuBuilderIds di app.js
+membuat elemen #btn-add-menu di dalam container. */
+const addBtn = _getAddBtn();
+if (addBtn) {
+addBtn.addEventListener(‘click’, function () {
+addItem();
+});
+}
 
-    render();
-  }
+```
+/* Tidak tambah default item agar form tampil bersih */
+_render();
 
+Logger.log('[Menu] initialized, container:', _getContainer() ? _getContainer().id : 'NOT FOUND');
+```
 
-  /* ============================================================
-     7. CALCULATE TOTAL
-     ============================================================ */
+}
 
-  function calculateTotal() {
-
-    return items.reduce((sum, i) => {
-      const menu = getMenuById(i.menuId);
-      return sum + (menu.price * i.qty);
-    }, 0);
-  }
-
-
-  /* ============================================================
-     8. GET FINAL DATA (UNTUK RESERVATION)
-     ============================================================ */
-
-  function getData() {
-    return items.map(i => {
-      const menu = getMenuById(i.menuId);
-
-      return {
-        menuId: menu.id,
-        name: menu.name,
-        price: menu.price,
-        qty: i.qty,
-        subtotal: menu.price * i.qty
-      };
-    });
-  }
-
-
-  /* ============================================================
-     9. RENDER (SAFE)
-     ============================================================ */
-
-  function render() {
-
-    if (!el.container) return;
-
-    el.container.innerHTML = '';
-
-    items.forEach(item => {
-
-      const menu = getMenuById(item.menuId);
-
-      const row = document.createElement('div');
-      row.className = 'menu-row';
-
-      row.innerHTML = `
-        <select class="menu-select">
-          ${MENU_LIST.map(m => `
-            <option value="${m.id}" ${m.id === item.menuId ? 'selected' : ''}>
-              ${m.name}
-            </option>
-          `).join('')}
-        </select>
-
-        <input type="number" class="qty input" value="${item.qty}" min="1"/>
-
-        <div class="price">${formatRupiah(menu.price * item.qty)}</div>
-
-        <button class="remove">✕</button>
-      `;
-
-      // EVENTS
-      row.querySelector('.menu-select').addEventListener('change', (e) => {
-        updateRow(item.id, { menuId: e.target.value });
-      });
-
-      row.querySelector('.qty').addEventListener('input', (e) => {
-        updateRow(item.id, { qty: e.target.value });
-      });
-
-      row.querySelector('.remove').addEventListener('click', () => {
-        removeRow(item.id);
-      });
-
-      el.container.appendChild(row);
-    });
-
-    // update total
-    if (el.total) {
-      el.total.textContent = formatRupiah(calculateTotal());
-    }
-  }
-
-
-  /* ============================================================
-     10. RESET
-     ============================================================ */
-
-  function reset() {
-    items = [];
-    render();
-  }
-
-
-  /* ============================================================
-     11. INIT
-     ============================================================ */
-
-  function init() {
-
-    if (el.addBtn) {
-      el.addBtn.addEventListener('click', () => {
-        createRow();
-      });
-    }
-
-    // default 1 row
-    createRow();
-  }
-
-
-  return {
-    init,
-    reset,
-    getData
-  };
+return {
+init,
+reset,
+getData,
+addItem
+};
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 8/15 (FIXED)
-   SEARCH + FILTER ENGINE (STABLE + UI SAFE)
-   ============================================================ */
+BAGIAN 16 — FILTER ENGINE
+M11: Filter.init() hanya bind filter UI (search, status, date).
+Tidak bind form submit. Terintegrasi dengan EventBridge
+dari app.js melalui event ‘filter:changed’.
+============================================================ */
 
 const Filter = (() => {
 
-  /* ============================================================
-     1. STATE
-     ============================================================ */
+let _keyword = ‘’;
+let _status  = ‘all’;
+let _date    = null;
 
-  let keyword = '';
-  let status = 'all';
-  let date = null;
+function apply(list) {
+return list.filter(function (item) {
+if (_keyword) {
+const k = _keyword.toLowerCase();
+const match =
+(item.name  && item.name.toLowerCase().includes(k)) ||
+(item.phone && item.phone.includes(k));
+if (!match) return false;
+}
+if (_status !== ‘all’ && item.status !== _status) return false;
+if (_date && item.date !== _date) return false;
+return true;
+});
+}
 
+function setKeyword(val) { _keyword = String(val || ‘’).trim(); }
+function setStatus(val)  { _status  = val || ‘all’; }
+function setDate(val)    { _date    = val || null; }
 
-  /* ============================================================
-     2. ELEMENT REFERENCES
-     ============================================================ */
+function reset() {
+_keyword = ‘’;
+_status  = ‘all’;
+_date    = null;
+const searchEl = document.getElementById(‘detail-search’);
+const statusEl = document.getElementById(‘filter-status’);
+const dateEl   = document.getElementById(‘filter-date’);
+if (searchEl) searchEl.value = ‘’;
+if (statusEl) statusEl.value = ‘all’;
+if (dateEl)   dateEl.value   = ‘’;
+}
 
-  const el = {
-    search: document.getElementById('detail-search'),
-    status: document.getElementById('filter-status'),
-    date: document.getElementById('filter-date')
-  };
+async function trigger() {
+let list;
+if (_date) {
+list = await Reservation.getByDate(_date);
+} else {
+list = await Reservation.getAll();
+}
 
+```
+const filtered = apply(list);
+_render(filtered);
+```
 
-  /* ============================================================
-     3. APPLY FILTER (PURE FUNCTION)
-     ============================================================ */
+}
 
-  function apply(list) {
+function _render(list) {
+const container = document.getElementById(‘reservation-list’);
+if (!container) return;
 
-    return list.filter(item => {
+```
+if (!list || !list.length) {
+  container.innerHTML = UI.empty
+    ? UI.empty('Tidak ada hasil', 'Coba ubah kata kunci atau filter')
+    : '<div class="empty-state">Tidak ada hasil</div>';
+  return;
+}
 
-      // keyword (name / phone)
-      if (keyword) {
-        const k = keyword.toLowerCase();
-
-        const match =
-          (item.name && item.name.toLowerCase().includes(k)) ||
-          (item.phone && item.phone.includes(k));
-
-        if (!match) return false;
-      }
-
-      // status
-      if (status !== 'all' && item.status !== status) {
-        return false;
-      }
-
-      // date
-      if (date && item.date !== date) {
-        return false;
-      }
-
-      return true;
-    });
+container.innerHTML = '';
+list.forEach(function (item) {
+  /* Gunakan renderReservationCard dari UI jika tersedia */
+  if (UI && UI.renderReservationCard) {
+    container.appendChild(UI.renderReservationCard(item));
   }
-
-
-  /* ============================================================
-     4. SETTERS
-     ============================================================ */
-
-  function setKeyword(val) {
-    keyword = val.trim();
-  }
-
-  function setStatus(val) {
-    status = val;
-  }
-
-  function setDate(val) {
-    date = val;
-  }
-
-  function reset() {
-    keyword = '';
-    status = 'all';
-    date = null;
-
-    if (el.search) el.search.value = '';
-    if (el.status) el.status.value = 'all';
-    if (el.date) el.date.value = '';
-  }
-
-
-  /* ============================================================
-     5. SAFE RENDER (FIXED - NO MISSING FUNCTION)
-     ============================================================ */
-
-  function render(list) {
-
-    const container = document.getElementById('reservation-list');
-    if (!container) return;
-
-    if (!list.length) {
-      container.innerHTML = `
-        <div class="empty-state">Tidak ada hasil</div>
-      `;
-      return;
-    }
-
-    container.innerHTML = '';
-
-    list.forEach(item => {
-
-      const card = document.createElement('div');
-      card.className = 'res-card';
-      card.dataset.status = item.status;
-
-      card.innerHTML = `
-        <div class="rc-top">
-          <div class="rc-name">
-            <div class="rc-avatar">
-              ${item.name.charAt(0).toUpperCase()}
-            </div>
-            ${item.name}
-          </div>
-
-          <div class="rc-badges">
-            <div class="status status-${item.status}">
-              ${item.status}
-            </div>
-          </div>
-        </div>
-
-        <div class="rc-info">
-          <div>⏰ ${item.time}</div>
-          <div>👥 ${item.guests} orang</div>
-        </div>
-
-        <div class="rc-footer">
-          <button class="btn btn-sm btn-done" data-action="next">Next</button>
-          <button class="btn btn-sm btn-cancel" data-action="cancel">Cancel</button>
-        </div>
-      `;
-
-      // ACTIONS (SAME AS UI MODULE)
-      card.querySelector('[data-action="next"]').addEventListener('click', async () => {
-        await Reservation.advanceStatus(item.id);
-        trigger(); // refresh filter result
-        UI.renderCalendar();
-      });
-
-      card.querySelector('[data-action="cancel"]').addEventListener('click', async () => {
-        await Reservation.cancel(item.id);
-        trigger();
-        UI.renderCalendar();
-      });
-
-      container.appendChild(card);
-    });
-  }
-
-
-  /* ============================================================
-     6. TRIGGER UPDATE (SMART SOURCE)
-     ============================================================ */
-
-  async function trigger() {
-
-    let list;
-
-    if (date) {
-      list = await Reservation.getByDate(date);
-    } else {
-      list = await Reservation.getAll();
-    }
-
-    const filtered = apply(list);
-
-    render(filtered);
-  }
-
-
-  /* ============================================================
-     7. BIND EVENTS
-     ============================================================ */
-
-  function bind() {
-
-    if (el.search) {
-      el.search.addEventListener('input', Utils.debounce((e) => {
-        setKeyword(e.target.value);
-        trigger();
-      }, 250));
-    }
-
-    if (el.status) {
-      el.status.addEventListener('change', (e) => {
-        setStatus(e.target.value);
-        trigger();
-      });
-    }
-
-    if (el.date) {
-      el.date.addEventListener('change', (e) => {
-        setDate(e.target.value);
-        trigger();
-      });
-    }
-  }
-
-
-  /* ============================================================
-     8. INIT
-     ============================================================ */
-
-  function init() {
-    bind();
-  }
-
-
-  return {
-    init,
-    apply,
-    reset,
-    trigger // expose biar bisa dipanggil dari luar
-  };
-
-})();
-/* ============================================================
-   PROSERVA MODULES
-   PART 9/15
-   NOTIFICATION SYSTEM (TOAST + UX FEEDBACK)
-   ============================================================ */
-
-const Notify = (() => {
-
-  /* ============================================================
-     1. STATE
-     ============================================================ */
-
-  let container = null;
-
-
-  /* ============================================================
-     2. INIT CONTAINER
-     ============================================================ */
-
-  function initContainer() {
-
-    if (container) return;
-
-    container = document.createElement('div');
-    container.id = 'toast-container';
-
-    Object.assign(container.style, {
-      position: 'fixed',
-      top: '20px',
-      right: '20px',
-      zIndex: 9999,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px'
-    });
-
-    document.body.appendChild(container);
-  }
-
-
-  /* ============================================================
-     3. CREATE TOAST
-     ============================================================ */
-
-  function create(message, type = 'info', duration = 2500) {
-
-    initContainer();
-
-    const toast = document.createElement('div');
-
-    const colors = {
-      success: 'rgba(34,197,94,0.15)',
-      error: 'rgba(239,68,68,0.15)',
-      info: 'rgba(59,130,246,0.15)'
-    };
-
-    const textColors = {
-      success: '#22c55e',
-      error: '#ef4444',
-      info: '#3b82f6'
-    };
-
-    Object.assign(toast.style, {
-      background: colors[type] || colors.info,
-      color: textColors[type] || textColors.info,
-      padding: '10px 14px',
-      borderRadius: '12px',
-      fontSize: '0.8rem',
-      fontWeight: '500',
-      backdropFilter: 'blur(6px)',
-      transform: 'translateY(-10px)',
-      opacity: '0',
-      transition: 'all 0.2s ease'
-    });
-
-    toast.textContent = message;
-
-    container.appendChild(toast);
-
-    // animate in
-    requestAnimationFrame(() => {
-      toast.style.transform = 'translateY(0)';
-      toast.style.opacity = '1';
-    });
-
-    // auto remove
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(-10px)';
-
-      setTimeout(() => {
-        toast.remove();
-      }, 200);
-
-    }, duration);
-  }
-
-
-  /* ============================================================
-     4. SHORTCUTS
-     ============================================================ */
-
-  function success(msg) {
-    create(msg, 'success');
-  }
-
-  function error(msg) {
-    create(msg, 'error');
-  }
-
-  function info(msg) {
-    create(msg, 'info');
-  }
-
-
-  return {
-    success,
-    error,
-    info
-  };
+});
+```
+
+}
+
+function init() {
+/* M11: Hanya bind filter input — bukan form submit */
+const searchEl = document.getElementById(‘detail-search’);
+const statusEl = document.getElementById(‘filter-status’);
+const dateEl   = document.getElementById(‘filter-date’);
+
+```
+if (searchEl) {
+  searchEl.addEventListener('input', Utils.debounce(function (e) {
+    setKeyword(e.target.value);
+    trigger();
+  }, 250));
+}
+
+if (statusEl) {
+  statusEl.addEventListener('change', function (e) {
+    setStatus(e.target.value);
+    trigger();
+  });
+}
+
+if (dateEl) {
+  dateEl.addEventListener('change', function (e) {
+    setDate(e.target.value);
+    trigger();
+  });
+}
+
+/* Listen event dari EventBridge (app.js) */
+document.addEventListener('filter:changed', function (e) {
+  const payload = e.detail || {};
+  setKeyword(payload.keyword || '');
+  setStatus(payload.status  || 'all');
+  setDate(payload.date      || '');
+  trigger();
+});
+
+Logger.log('[Filter] initialized');
+```
+
+}
+
+return {
+init,
+apply,
+reset,
+trigger,
+setKeyword,
+setStatus,
+setDate
+};
 
 })();
 
 /* ============================================================
-   PROSERVA MODULES
-   PART 11/15 (FIXED)
-   ANALYTICS ENGINE (BUSINESS INSIGHT - STABLE)
-   ============================================================ */
+BAGIAN 17 — NOTIFY (TOAST)
+Kompatibel dengan window.Notify yang di-setup app.js.
+Jika app.js sudah mendefinisikan window.Notify, modul ini
+tidak akan overwrite (cek di akhir).
+============================================================ */
+
+const _NotifyLocal = (() => {
+
+let _container = null;
+
+function _initContainer() {
+if (_container) return;
+_container = document.createElement(‘div’);
+_container.id = ‘toast-container-local’;
+Object.assign(_container.style, {
+position:       ‘fixed’,
+bottom:         ‘20px’,
+right:          ‘20px’,
+zIndex:         ‘9998’,
+display:        ‘flex’,
+flexDirection:  ‘column’,
+gap:            ‘8px’,
+maxWidth:       ‘300px’
+});
+document.body.appendChild(_container);
+}
+
+function _create(message, type, duration) {
+_initContainer();
+duration = duration || 2500;
+
+```
+const colors = {
+  success: { bg: 'rgba(34,197,94,0.15)',  text: '#22c55e' },
+  error:   { bg: 'rgba(239,68,68,0.15)',  text: '#ef4444' },
+  info:    { bg: 'rgba(59,130,246,0.15)', text: '#3b82f6' }
+};
+
+const c = colors[type] || colors.info;
+
+const toast = document.createElement('div');
+Object.assign(toast.style, {
+  background:    c.bg,
+  color:         c.text,
+  padding:       '10px 14px',
+  borderRadius:  '12px',
+  fontSize:      '0.8rem',
+  fontWeight:    '500',
+  backdropFilter:'blur(6px)',
+  transform:     'translateY(10px)',
+  opacity:       '0',
+  transition:    'all 0.2s ease',
+  fontFamily:    'inherit'
+});
+
+toast.textContent = message;
+_container.appendChild(toast);
+
+requestAnimationFrame(function () {
+  toast.style.transform = 'translateY(0)';
+  toast.style.opacity   = '1';
+});
+
+setTimeout(function () {
+  toast.style.opacity   = '0';
+  toast.style.transform = 'translateY(10px)';
+  setTimeout(function () { toast.remove(); }, 200);
+}, duration);
+```
+
+}
+
+return {
+success: function (m) { _create(m, ‘success’); },
+error:   function (m) { _create(m, ‘error’); },
+info:    function (m) { _create(m, ‘info’); }
+};
+
+})();
+
+/* Hanya set window.Notify jika app.js belum set NotifySafe */
+if (typeof window.Notify === ‘undefined’) {
+window.Notify = _NotifyLocal;
+}
+
+/* Ekspos Notify sebagai variabel lokal untuk modul ini */
+const Notify = window.Notify;
+
+/* ============================================================
+BAGIAN 18 — ANALYTICS
+============================================================ */
 
 const Analytics = (() => {
 
-  /* ============================================================
-     1. FILTER ACTIVE (EXCLUDE CANCELLED)
-     ============================================================ */
+function _activeOnly(list) {
+return (list || []).filter(function (r) {
+return r.status !== Reservation.STATUS.CANCELLED;
+});
+}
 
-  function activeOnly(list) {
-    return (list || []).filter(
-      r => r.status !== Reservation.STATUS.CANCELLED
-    );
-  }
+function _totalGuests(list) {
+return (list || []).reduce(function (sum, r) {
+return sum + (r.guests || 0);
+}, 0);
+}
 
+function _occupancyRate(list) {
+const guests = _totalGuests(list);
+const max    = CONFIG.MAX_CAPACITY_PER_SLOT || 20;
+if (!max) return 0;
+return Math.min(100, Math.round((guests / max) * 100));
+}
 
-  /* ============================================================
-     2. TOTAL RESERVATIONS
-     ============================================================ */
+function _statusBreakdown(list) {
+const result = { pending: 0, confirmed: 0, ongoing: 0, completed: 0, cancelled: 0 };
+(list || []).forEach(function (r) {
+if (result[r.status] !== undefined) result[r.status]++;
+});
+return result;
+}
 
-  function totalReservations(list) {
-    return (list || []).length;
-  }
+function _groupByDate(list) {
+const map = {};
+(list || []).forEach(function (r) {
+if (!r.date) return;
+if (!map[r.date]) map[r.date] = [];
+map[r.date].push(r);
+});
+return map;
+}
 
+function _peakDay(list) {
+const grouped = _groupByDate(list);
+let max = 0;
+let best = null;
+Object.keys(grouped).forEach(function (date) {
+const count = _activeOnly(grouped[date]).length;
+if (count > max) { max = count; best = date; }
+});
+return best;
+}
 
-  /* ============================================================
-     3. TOTAL GUESTS
-     ============================================================ */
+function dailyStats(list) {
+const grouped = _groupByDate(list);
+return Object.keys(grouped).map(function (date) {
+const dayList = _activeOnly(grouped[date]);
+return {
+date:      date,
+total:     dayList.length,
+guests:    _totalGuests(dayList),
+occupancy: _occupancyRate(dayList)
+};
+}).sort(function (a, b) { return a.date.localeCompare(b.date); });
+}
 
-  function totalGuests(list) {
-    return (list || []).reduce(
-      (sum, r) => sum + (r.guests || 0),
-      0
-    );
-  }
+async function getSummary() {
+const list   = await Reservation.getAll();
+const active = _activeOnly(list);
+return {
+totalReservations: active.length,
+totalGuests:       _totalGuests(active),
+occupancy:         _occupancyRate(active),
+peakDay:           _peakDay(active),
+status:            _statusBreakdown(list)
+};
+}
 
+async function getDaily() {
+const list = await Reservation.getAll();
+return dailyStats(list);
+}
 
-  /* ============================================================
-     4. OCCUPANCY RATE
-     ============================================================ */
-
-  function occupancyRate(list) {
-
-    const guests = totalGuests(list);
-    const max = CONFIG.MAX_CAPACITY_PER_SLOT; // ✅ FIXED
-
-    if (!max || max <= 0) return 0;
-
-    return Math.min(
-      100,
-      Math.round((guests / max) * 100)
-    );
-  }
-
-
-  /* ============================================================
-     5. STATUS BREAKDOWN
-     ============================================================ */
-
-  function statusBreakdown(list) {
-
-    const result = {
-      pending: 0,
-      confirmed: 0,
-      ongoing: 0,
-      completed: 0,
-      cancelled: 0
-    };
-
-    (list || []).forEach(r => {
-      if (result[r.status] !== undefined) {
-        result[r.status]++;
-      }
-    });
-
-    return result;
-  }
-
-
-  /* ============================================================
-     6. GROUP BY DATE
-     ============================================================ */
-
-  function groupByDate(list) {
-
-    const map = {};
-
-    (list || []).forEach(r => {
-      if (!r.date) return;
-
-      if (!map[r.date]) map[r.date] = [];
-      map[r.date].push(r);
-    });
-
-    return map;
-  }
-
-
-  /* ============================================================
-     7. DAILY STATS
-     ============================================================ */
-
-  function dailyStats(list) {
-
-    const grouped = groupByDate(list);
-
-    const result = [];
-
-    Object.keys(grouped).forEach(date => {
-
-      const dayList = activeOnly(grouped[date]);
-
-      result.push({
-        date,
-        total: totalReservations(dayList),
-        guests: totalGuests(dayList),
-        occupancy: occupancyRate(dayList)
-      });
-
-    });
-
-    return result.sort((a, b) =>
-      a.date.localeCompare(b.date)
-    );
-  }
-
-
-  /* ============================================================
-     8. PEAK DAY
-     ============================================================ */
-
-  function peakDay(list) {
-
-    const grouped = groupByDate(list);
-
-    let max = 0;
-    let best = null;
-
-    Object.entries(grouped).forEach(([date, items]) => {
-
-      const active = activeOnly(items);
-      const total = active.length;
-
-      if (total > max) {
-        max = total;
-        best = date;
-      }
-
-    });
-
-    return best;
-  }
-
-
-  /* ============================================================
-     9. SUMMARY (MAIN DASHBOARD)
-     ============================================================ */
-
-  async function getSummary() {
-
-    const list = await Reservation.getAll();
-
-    const active = activeOnly(list);
-
-    return {
-      totalReservations: totalReservations(active),
-      totalGuests: totalGuests(active),
-      occupancy: occupancyRate(active),
-      peakDay: peakDay(active),
-      status: statusBreakdown(list)
-    };
-  }
-
-
-  /* ============================================================
-     10. DAILY DATA (FOR CHART / GRAPH)
-     ============================================================ */
-
-  async function getDaily() {
-
-    const list = await Reservation.getAll();
-    return dailyStats(list);
-  }
-
-
-  return {
-    getSummary,
-    getDaily,
-    dailyStats,     // expose for flexibility
-    peakDay         // expose for reuse
-  };
+return { getSummary, getDaily, dailyStats };
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 12/15 (FIXED)
-   BACKUP + EXPORT + RESTORE SYSTEM (SAFE + CONSISTENT)
-   ============================================================ */
+BAGIAN 19 — BACKUP
+============================================================ */
 
 const Backup = (() => {
 
-  /* ============================================================
-     1. EXPORT DATA
-     ============================================================ */
+async function exportData() {
+const data = await DB.getAllReservations();
+const payload = {
+app:        ‘PROSERVA’,
+version:    1,
+exportedAt: new Date().toISOString(),
+data:       data
+};
 
-  async function exportData() {
+```
+const blob = new Blob(
+  [JSON.stringify(payload, null, 2)],
+  { type: 'application/json' }
+);
+const url = URL.createObjectURL(blob);
+const a   = document.createElement('a');
+a.href     = url;
+a.download = 'proserva-backup-' + Date.now() + '.json';
+a.click();
+URL.revokeObjectURL(url);
 
-    const data = await DB.getAllReservations();
+Notify.success('Backup berhasil diunduh');
+```
 
-    const payload = {
-      app: 'PROSERVA',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data
-    };
+}
 
-    const blob = new Blob(
-      [JSON.stringify(payload, null, 2)],
-      { type: 'application/json' }
-    );
+function importFile(file) {
+return new Promise(function (resolve, reject) {
+const reader = new FileReader();
+reader.onload = async function (e) {
+try {
+const json = JSON.parse(e.target.result);
+if (!json || json.app !== ‘PROSERVA’) throw new Error(‘File backup tidak valid’);
+if (!Array.isArray(json.data))        throw new Error(‘Format data tidak valid’);
 
-    const url = URL.createObjectURL(blob);
+```
+      LocalDB.write(KEYS.reservations, json.data);
+      STATE.reservationsCache = null;
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `proserva-backup-${Date.now()}.json`;
-
-    a.click();
-
-    URL.revokeObjectURL(url);
-
-    Notify.success('Backup berhasil diunduh');
-  }
-
-
-  /* ============================================================
-     2. IMPORT DATA
-     ============================================================ */
-
-  function importFile(file) {
-
-    return new Promise((resolve, reject) => {
-
-      const reader = new FileReader();
-
-      reader.onload = async (e) => {
-
-        try {
-
-          const json = JSON.parse(e.target.result);
-
-          validateBackup(json);
-
-          await restoreData(json.data);
-
-          Notify.success('Data berhasil di-restore');
-
-          // refresh UI
-          UI.renderCalendar();
-          const selected = Calendar.getSelected();
-          if (selected) UI.renderDetail(selected);
-
-          resolve(true);
-
-        } catch (err) {
-
-          Notify.error('File tidak valid');
-          reject(err);
-
-        }
-
-      };
-
-      reader.readAsText(file);
-
-    });
-  }
-
-
-  /* ============================================================
-     3. VALIDATION
-     ============================================================ */
-
-  function validateBackup(json) {
-
-    if (!json || json.app !== 'PROSERVA') {
-      throw new Error('Invalid backup file');
-    }
-
-    if (!Array.isArray(json.data)) {
-      throw new Error('Invalid data format');
-    }
-
-    return true;
-  }
-
-
-  /* ============================================================
-     4. RESTORE DATA (REPLACE ALL)
-     ============================================================ */
-
-  async function restoreData(list) {
-
-    if (!Array.isArray(list)) {
-      throw new Error('Data tidak valid');
-    }
-
-    try {
-      localStorage.setItem(
-        KEYS.reservations, // ✅ FIXED (sebelumnya CONFIG.STORAGE_KEY)
-        JSON.stringify(list)
-      );
-
-      // invalidate cache biar langsung update
-      if (typeof STATE !== 'undefined') {
-        STATE.reservationsCache = null;
-      }
-
-      return true;
-
+      Notify.success('Data berhasil di-restore');
+      if (typeof UI !== 'undefined' && UI.renderCalendar) await UI.renderCalendar();
+      resolve(true);
     } catch (err) {
-      Logger.error('Restore error', err);
-      throw new Error('Gagal menyimpan data');
+      Notify.error('File tidak valid: ' + (err.message || ''));
+      reject(err);
     }
-  }
-
-
-  /* ============================================================
-     5. CLEAR DATA (RESET APP)
-     ============================================================ */
-
-  function clearAll() {
-
-    const confirmed = confirm('Hapus semua data?');
-    if (!confirmed) return;
-
-    localStorage.removeItem(KEYS.reservations); // ✅ FIXED
-
-    Notify.info('Semua data dihapus');
-
-    location.reload();
-  }
-
-
-  /* ============================================================
-     6. INIT (BIND UI)
-     ============================================================ */
-
-  function init() {
-
-    const exportBtn = document.getElementById('btn-export');
-    const importInput = document.getElementById('input-import');
-    const clearBtn = document.getElementById('btn-clear');
-
-    if (exportBtn) {
-      exportBtn.addEventListener('click', exportData);
-    }
-
-    if (importInput) {
-      importInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) importFile(file);
-      });
-    }
-
-    if (clearBtn) {
-      clearBtn.addEventListener('click', clearAll);
-    }
-
-  }
-
-
-  return {
-    init,
-    exportData,
-    importFile,
-    clearAll
   };
+  reader.readAsText(file);
+});
+```
+
+}
+
+function clearAll() {
+if (!confirm(‘Hapus semua data? Tindakan ini tidak dapat dibatalkan.’)) return;
+localStorage.removeItem(KEYS.reservations);
+STATE.reservationsCache = null;
+Notify.info(‘Semua data dihapus’);
+setTimeout(function () { location.reload(); }, 1000);
+}
+
+function init() {
+const exportBtn   = document.getElementById(‘btn-export’);
+const importInput = document.getElementById(‘input-import’);
+const clearBtn    = document.getElementById(‘btn-clear’);
+
+```
+if (exportBtn) {
+  exportBtn.addEventListener('click', exportData);
+}
+if (importInput) {
+  importInput.addEventListener('change', function (e) {
+    const file = e.target.files[0];
+    if (file) importFile(file);
+  });
+}
+if (clearBtn) {
+  clearBtn.addEventListener('click', clearAll);
+}
+```
+
+}
+
+return { init, exportData, importFile, clearAll };
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 13/15 (FIXED)
-   SETTINGS + BUSINESS CONFIG SYSTEM (CONSISTENT + SAFE)
-   ============================================================ */
+BAGIAN 20 — SETTINGS
+============================================================ */
 
 const Settings = (() => {
 
-  /* ============================================================
-     1. DEFAULT CONFIG
-     ============================================================ */
+const DEFAULT = {
+businessName:      ‘Restoran Saya’,
+openTime:          ‘10:00’,
+closeTime:         ‘22:00’,
+maxCapacityPerDay: 50,
+slotDuration:      60,
+currency:          ‘IDR’,
+enableWA:          true,
+phoneNumber:       ‘’,
+autoConfirm:       false
+};
 
-  const DEFAULT = {
-    businessName: 'Restoran Saya',
-    openTime: '10:00',
-    closeTime: '22:00',
-    maxCapacityPerDay: 50,
-    slotDuration: 60, // menit
-    currency: 'IDR',
-    enableWA: true,
-    phoneNumber: '',
-    autoConfirm: false
-  };
+function get() {
+try {
+const raw = localStorage.getItem(KEYS.settings);
+if (!raw) return Object.assign({}, DEFAULT);
+return Object.assign({}, DEFAULT, JSON.parse(raw));
+} catch (err) {
+Logger.warn(’[Settings] parse error’, err);
+return Object.assign({}, DEFAULT);
+}
+}
 
+function save(data) {
+const merged = Object.assign({}, DEFAULT, get(), data);
+LocalDB.write(KEYS.settings, merged);
+Notify.success(‘Pengaturan disimpan’);
+/* Sync kapasitas ke CONFIG agar modul lain pakai nilai terbaru */
+if (merged.maxCapacityPerDay) {
+CONFIG.MAX_CAPACITY_PER_SLOT = merged.maxCapacityPerDay;
+}
+return merged;
+}
 
-  /* ============================================================
-     2. GET SETTINGS
-     ============================================================ */
+function reset() {
+localStorage.removeItem(KEYS.settings);
+Notify.info(‘Pengaturan direset’);
+return Object.assign({}, DEFAULT);
+}
 
-  function get() {
+function isOpenNow() {
+const s   = get();
+const now = new Date();
+const cur = now.getHours() * 60 + now.getMinutes();
+const parseTime = function (t) {
+const parts = String(t || ‘00:00’).split(’:’).map(Number);
+return parts[0] * 60 + (parts[1] || 0);
+};
+return cur >= parseTime(s.openTime) && cur <= parseTime(s.closeTime);
+}
 
-    const raw = localStorage.getItem(KEYS.settings); // ✅ FIXED
+function formatCurrency(value) {
+const s = get();
+try {
+return new Intl.NumberFormat(‘id-ID’, {
+style:    ‘currency’,
+currency: s.currency || ‘IDR’
+}).format(value);
+} catch (err) {
+return ’Rp ’ + Number(value).toLocaleString(‘id-ID’);
+}
+}
 
-    if (!raw) return { ...DEFAULT };
+function applyToUI() {
+const s      = get();
+const nameEl = document.getElementById(‘biz-name’);
+if (nameEl) nameEl.textContent = s.businessName;
+/* Sync kapasitas ke CONFIG */
+if (s.maxCapacityPerDay) {
+CONFIG.MAX_CAPACITY_PER_SLOT = s.maxCapacityPerDay;
+}
+}
 
-    try {
-      const parsed = JSON.parse(raw);
-      return { ...DEFAULT, ...parsed };
-    } catch (err) {
-      Logger.warn('Settings parse error', err);
-      return { ...DEFAULT };
-    }
+function init() {
+applyToUI();
 
-  }
+```
+/* Bind settings form jika ada */
+const form = document.getElementById('settings-form');
+if (!form) return;
 
+const s = get();
+if (form.businessName)      form.businessName.value      = s.businessName;
+if (form.openTime)          form.openTime.value          = s.openTime;
+if (form.closeTime)         form.closeTime.value         = s.closeTime;
+if (form.maxCapacityPerDay) form.maxCapacityPerDay.value = s.maxCapacityPerDay;
+if (form.slotDuration)      form.slotDuration.value      = s.slotDuration;
+if (form.phoneNumber)       form.phoneNumber.value       = s.phoneNumber;
+if (form.enableWA)          form.enableWA.checked        = s.enableWA;
+if (form.autoConfirm)       form.autoConfirm.checked     = s.autoConfirm;
 
-  /* ============================================================
-     3. SAVE SETTINGS
-     ============================================================ */
-
-  function save(data) {
-
-    const merged = {
-      ...DEFAULT,
-      ...get(),
-      ...data
+form.addEventListener('submit', function (e) {
+  e.preventDefault();
+  try {
+    const data = {
+      businessName:      form.businessName      ? form.businessName.value.trim() : '',
+      openTime:          form.openTime          ? form.openTime.value            : '',
+      closeTime:         form.closeTime         ? form.closeTime.value           : '',
+      maxCapacityPerDay: form.maxCapacityPerDay ? Number(form.maxCapacityPerDay.value) : 20,
+      slotDuration:      form.slotDuration      ? Number(form.slotDuration.value) : 60,
+      phoneNumber:       form.phoneNumber       ? form.phoneNumber.value.trim()  : '',
+      enableWA:          form.enableWA          ? form.enableWA.checked          : true,
+      autoConfirm:       form.autoConfirm       ? form.autoConfirm.checked       : false
     };
-
-    localStorage.setItem(
-      KEYS.settings, // ✅ FIXED
-      JSON.stringify(merged)
-    );
-
-    Notify.success('Pengaturan disimpan');
-
-    return merged;
-  }
-
-
-  /* ============================================================
-     4. RESET SETTINGS
-     ============================================================ */
-
-  function reset() {
-
-    localStorage.removeItem(KEYS.settings); // ✅ FIXED
-
-    Notify.info('Pengaturan direset');
-
-    return { ...DEFAULT };
-  }
-
-
-  /* ============================================================
-     5. VALIDATION
-     ============================================================ */
-
-  function validate(data) {
-
-    if (!data.businessName) {
-      throw new Error('Nama bisnis wajib diisi');
-    }
-
-    if (!data.openTime || !data.closeTime) {
-      throw new Error('Jam operasional tidak valid');
-    }
-
-    if (data.maxCapacityPerDay <= 0) {
-      throw new Error('Kapasitas harus lebih dari 0');
-    }
-
-    return true;
-  }
-
-
-  /* ============================================================
-     6. APPLY TO UI
-     ============================================================ */
-
-  function applyToUI() {
-
-    const s = get();
-
-    const nameEl = document.getElementById('biz-name');
-    if (nameEl) nameEl.textContent = s.businessName;
-
-  }
-
-
-  /* ============================================================
-     7. FORM BINDING
-     ============================================================ */
-
-  function bindForm() {
-
-    const form = document.getElementById('settings-form');
-    if (!form) return;
-
-    const s = get();
-
-    // prefill
-    if (form.businessName) form.businessName.value = s.businessName;
-    if (form.openTime) form.openTime.value = s.openTime;
-    if (form.closeTime) form.closeTime.value = s.closeTime;
-    if (form.maxCapacityPerDay) form.maxCapacityPerDay.value = s.maxCapacityPerDay;
-    if (form.slotDuration) form.slotDuration.value = s.slotDuration;
-    if (form.phoneNumber) form.phoneNumber.value = s.phoneNumber;
-    if (form.enableWA) form.enableWA.checked = s.enableWA;
-    if (form.autoConfirm) form.autoConfirm.checked = s.autoConfirm;
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-
-      try {
-
-        const data = {
-          businessName: form.businessName.value.trim(),
-          openTime: form.openTime.value,
-          closeTime: form.closeTime.value,
-          maxCapacityPerDay: Number(form.maxCapacityPerDay.value),
-          slotDuration: Number(form.slotDuration.value),
-          phoneNumber: form.phoneNumber.value.trim(),
-          enableWA: form.enableWA.checked,
-          autoConfirm: form.autoConfirm.checked
-        };
-
-        validate(data);
-
-        save(data);
-
-        applyToUI();
-
-      } catch (err) {
-        Notify.error(err.message);
-      }
-
-    });
-
-  }
-
-
-  /* ============================================================
-     8. BUSINESS LOGIC HELPERS
-     ============================================================ */
-
-  function isOpenNow() {
-
-    const s = get();
-
-    const now = new Date();
-    const current = now.getHours() * 60 + now.getMinutes();
-
-    const [openH, openM] = s.openTime.split(':').map(Number);
-    const [closeH, closeM] = s.closeTime.split(':').map(Number);
-
-    const open = openH * 60 + openM;
-    const close = closeH * 60 + closeM;
-
-    return current >= open && current <= close;
-  }
-
-
-  function formatCurrency(value) {
-
-    const s = get();
-
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: s.currency
-    }).format(value);
-  }
-
-
-  /* ============================================================
-     9. INIT
-     ============================================================ */
-
-  function init() {
-    bindForm();
+    if (!data.businessName) throw new Error('Nama bisnis wajib diisi');
+    save(data);
     applyToUI();
+  } catch (err) {
+    Notify.error(err.message || 'Gagal menyimpan pengaturan');
   }
+});
 
+Logger.log('[Settings] initialized');
+```
 
-  return {
-    init,
-    get,
-    save,
-    reset,
-    isOpenNow,
-    formatCurrency
-  };
+}
+
+return { init, get, save, reset, isOpenNow, formatCurrency, applyToUI };
 
 })();
+
 /* ============================================================
-   PROSERVA MODULES
-   PART 15/15 (FIXED)
-   SYNC LAYER + FIREBASE READY ADAPTER (CLEAN)
-   ============================================================ */
+BAGIAN 21 — SYNC LAYER
+============================================================ */
 
 const Sync = (() => {
 
-  /* ============================================================
-     1. MODE (FOLLOW CONFIG)
-     ============================================================ */
+function isFirebase() {
+return CONFIG.DATA_MODE === ‘firebase’;
+}
 
-  function isFirebase() {
-    return CONFIG.DATA_MODE === 'firebase';
-  }
+async function getAll()             { return DB.getAllReservations(); }
+async function getByDate(date)      { return DB.getByDate(date); }
+async function create(data)         { return DB.insertReservation(data); }
+async function update(id, patch)    { return DB.updateReservation(id, patch); }
+async function remove(id)           { return DB.deleteReservation(id); }
 
+function subscribe(callback) {
+if (isFirebase()) {
+Logger.warn(’[Sync] Firebase realtime belum diaktifkan’);
+return;
+}
+Events.on(‘reservation:changed’, callback);
+}
 
-  /* ============================================================
-     2. PUBLIC API (UNIFIED WRAPPER)
-     ============================================================ */
+function unsubscribe(callback) {
+Events.off(‘reservation:changed’, callback);
+}
 
-  async function getAll() {
-    return DB.getAllReservations();
-  }
+async function syncNow() {
+if (!isFirebase()) return;
+Logger.warn(’[Sync] Firebase sync belum diimplementasikan’);
+Notify.info(‘Sync Firebase belum aktif’);
+}
 
-  async function getByDate(date) {
-    return DB.getByDate(date);
-  }
+function init() {
+Logger.log(’[Sync] initialized | mode:’, CONFIG.DATA_MODE);
+}
 
-  async function create(data) {
-    return DB.insertReservation(data);
-  }
+return {
+init,
+getAll,
+getByDate,
+create,
+update,
+remove,
+subscribe,
+unsubscribe,
+syncNow
+};
 
-  async function update(id, patch) {
-    return DB.updateReservation(id, patch);
-  }
+})();
 
-  async function remove(id) {
-    return DB.deleteReservation(id);
-  }
+/* ============================================================
+VALIDASI AKHIR — pastikan semua modul yang dibutuhkan app.js
+tersedia sebagai window globals sebelum app.js di-load.
+============================================================ */
 
+(function validateModules() {
+const required = [
+‘Logger’, ‘Utils’, ‘Events’, ‘DOM’, ‘STATE’, ‘KEYS’,
+‘LocalDB’, ‘DB’, ‘Reservation’, ‘Calendar’, ‘UI’,
+‘Form’, ‘Menu’, ‘Filter’, ‘Notify’, ‘Analytics’,
+‘Backup’, ‘Settings’, ‘Sync’
+];
 
-  /* ============================================================
-     3. REALTIME HOOK (FUTURE FIREBASE)
-     ============================================================ */
+const missing = required.filter(function (name) {
+return typeof window[name] === ‘undefined’;
+});
 
-  function subscribe(callback) {
-
-    if (isFirebase()) {
-      console.warn('[SYNC] Firebase realtime belum diaktifkan');
-      return;
-    }
-
-    // fallback local → pakai Event Bus
-    Events.on('reservation:changed', callback);
-  }
-
-  function unsubscribe(callback) {
-    Events.off('reservation:changed', callback);
-  }
-
-
-  /* ============================================================
-     4. MANUAL SYNC (PLACEHOLDER FIREBASE)
-     ============================================================ */
-
-  async function syncNow() {
-
-    if (!isFirebase()) return;
-
-    try {
-      console.warn('[SYNC] Firebase sync belum diimplementasikan');
-      Notify.info('Sync Firebase belum aktif');
-    } catch (err) {
-      Logger.error('Sync error', err);
-      Notify.error('Gagal sync data');
-    }
-  }
-
-
-  /* ============================================================
-     5. AUTO SYNC (SAFE)
-     ============================================================ */
-
-  function startAutoSync(interval = 5000) {
-
-    if (!isFirebase()) return;
-
-    setInterval(() => {
-      syncNow();
-    }, interval);
-  }
-
-
-  /* ============================================================
-     6. MIGRATION TOOL (LOCAL → FIREBASE)
-     ============================================================ */
-
-  async function migrateToFirebase() {
-
-    if (!isFirebase()) {
-      Notify.info('Aktifkan mode Firebase dulu');
-      return;
-    }
-
-    const data = await DB.getAllReservations();
-
-    console.log('[SYNC] Migrating data:', data.length);
-
-    // 🔥 nanti push ke Firebase di sini
-
-    Notify.info('Migrasi disiapkan (belum aktif)');
-  }
-
-
-  /* ============================================================
-     7. SAFE WRAPPER (ANTI CRASH)
-     ============================================================ */
-
-  async function safeExec(fn, fallback = null) {
-    try {
-      return await fn();
-    } catch (err) {
-      Logger.error('[SYNC ERROR]', err);
-      return fallback;
-    }
-  }
-
-
-  /* ============================================================
-     8. INIT
-     ============================================================ */
-
-  function init() {
-    Logger.log('[SYNC] initialized | mode:', CONFIG.DATA_MODE);
-  }
-
-
-  return {
-    init,
-
-    // core
-    getAll,
-    getByDate,
-    create,
-    update,
-    remove,
-
-    // realtime
-    subscribe,
-    unsubscribe,
-
-    // sync
-    syncNow,
-    startAutoSync,
-
-    // migration
-    migrateToFirebase,
-
-    // safety
-    safeExec
-  };
-
+if (missing.length) {
+console.error(’[Proserva] Modul belum tersedia:’, missing.join(’, ‘));
+} else {
+Logger.log(’[Proserva] Semua modul siap:’, required.length, ‘modul’);
+}
 })();
