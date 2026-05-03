@@ -1,2258 +1,2501 @@
-‘use strict’;
+'use strict';
 
 /* ============================================================
-APP.JS — PROSERVA v1.2.2 (PATCHED)
-
-FIXES APPLIED FROM AUDIT (v1.2.1 → v1.2.2):
-
-🔴 CRITICAL:
-B16. Semua Unicode ellipsis (…) diganti spread operator ASCII (…)
-B17. patchCalendarRender dipindah ke dalam App.init() setelah module siap
-→ tidak lagi IIFE yang bisa gagal saat DOM/module belum ready
-B01. UI.init() tidak lagi auto-trigger renderCalendar — patch dulu aktif,
-baru render dipanggil manual dari App.init()
-B03. Double-submit diatasi: consolidateFormSubmit() clone form + satu handler
-(handler di UI Bridge index.html HARUS dihapus secara terpisah)
-B18. Router.go() tidak skip re-render saat view sama — selalu re-render data
-B19. OfflineQueue.flush() dilindungi cross-tab lock via localStorage
-B20. autoRecoveryCheck() pakai fallback key jika KEYS undefined
-
-🟡 STRUCTURAL (dari v1.2.1 tetap dipertahankan):
-F1.  escapeHtml didefinisikan paling awal
-F2.  patchCalendarRender pakai Calendar.getYear/getMonth
-F3.  bindCalendarClicks — event delegation ke #calendar-grid
-F4.  Menu builder cari #menu-builder
-F5.  Form submit dikonsolidasi — satu handler via SafeReservation
-F6.  NotifSystem alias → Notify
-F7.  Boot sequence: Router.go() tidak double-render
-F8.  Detail view via DateController.select()
+1. BOOT SEQUENCE
 ============================================================ */
+function boot () {
+  // Add banner offset class
+  document.body.classList.add('has-banner');
 
-/* ============================================================
-PART 0 — UTILITY: escapeHtml (FIX F1)
-Didefinisikan PERTAMA sebelum semua module lain memakainya.
-============================================================ */
+  // Trial: enforce expiry before anything else
+  TRIAL.checkAndEnforce();
 
-function escapeHtml(str) {
-return String(str == null ? ‘’ : str)
-.replace(/&/g, ‘&’)
-.replace(/</g, ‘<’)
-.replace(/>/g, ‘>’)
-.replace(/”/g, ‘"’)
-.replace(/’/g, ‘'’);
-}
-
-/* ============================================================
-PART 1 — BOOTSTRAP + GLOBAL INIT ORCHESTRATOR
-============================================================ */
-
-(function () {
-if (typeof guardInit === ‘function’) {
-const allowed = guardInit();
-if (!allowed) return;
-}
-})();
-
-const App = (() => {
-
-let initialized = false;
-
-async function init() {
-
-```
-if (initialized) {
-  Logger.warn('[App] already initialized');
-  return;
-}
-
-initialized = true;
-Logger.log('[App] initializing...');
-
-try {
-
-  _validateModules();
-  _syncSettingsToConfig();
-
-  /* P1: Load remote feature flags sebelum inisialisasi lainnya */
-  await FeatureFlags.loadRemote();
-
-  Sync.init?.();
-  Settings.init?.();
-
-  /* B17: Pasang patch SEBELUM UI.init() agar render pertama
-     sudah menggunakan versi yang di-patch */
-  _patchCalendarRender();
-
-  UI.init?.();
-  Form.init?.();
-  Menu.init?.();
-  Filter.init?.();
-  Backup.init?.();
-
-  _patchRouter();
-  _bindGlobalEvents();
-
-  /* F7: UI.init() sudah dipanggil tapi TIDAK auto-renderCalendar.
-     Router.go() akan trigger render yang benar via view lifecycle. */
-  const lastView = localStorage.getItem('psv_last_view') || 'calendar';
-  await Router.go(lastView);
-
-  EventBridge.emit('app:ready');
-
-  Logger.log('[App] initialized successfully');
-
-} catch (err) {
-  Logger.error('[App] init error:', err);
-  NotifySafe.error('Gagal memulai aplikasi');
-}
-```
-
-}
-
-function _validateModules() {
-const required = [
-‘Reservation’, ‘Calendar’, ‘UI’,
-‘Form’, ‘Settings’, ‘Sync’
-];
-required.forEach(name => {
-if (!window[name]) throw new Error(`[MODULE MISSING] ${name}`);
-});
-}
-
-function _syncSettingsToConfig() {
-try {
-const s = Settings.get?.();
-if (s?.maxCapacityPerDay) {
-CONFIG.MAX_CAPACITY_PER_SLOT = s.maxCapacityPerDay;
-}
-} catch (err) {
-Logger.warn(’[Settings Sync Failed]’);
-}
-}
-
-/* B17: Dipindah dari IIFE global ke dalam App.init() agar berjalan
-hanya setelah semua module dipastikan sudah tersedia */
-function _patchCalendarRender() {
-if (!window.UI?.renderCalendar) {
-Logger.warn(’[App] UI.renderCalendar tidak tersedia — patch ditunda’);
-return;
-}
-if (UI.**CALENDAR_PATCHED**) return;
-
-```
-const original = UI.renderCalendar.bind(UI);
-
-UI.renderCalendar = async function () {
-  await original();
-
-  /* Ambil tahun & bulan yang SEDANG DITAMPILKAN di kalender,
-     bukan tanggal yang dipilih user (FIX F2) */
-  const year  = Calendar.getYear?.()  ?? new Date().getFullYear();
-  const month = Calendar.getMonth?.() ?? new Date().getMonth(); // 0-based
-
-  document.querySelectorAll('#calendar-grid .cal-day').forEach(cell => {
-    if (cell.classList.contains('empty')) return;
-    const numEl = cell.querySelector('.cal-day-num');
-    if (!numEl) return;
-    const day = parseInt(numEl.textContent, 10);
-    if (!day) return;
-    cell.dataset.date = Utils.formatDate(year, month, day);
-  });
-};
-
-UI.__CALENDAR_PATCHED__ = true;
-Logger.log('[App] patchCalendarRender active');
-```
-
-}
-
-function _patchRouter() {
-if (!window.Router || !Router.go) return;
-if (Router.**PATCHED**) return;
-
-```
-const original = Router.go.bind(Router);
-
-/* C4: Navigation lock — cegah race condition klik cepat */
-let navigating = false;
-
-Router.go = async function (name) {
-  if (navigating) {
-    Logger.warn('[Router] navigation blocked — already navigating');
-    return;
+  if (DB.get(KEYS.SETUP_DONE)) {
+    // Returning user - go straight to app
+    document.getElementById('setup-wizard').style.display = 'none';
+    document.getElementById('app-shell').style.display    = 'block';
+    initApp();
+  } else {
+    // First time - show wizard
+    document.getElementById('setup-wizard').style.display = 'block';
+    document.getElementById('app-shell').style.display    = 'none';
   }
-  navigating = true;
-  try {
-    await original(name);
-    localStorage.setItem('psv_last_view', name);
-    EventBridge.emit('router:changed', name);
-    for (const fn of RouterHooks) {
-      try { await fn(name); } catch (e) { Logger.error('[RouterHook]', e); }
-    }
-    LazyView.handle(name);
-  } catch (err) {
-    ErrorHandler.capture(err, 'Router.go');
-  } finally {
-    navigating = false;
-  }
-};
 
-Router.__PATCHED__ = true;
-Logger.log('[Router] single patch active — navigation lock + router:changed');
-```
-
+  // Global helpers
+  initModalOverlayClose();
+  initKeyboardShortcuts();
+  initSidebarOverlay();
+  TRIAL.startTicker();
 }
 
-function _bindGlobalEvents() {
-document.addEventListener(‘keydown’, (e) => {
-if (e.key === ‘Escape’) Form?.close?.();
-});
-
-```
-window.addEventListener('focus', () => {
-  RenderScheduler.schedule(() => UI.renderCalendar?.());
-});
-```
-
-}
-
-return { init };
-
-})();
-
-/* DOM ready boot */
-(function boot() {
-if (document.readyState === ‘loading’) {
-document.addEventListener(‘DOMContentLoaded’, () => App.init());
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
 } else {
-App.init();
+  boot();
 }
-})();
 
 /* ============================================================
-PART 2 — VIEW ROUTER + NAVIGATION
+2. APP INIT
 ============================================================ */
+function initApp () {
+  loadState();
 
-const Router = (() => {
+  // Header
+  var bizName = (state.biz && state.biz.name) ? state.biz.name : 'Usaha Saya';
 
-let currentView = null;
+  var el = document.getElementById('cal-biz-name');
+  if (el) el.textContent = bizName;
 
-const VIEWS = [
-‘calendar’, ‘detail’, ‘menus’, ‘locations’,
-‘customers’, ‘analysis’, ‘broadcast’, ‘settings’
-];
+  var sub = document.getElementById('cal-subtitle');
+  if (sub) {
+    sub.textContent = 'Selamat datang kembali! Kelola reservasi ' + bizName + ' dengan mudah.';
+  }
 
-function getViews()    { return document.querySelectorAll(’#content .view’); }
-function getNavItems() { return document.querySelectorAll(’.nav-item’); }
-function getViewEl(n)  { return document.getElementById(‘view-’ + n); }
+  var sbBiz = document.getElementById('sidebar-biz-name');
+  if (sbBiz) sbBiz.textContent = bizName;
 
-/* B18: Hapus guard “if (currentView === name) return” yang mencegah
-re-render saat user kembali ke view yang sama.
-currentView tetap di-update, tapi DOM dan data selalu di-refresh. */
-async function go(name) {
-if (!VIEWS.includes(name)) {
-Logger.warn(’[Router] unknown view:’, name);
-return;
+  // Default view
+  renderCalendar();
+  setPageTitle('calendar');
+
+  // Notification
+  NOTIF.start();
+
+  // Close notif dropdown on outside click
+  document.removeEventListener('click', closeNotifHandler);
+document.addEventListener('click', closeNotifHandler);
+initDebugTap();
+
 }
-
-```
-const isSameView = (currentView === name);
-currentView = name;
-
-Logger.log('[Router] navigating →', name, isSameView ? '(refresh)' : '');
-
-if (!isSameView) {
-  /* Hanya update DOM jika berpindah view */
-  getViews().forEach(v => {
+/* ============================================================
+3. VIEW ROUTER
+============================================================ */
+function showView (name) {
+  // Hide all views
+  var views = document.querySelectorAll('#content .view');
+  views.forEach(function (v) {
     v.style.display = 'none';
     v.classList.remove('active-view');
   });
 
-  const target = getViewEl(name);
+  // Show target
+  var target = document.getElementById('view-' + name);
   if (target) {
     target.style.display = 'block';
     target.classList.add('active-view');
   }
 
-  getNavItems().forEach(n => {
+  // Sidebar active state
+  var navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(function (n) {
     n.classList.toggle('active', n.dataset.view === name);
   });
 
-  _updatePageTitle(name);
-  _closeSidebarIfOpen();
+  // Breadcrumb
+  setPageTitle(name);
+
+  // Close mobile sidebar
+  var sidebar = document.getElementById('sidebar');
+  var overlay = document.getElementById('sidebar-overlay');
+
+  if (sidebar && sidebar.classList.contains('open')) {
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('show');
+  }
+
+  // View-specific init
+  if (name === 'menus')     renderMenusTable();
+  if (name === 'locations') renderLocationsTable();
+  if (name === 'customers') renderCustomersTable();
+  if (name === 'analysis') {
+    setupAnalysisSelectors();
+    runAnalysis();
+  }
+  if (name === 'broadcast') loadBroadcastView();
+
+  // Toggle add button
+  var addBtn = document.getElementById('btn-add-res');
+  if (addBtn) {
+    addBtn.style.display = (name === 'detail') ? 'none' : 'flex';
+  }
 }
-
-/* Selalu re-render data calendar meski view sama — cegah stale data */
-if (name === 'calendar') {
-  await UI.renderCalendar?.();
-}
-```
-
-}
-
-function _updatePageTitle(name) {
-const el = document.getElementById(‘page-title’);
-if (!el) return;
-const map = {
-calendar: ‘Kalender’,    detail:    ‘Detail Reservasi’,
-menus:    ‘Menu’,         locations: ‘Lokasi’,
-customers: ‘Pelanggan’,  analysis:  ‘Analisis’,
-broadcast: ‘Broadcast’,  settings:  ‘Pengaturan’
-};
-el.textContent = map[name] || ‘’;
-}
-
-function _closeSidebarIfOpen() {
-const sidebar = document.getElementById(‘sidebar’);
-const overlay = document.getElementById(‘sidebar-overlay’);
-if (sidebar?.classList.contains(‘open’)) {
-sidebar.classList.remove(‘open’);
-overlay?.classList.remove(‘show’);
-}
-}
-
-function getCurrent() { return currentView; }
-
-return { go, getCurrent };
-
-})();
-
-/* Router hook registry */
-const RouterHooks = window.RouterHooks || [];
-window.RouterHooks = RouterHooks;
-
-function addRouteHook(fn) {
-if (typeof fn === ‘function’) RouterHooks.push(fn);
-}
-
-window.goView = (name) => Router.go(name);
-
 /* ============================================================
-PART 3 — CALENDAR ↔ DETAIL BRIDGE
+4. SETUP WIZARD CONTROLLER
 ============================================================ */
 
-const DateController = (() => {
-
-async function select(dateStr) {
-if (!dateStr) return;
-Logger.log(’[DateController] select →’, dateStr);
-Calendar.select(dateStr);
-_updateDetailHeader(dateStr);
-await Router.go(‘detail’);
-}
-
-async function back() {
-Logger.log(’[DateController] back to calendar’);
-await Router.go(‘calendar’);
-}
-
-function _updateDetailHeader(dateStr) {
-const el = document.getElementById(‘detail-title’);
-if (!el) return;
-const parts = dateStr.split(’-’);
-if (parts.length !== 3) { el.textContent = dateStr; return; }
-const months = [
-‘Januari’,‘Februari’,‘Maret’,‘April’,‘Mei’,‘Juni’,
-‘Juli’,‘Agustus’,‘September’,‘Oktober’,‘November’,‘Desember’
-];
-const y = parseInt(parts[0], 10);
-const m = parseInt(parts[1], 10) - 1;
-const d = parseInt(parts[2], 10);
-el.textContent = `${d} ${months[m]} ${y}`;
-}
-
-return { select, back };
-
-})();
-
-/* F3: bindCalendarClicks — event delegation ke #calendar-grid.
-Bekerja untuk semua cell yang di-render ulang kapan pun. */
-(function bindCalendarClicks() {
-const grid = document.getElementById(‘calendar-grid’);
-if (!grid) return;
-grid.addEventListener(‘click’, (e) => {
-const cell = e.target.closest(’.cal-day’);
-if (!cell || cell.classList.contains(‘empty’)) return;
-const dateStr = cell.dataset.date;
-if (dateStr) DateController.select(dateStr);
-});
-})();
-
-window.selectDate     = (d) => DateController.select(d);
-window.backToCalendar = ()  => DateController.back();
-
-/* ============================================================
-PART 4 — EVENT BRIDGE (UNIFIED + MEMORY-SAFE)
-FIX C1: on() menyimpan wrapped listener → off() bisa bekerja
-============================================================ */
-
-const EventBridge = (() => {
-
-/* Map dari original handler → wrapped listener per event name */
-const listenerMap = new Map();
-
-function emit(name, payload) {
-window.Events?.emit?.(name, payload);
-document.dispatchEvent(new CustomEvent(name, { detail: payload }));
-}
-
-function on(name, handler) {
-window.Events?.on?.(name, handler);
-
-```
-const key = name + '::' + (handler.__eb_id__ = handler.__eb_id__ || Math.random().toString(36).slice(2));
-
-if (listenerMap.has(key)) return;
-
-const wrapped = (e) => handler(e.detail);
-listenerMap.set(key, { name, wrapped });
-document.addEventListener(name, wrapped);
-```
-
-}
-
-function off(name, handler) {
-if (!handler?.**eb_id**) return;
-const key = name + ‘::’ + handler.**eb_id**;
-const entry = listenerMap.get(key);
-if (!entry) return;
-document.removeEventListener(entry.name, entry.wrapped);
-listenerMap.delete(key);
-}
-
-/* Hapus semua listener untuk event name tertentu */
-function offAll(name) {
-for (const [key, entry] of listenerMap.entries()) {
-if (entry.name === name) {
-document.removeEventListener(entry.name, entry.wrapped);
-listenerMap.delete(key);
-}
-}
-}
-
-return { emit, on, off, offAll };
-
-})();
-
-/* ============================================================
-PART 5 — NOTIFICATION SYSTEM (NotifySafe)
-============================================================ */
-
-const NotificationQueue = (() => {
-
-const queue = [];
-let active = false;
-
-async function run() {
-if (active) return;
-active = true;
-while (queue.length) await _show(queue.shift());
-active = false;
-}
-
-function push(item) { queue.push(item); run(); }
-
-function _show(item) {
-return new Promise(resolve => _renderToast(item, resolve));
-}
-
-return { push };
-
-})();
-
-function _renderToast(opts, done) {
-const {
-message    = ‘’,
-type       = ‘info’,
-duration   = 2500,
-action     = null,
-persistent = false
-} = opts;
-
-const container = _getToastContainer();
-const toast = document.createElement(‘div’);
-toast.className = `toast toast-${type}`;
-toast.innerHTML = `<div class="toast-content"> <div class="toast-msg">${escapeHtml(message)}</div> ${action ?`<button class="toast-action">${escapeHtml(action.label)}</button>` : ''} </div>`;
-container.appendChild(toast);
-requestAnimationFrame(() => toast.classList.add(‘show’));
-
-if (action) {
-toast.querySelector(’.toast-action’)?.addEventListener(‘click’, () => {
-try { action.onClick?.(); } catch (e) { console.error(e); }
-_remove();
-});
-}
-
-function _remove() {
-toast.classList.remove(‘show’);
-setTimeout(() => { toast.remove(); done?.(); }, 200);
-}
-
-if (!persistent) setTimeout(_remove, duration);
-}
-
-function _getToastContainer() {
-let el = document.getElementById(‘toast-container’);
-if (!el) {
-el = document.createElement(‘div’);
-el.id = ‘toast-container’;
-Object.assign(el.style, {
-position: ‘fixed’, top: ‘20px’, right: ‘20px’,
-zIndex: 9999, display: ‘flex’, flexDirection: ‘column’,
-gap: ‘8px’, maxWidth: ‘280px’
-});
-document.body.appendChild(el);
-}
-return el;
-}
-
-const NotifySafe = {
-success(message, opts = {}) {
-NotificationQueue.push({ message, type: ‘success’, …opts });
-},
-error(message, opts = {}) {
-NotificationQueue.push({ message, type: ‘error’, …opts });
-},
-info(message, opts = {}) {
-NotificationQueue.push({ message, type: ‘info’, …opts });
-},
-action(message, label, onClick) {
-NotificationQueue.push({ message, type: ‘info’, action: { label, onClick } });
-}
+var wizardData = {
+  bizName: '',
+  bizType: '',
+  locations: [],
+  menus: []
 };
 
-window.Notify = NotifySafe;
-
-const NotificationUX = {
-withUndo(label, undoFn) {
-NotifySafe.action(`${label} dihapus`, ‘Undo’, undoFn);
-},
-errorFriendly(err) {
-NotifySafe.error(err?.message || ‘Terjadi kesalahan’, { duration: 3000 });
-}
-};
-
-window.notifySuccess = (m) => NotifySafe.success(m);
-window.notifyError   = (m) => NotifySafe.error(m);
-window.notifyInfo    = (m) => NotifySafe.info(m);
-window.showToast     = (m, t = ‘info’) => NotifySafe[t]?.(m) ?? NotifySafe.info(m);
-
-/* F6: NotifSystem alias → module yang benar bernama Notify */
-window.NotifSystem = {
-render(container, list) {
-if (!container) return;
-if (!list?.length) {
-container.innerHTML = `<div class="notif-empty">Tidak ada notifikasi</div>`;
-return;
-}
-container.innerHTML = list.map(n => `<div class="notif-item notif-${n.type || 'info'}"> <div class="notif-msg">${escapeHtml(n.message || '')}</div> ${n.time ?`<div class="notif-time">${escapeHtml(n.time)}</div>` : ''} </div>`).join(’’);
-}
-};
-
-Logger.log(’[NotifySafe] unified notification system ready’);
-
-/* ============================================================
-PART 6 — ERROR HANDLING + SAFETY LAYER
-============================================================ */
-
-const ErrorHandler = (() => {
-
-function log(error, context = ‘’, level = ‘error’) {
-try {
-if (level === ‘warn’)      Logger.warn(’[Warn]’,  context, error);
-else if (level === ‘info’) Logger.log(’[Info]’,   context, error);
-else                       Logger.error(’[Error]’, context, error);
-} catch (e) { console.error(error); }
-}
-
-function getMessage(error) {
-if (!error) return ‘Terjadi kesalahan’;
-if (typeof error === ‘string’) return error;
-return error.message || ‘Terjadi kesalahan tidak terduga’;
-}
-
-function notify(error, level = ‘error’) {
-if (level === ‘warn’ || level === ‘info’) {
-NotifySafe.info(getMessage(error));
-} else {
-NotifySafe.error(getMessage(error));
-}
-}
-
-function capture(error, context = ‘’, level = ‘error’) {
-log(error, context, level);
-notify(error, level);
-}
-
-return { capture, log, notify };
-
-})();
-
-function safeExec(fn, fallback = null) {
-try { return fn(); }
-catch (err) { ErrorHandler.capture(err, ‘safeExec’); return fallback; }
-}
-
-async function safeAsync(fn, fallback = null) {
-try { return await fn(); }
-catch (err) { ErrorHandler.capture(err, ‘safeAsync’); return fallback; }
-}
-
-const SafeDOM = {
-get(id) {
-const el = document.getElementById(id);
-if (!el) Logger.warn(’[DOM Missing]’, id);
-return el;
-},
-on(el, event, handler) {
-if (!el) return;
-el.addEventListener(event, (e) => safeExec(() => handler(e)));
-}
-};
-
-const SafeStorage = (() => {
-
-function get(key, fallback = null) {
-try {
-const raw = localStorage.getItem(key);
-return raw ? JSON.parse(raw) : fallback;
-} catch (err) { ErrorHandler.capture(err, ‘storage.get’); return fallback; }
-}
-
-function set(key, value) {
-try { localStorage.setItem(key, JSON.stringify(value)); }
-catch (err) { ErrorHandler.capture(err, ‘storage.set’); }
-}
-
-function remove(key) {
-try { localStorage.removeItem(key); }
-catch (err) { ErrorHandler.capture(err, ‘storage.remove’); }
-}
-
-return { get, set, remove };
-
-})();
-
-const DataGuard = {
-isValidReservation(r) {
-return !!(r?.date && r?.name);
-},
-validateList(list) {
-if (!Array.isArray(list)) return [];
-return list.filter(r => this.isValidReservation(r));
-}
-};
-
-(function initGlobalErrorHandler() {
-if (window.**ERROR_HANDLER**) return;
-window.**ERROR_HANDLER** = true;
-window.addEventListener(‘error’, (e) => {
-ErrorHandler.capture(e.error || e.message, ‘window.error’);
-});
-window.addEventListener(‘unhandledrejection’, (e) => {
-ErrorHandler.capture(e.reason, ‘promise.rejection’);
-});
-})();
-
-Logger.log(’[SafetyLayer] clean & active’);
-
-/* ============================================================
-PART 7 — FEATURE FLAGS
-P1: Remote config dari /config.json (dengan fallback lokal)
-============================================================ */
-
-const FeatureFlags = (() => {
-
-const defaults = {
-WA:            true,
-ANALYTICS:     true,
-BROADCAST:     true,
-AUTO_REMINDER: true,
-OFFLINE_QUEUE: true
-};
-
-let flags = Object.assign({}, defaults, CONFIG?.FEATURES || {});
-
-async function loadRemote() {
-try {
-const res = await fetch(’/config.json’, { cache: ‘no-cache’ });
-if (!res.ok) return;
-const remote = await res.json();
-if (remote?.FEATURES && typeof remote.FEATURES === ‘object’) {
-flags = Object.assign({}, defaults, CONFIG?.FEATURES || {}, remote.FEATURES);
-Logger.log(’[FeatureFlags] remote config loaded:’, flags);
-}
-} catch (err) {
-Logger.warn(’[FeatureFlags] remote config unavailable, using local defaults’);
-}
-}
-
-function isEnabled(key) { return !!flags[key]; }
-function getAll()       { return { …flags }; }
-
-return { isEnabled, getAll, loadRemote };
-
-})();
-
-/* ============================================================
-PART 8 — SETTINGS + BUSINESS RULES
-============================================================ */
-
-const SettingsBridge = (() => {
-
-let cache = null;
-
-function load()    { cache = Settings.get(); return cache; }
-function get()     { if (!cache) load(); return cache; }
-function refresh() { cache = Settings.get(); return cache; }
-
-return { load, get, refresh };
-
-})();
-
-const BusinessRules = (() => {
-
-function isOpenNow()         { return Settings.isOpenNow(); }
-function getMaxCapacity()    { return SettingsBridge.get()?.maxCapacityPerDay ?? CONFIG.MAX_CAPACITY_PER_SLOT ?? 20; }
-function shouldAutoConfirm() { return !!SettingsBridge.get()?.autoConfirm; }
-function isWAEnabled()       { return FeatureFlags.isEnabled(‘WA’) && !!SettingsBridge.get()?.enableWA; }
-function getBusinessPhone()  { return SettingsBridge.get()?.phoneNumber || ‘’; }
-
-async function canAcceptReservation(date, guests) {
-const list  = await DataProvider.getByDate(date);
-const total = list.reduce((sum, r) => {
-if (r.status === Reservation.STATUS.CANCELLED) return sum;
-return sum + (r.guests || 0);
-}, 0);
-return (total + guests) <= getMaxCapacity();
-}
-
-async function validateReservation(payload) {
-if (!isOpenNow()) throw new Error(‘Restoran sedang tutup’);
-const ok = await canAcceptReservation(payload.date, payload.guests);
-if (!ok) throw new Error(‘Kapasitas penuh di tanggal tersebut’);
-return true;
-}
-
-function applyAutoRules(payload) {
-if (shouldAutoConfirm()) {
-payload.status = Reservation.STATUS.CONFIRMED;
-}
-return payload;
-}
-
-return {
-isOpenNow, getMaxCapacity, canAcceptReservation,
-shouldAutoConfirm, isWAEnabled, getBusinessPhone,
-validateReservation, applyAutoRules
-};
-
-})();
-
-const SettingsUIBridge = (() => {
-
-function apply() {
-const s = SettingsBridge.get();
-const nameEl = document.getElementById(‘biz-name’);
-if (nameEl) nameEl.textContent = s.businessName;
-const sub = document.getElementById(‘cal-subtitle’);
-if (sub) sub.textContent = `Kelola reservasi ${s.businessName} dengan mudah`;
-}
-
-function init() {
-apply();
-EventBridge.on(‘settings:updated’, () => {
-SettingsBridge.refresh();
-apply();
-});
-}
-
-return { init, apply };
-
-})();
-
-(function patchSettingsSave() {
-if (!window.Settings?.save) return;
-const originalSave = Settings.save.bind(Settings);
-Settings.save = function (data) {
-const result = originalSave(data);
-EventBridge.emit(‘settings:updated’);
-return result;
-};
-})();
-
-(function initSettingsSystem() {
-SettingsBridge.load();
-SettingsUIBridge.init();
-})();
-
-/* ============================================================
-PART 9 — DATA PROVIDER
-============================================================ */
-
-const DataProvider = (() => {
-
-async function getAllReservations() {
-const cached = SmartCache.get(‘res_all’);
-if (cached) return cached;
-const data = await Reservation.getAll();
-SmartCache.set(‘res_all’, data, 3000);
-return data;
-}
-
-async function getByDate(date) {
-const key    = `res_date_${date}`;
-const cached = SmartCache.get(key);
-if (cached) return cached;
-const data = await Reservation.getByDate(date);
-SmartCache.set(key, data, 3000);
-return data;
-}
-
-async function getGroupedByDate() {
-const cached = SmartCache.get(‘res_grouped’);
-if (cached) return cached;
-const list = await getAllReservations();
-const map  = {};
-list.forEach(r => {
-if (!r.date) return;
-if (!map[r.date]) map[r.date] = [];
-map[r.date].push(r);
-});
-SmartCache.set(‘res_grouped’, map, 3000);
-return map;
-}
-
-return { getAllReservations, getByDate, getGroupedByDate };
-
-})();
-
-const DataStore = DataProvider;
-
-/* ============================================================
-PART 10 — SMART CACHE
-S1: Invalidasi granular per event type
-============================================================ */
-
-const SmartCache = (() => {
-
-const store = new Map();
-
-function set(key, value, ttl = 5000) {
-store.set(key, { value, expire: Date.now() + ttl });
-}
-
-function get(key) {
-const item = store.get(key);
-if (!item) return null;
-if (Date.now() > item.expire) { store.delete(key); return null; }
-return item.value;
-}
-
-function clear(prefix = null) {
-if (!prefix) { store.clear(); return; }
-for (const key of store.keys()) {
-if (key.startsWith(prefix)) store.delete(key);
-}
-}
-
-function invalidateDate(date) {
-clear(`res_date_${date}`);
-clear(‘res_all’);
-clear(‘res_grouped’);
-}
-
-return { set, get, clear, invalidateDate };
-
-})();
-
-/* S1: Granular cache invalidation per event type */
-EventBridge.on(‘reservation:created’, () => {
-SmartCache.clear(‘res_all’);
-SmartCache.clear(‘res_grouped’);
-SmartCache.clear(‘anl_’);
-});
-
-EventBridge.on(‘reservation:deleted’, () => {
-SmartCache.clear(‘res_all’);
-SmartCache.clear(‘res_grouped’);
-SmartCache.clear(‘anl_’);
-});
-
-EventBridge.on(‘reservation:updated’, (res) => {
-if (res?.date) {
-SmartCache.invalidateDate(res.date);
-} else {
-SmartCache.clear(‘res_’);
-}
-SmartCache.clear(‘anl_’);
-});
-
-EventBridge.on(‘reservation:changed’, () => {
-SmartCache.clear(‘res_’);
-SmartCache.clear(‘anl_’);
-});
-
-/* ============================================================
-PART 11 — SERVICE LAYER + RENDER BUS
-============================================================ */
-
-const RenderScheduler = (() => {
-let scheduled = false;
-function schedule(fn) {
-if (scheduled) return;
-scheduled = true;
-requestAnimationFrame(() => {
-try { fn(); } catch (e) { console.error(’[RenderScheduler]’, e); }
-scheduled = false;
-});
-}
-return { schedule };
-})();
-
-const RefreshBus = (() => {
-
-function refreshAll() {
-RenderScheduler.schedule(async () => {
-if (UI?.renderCalendar) await UI.renderCalendar();
-const selected = Calendar?.getSelected?.();
-if (selected && UI?.renderDetail) await UI.renderDetail(selected);
-});
-}
-
-return { refreshAll };
-
-})();
-
-(function bindCentralRefresh() {
-EventBridge.on(‘reservation:changed’, () => {
-try {
-RefreshBus.refreshAll();
-} catch (err) {
-ErrorHandler.capture(err, ‘centralRefresh’);
-}
-});
-})();
-
-const ReservationService = (() => {
-
-async function create(data) {
-const res = await Reservation.create(data);
-AuditLog.record(‘reservation:create’, { id: res?.id, date: data.date, name: data.name });
-EventBridge.emit(‘reservation:created’, res);
-EventBridge.emit(‘reservation:changed’);
-return res;
-}
-
-async function update(id, patch) {
-const res = await Reservation.update(id, patch);
-AuditLog.record(‘reservation:update’, { id, patch });
-EventBridge.emit(‘reservation:updated’, res);
-EventBridge.emit(‘reservation:changed’);
-return res;
-}
-
-async function remove(id) {
-await Reservation.remove(id);
-AuditLog.record(‘reservation:delete’, { id });
-EventBridge.emit(‘reservation:deleted’, id);
-EventBridge.emit(‘reservation:changed’);
-}
-
-return { create, update, remove };
-
-})();
-
-/* ============================================================
-PART 12 — OFFLINE QUEUE
-C3: Retry limit (max 3) + exponential backoff
-B19: Cross-tab flush lock agar tidak double-execute
-============================================================ */
-
-const OfflineQueue = (() => {
-
-const QUEUE_KEY  = ‘psv_offline_queue’;
-const FLUSH_LOCK = ‘psv_flush_lock’;
-const LOCK_TTL   = 10000; /* 10 detik */
-const MAX_RETRY  = 3;
-
-function _load()   { return SafeStorage.get(QUEUE_KEY, []); }
-function _save(q)  { SafeStorage.set(QUEUE_KEY, q); }
-
-/* B19: Cegah double-flush di beberapa tab */
-function _acquireFlushLock() {
-const lockTime = SafeStorage.get(FLUSH_LOCK);
-if (lockTime && Date.now() - lockTime < LOCK_TTL) return false;
-SafeStorage.set(FLUSH_LOCK, Date.now());
-return true;
-}
-
-function _releaseFlushLock() {
-SafeStorage.remove(FLUSH_LOCK);
-}
-
-function push(op) {
-if (!FeatureFlags.isEnabled(‘OFFLINE_QUEUE’)) return;
-const q = _load();
-q.push({ …op, queuedAt: Date.now(), retries: 0 });
-_save(q);
-Logger.warn(’[OfflineQueue] queued operation:’, op.type);
-}
-
-async function flush() {
-if (!FeatureFlags.isEnabled(‘OFFLINE_QUEUE’)) return;
-
-```
-/* B19: Cek cross-tab lock */
-if (!_acquireFlushLock()) {
-  Logger.log('[OfflineQueue] flush blocked — another tab is flushing');
-  return;
-}
-
-const q = _load();
-if (!q.length) { _releaseFlushLock(); return; }
-
-Logger.log('[OfflineQueue] flushing', q.length, 'queued ops');
-
-const failed = [];
-
-try {
-  for (const op of q) {
-
-    /* C3: Skip jika sudah melebihi batas retry */
-    if (op.retries >= MAX_RETRY) {
-      Logger.warn('[OfflineQueue] max retries reached, dropping op:', op.type, op.queuedAt);
-      AuditLog.record('offline:drop', { type: op.type, retries: op.retries });
-      continue;
+function wizardNext (step) {
+  // Validate step 1
+  if (step === 2) {
+    var name = document.getElementById('wz-biz-name').value.trim();
+    if (!name) {
+      showToast('Nama usaha wajib diisi!', 'error');
+      return;
     }
-
-    /* C3: Exponential backoff sebelum retry */
-    if (op.retries > 0) {
-      await new Promise(r => setTimeout(r, op.retries * 1000));
-    }
-
-    try {
-      if (op.type === 'create') await ReservationService.create(op.data);
-      if (op.type === 'update') await ReservationService.update(op.id, op.data);
-      if (op.type === 'delete') await ReservationService.remove(op.id);
-    } catch (err) {
-      Logger.error('[OfflineQueue] replay failed:', op, err);
-      op.retries++;
-      failed.push(op);
-    }
+    wizardData.bizName = name;
+    wizardData.bizType = document.getElementById('wz-biz-type').value;
   }
-} finally {
-  _save(failed);
-  _releaseFlushLock();
-}
 
-if (!failed.length && q.length > 0) {
-  NotifySafe.success('Data offline berhasil disinkronkan');
-} else if (failed.length > 0) {
-  NotifySafe.error(`${failed.length} operasi gagal disinkronkan`);
-}
-```
-
-}
-
-window.addEventListener(‘online’, () => {
-NotifySafe.info(‘Koneksi kembali — menyinkronkan data…’);
-flush();
-});
-
-return { push, flush };
-
-})();
-
-/* ============================================================
-PART 13 — HARDENING: SANITIZER + DUPLICATE GUARD + ASYNC LOCK
-============================================================ */
-
-const Sanitizer = (() => {
-
-function text(str)   { return String(str || ‘’).replace(/[<>]/g, ‘’).trim(); }
-function phone(str)  { return String(str || ‘’).replace(/\D/g, ‘’); }
-function number(val, fallback = 0) {
-const n = Number(val);
-return isNaN(n) ? fallback : n;
-}
-
-function reservation(payload = {}) {
-return {
-name:   text(payload.name),
-phone:  phone(payload.phone),
-note:   text(payload.note),
-date:   payload.date,
-time:   payload.time,
-guests: number(payload.guests, 1),
-menus:  Array.isArray(payload.menus) ? payload.menus : []
-};
-}
-
-return { reservation, text, phone, number };
-
-})();
-
-const DuplicateGuard = (() => {
-const cache = new Map();
-const TTL   = 3000;
-function isDuplicate(payload) {
-const key = JSON.stringify(payload);
-const now = Date.now();
-if (cache.has(key) && now - cache.get(key) < TTL) return true;
-cache.set(key, now);
-return false;
-}
-return { isDuplicate };
-})();
-
-const AsyncLock = (() => {
-const locks = new Set();
-async function run(key, fn) {
-if (locks.has(key)) { Logger.warn(’[LOCKED]’, key); return; }
-locks.add(key);
-try { return await fn(); }
-finally { locks.delete(key); }
-}
-return { run };
-})();
-
-const SafeReservation = (() => {
-
-async function create(payload) {
-const clean = Sanitizer.reservation(payload);
-
-```
-if (DuplicateGuard.isDuplicate(clean)) {
-  NotifySafe.info('Reservasi sedang diproses');
-  return null;
-}
-
-if (!navigator.onLine) {
-  OfflineQueue.push({ type: 'create', data: clean });
-  NotifySafe.info('Offline — reservasi akan disimpan saat online');
-  return null;
-}
-
-return AsyncLock.run('create', async () => {
-  try {
-    await BusinessRules.validateReservation(clean);
-    BusinessRules.applyAutoRules(clean);
-    const res = await ReservationService.create(clean);
-    NotifySafe.success('Reservasi berhasil dibuat');
-    return res;
-  } catch (err) {
-    ErrorHandler.capture(err, 'createReservation');
-    throw err;
-  }
-});
-```
-
-}
-
-async function update(id, patch) {
-const clean = Sanitizer.reservation(patch);
-
-```
-if (!navigator.onLine) {
-  OfflineQueue.push({ type: 'update', id, data: clean });
-  NotifySafe.info('Offline — perubahan akan disimpan saat online');
-  return null;
-}
-
-return AsyncLock.run('update_' + id, async () => {
-  try {
-    const res = await ReservationService.update(id, clean);
-    NotifySafe.success('Reservasi diperbarui');
-    return res;
-  } catch (err) {
-    ErrorHandler.capture(err, 'updateReservation');
-    throw err;
-  }
-});
-```
-
-}
-
-async function remove(id) {
-if (!navigator.onLine) {
-OfflineQueue.push({ type: ‘delete’, id });
-NotifySafe.info(‘Offline — penghapusan akan disinkronkan saat online’);
-return null;
-}
-
-```
-return AsyncLock.run('delete_' + id, async () => {
-  try {
-    await ReservationService.remove(id);
-    NotifySafe.info('Reservasi dihapus');
-  } catch (err) {
-    ErrorHandler.capture(err, 'deleteReservation');
-    throw err;
-  }
-});
-```
-
-}
-
-return { create, update, remove };
-
-})();
-
-const safeCreateReservation = (d)     => SafeReservation.create(d);
-const safeUpdateReservation = (id, d) => SafeReservation.update(id, d);
-const safeDeleteReservation = (id)    => SafeReservation.remove(id);
-
-/* ============================================================
-PART 14 — FORM + DETAIL ACTIONS
-============================================================ */
-
-/* F5 + B03: Konsolidasi form submit handler — satu handler saja.
-Form di-clone untuk menghapus semua listener lama (termasuk dari
-modules.js). Handler UI Bridge di index.html HARUS dihapus secara
-manual agar tidak ada double-submit dari sana. */
-(function consolidateFormSubmit() {
-if (!window.Form) return;
-if (Form.**SUBMIT_PATCHED**) return;
-
-const originalInit = Form.init?.bind(Form);
-
-Form.init = function () {
-originalInit?.();
-
-```
-const formEl = document.getElementById('reservation-form');
-if (!formEl) return;
-
-/* Clone node → hapus semua event listener lama */
-const cleanForm = formEl.cloneNode(true);
-formEl.parentNode.replaceChild(cleanForm, formEl);
-
-/* Satu-satunya submit handler */
-cleanForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const values = Form.getValues?.() ?? {};
-  if (!values.name || !values.date) {
-    NotifySafe.error('Nama dan tanggal wajib diisi');
-    return;
-  }
-  try {
-    await SafeReservation.create(values);
-    Form.close?.();
-  } catch (err) {
-    /* Error sudah di-handle oleh SafeReservation */
-  }
-});
-
-Logger.log('[Form] submit handler consolidated — single handler active');
-```
-
-};
-
-Form.**SUBMIT_PATCHED** = true;
-})();
-
-(function patchFormGetValues() {
-if (!window.Form || Form.**MENU_PATCHED**) return;
-
-const origGetValues = Form.getValues?.bind(Form);
-
-Form.getValues = function () {
-const base = origGetValues?.() ?? {};
-return { …base, menus: window.Menu?.getData?.() ?? [] };
-};
-
-Form.**MENU_PATCHED** = true;
-})();
-
-/* F4: Menu builder ID mismatch — alias #menu-builder → #menu-container */
-(function patchMenuBuilderIds() {
-const builder = document.getElementById(‘menu-builder’);
-if (!builder) return;
-
-if (!document.getElementById(‘menu-container’)) {
-builder.id = ‘menu-container’;
-builder.setAttribute(‘data-menu-builder’, ‘true’);
-}
-
-if (!document.getElementById(‘btn-add-menu’)) {
-const existingBtn = builder.querySelector(’[data-action=“add-menu”], .btn-add-menu, button’);
-if (existingBtn && !existingBtn.id) {
-existingBtn.id = ‘btn-add-menu’;
-} else if (!existingBtn) {
-const btn = document.createElement(‘button’);
-btn.id        = ‘btn-add-menu’;
-btn.className = ‘btn btn-sm’;
-btn.textContent = ‘+ Tambah Menu’;
-builder.prepend(btn);
-}
-}
-
-Logger.log(’[Menu] builder IDs patched — #menu-container and #btn-add-menu ready’);
-})();
-
-/* S3: renderReservationCard diekspos ke UI agar VirtualList bisa pakai */
-(function patchUIRenderCard() {
-if (!window.UI || UI.**CARD_PATCHED**) return;
-
-if (typeof UI.renderReservationCard !== ‘function’) {
-UI.renderReservationCard = function (r) {
-const div = document.createElement(‘div’);
-div.className = ‘res-card’;
-div.dataset.id = r.id;
-div.innerHTML = `<div class="res-card-header"> <strong>${escapeHtml(r.name || '-')}</strong> <span class="res-status status-${r.status || 'pending'}">${r.status || 'pending'}</span> </div> <div class="res-card-body"> <span>⏰ ${r.time || '-'}</span> <span>👥 ${r.guests || 0} orang</span> ${r.phone ?`<span>📱 ${escapeHtml(r.phone)}</span>`: ''} ${r.note  ?`<span>📝 ${escapeHtml(r.note)}</span>` : ''} </div> <div class="res-card-actions"> <button data-action="next">Lanjut</button> <button data-action="cancel">Batalkan</button> <button data-action="delete">Hapus</button> ${r.phone ?`<button data-action="wa">WA</button>` : ''} <button data-action="thank">Terima Kasih</button> <button data-action="reminder">Reminder</button> </div>`;
-return div;
-};
-}
-
-UI.**CARD_PATCHED** = true;
-})();
-
-(function bindDetailActions() {
-
-const container = document.getElementById(‘reservation-list’);
-if (!container) return;
-
-async function _getById(id) {
-try {
-const list = await DataProvider.getAllReservations();
-return list.find(r => r.id === id) ?? null;
-} catch (err) {
-Logger.error(’[getById]’, err);
-return null;
-}
-}
-
-container.addEventListener(‘click’, async (e) => {
-
-```
-const card = e.target.closest('.res-card');
-if (!card) return;
-
-const id = card.dataset.id;
-if (!id) return;
-
-if (e.target.closest('[data-action="next"]')) {
-  try {
-    await Reservation.advanceStatus(id);
-    NotifySafe.success('Status diperbarui');
-  } catch (err) { NotifySafe.error('Gagal update status'); }
-  return;
-}
-
-if (e.target.closest('[data-action="cancel"]')) {
-  const ok = await ConfirmDialog.show({
-    title:   'Batalkan Reservasi',
-    message: 'Apakah kamu yakin ingin membatalkan reservasi ini?'
+  var steps = document.querySelectorAll('.wizard-step');
+  steps.forEach(function (s) {
+    s.classList.remove('active');
   });
-  if (!ok) return;
-  try {
-    await Reservation.cancel(id);
-    NotifySafe.info('Reservasi dibatalkan');
-  } catch (err) { NotifySafe.error('Gagal membatalkan reservasi'); }
-  return;
-}
 
-if (e.target.closest('[data-action="delete"]')) {
-  const ok = await ConfirmDialog.show({
-    title:   'Hapus Reservasi',
-    message: 'Hapus reservasi ini? Tindakan tidak dapat dibatalkan.',
-    danger:  true
+  var next = document.getElementById('wizard-' + step);
+  if (next) next.classList.add('active');
+}
+window.wizardNext = wizardNext;
+/* ===================== LOCATION ===================== */
+
+function wizardAddLocation () {
+  var name = document.getElementById('wz-loc-name').value.trim();
+  var cap  = parseInt(document.getElementById('wz-loc-cap').value, 10);
+
+  if (!name || isNaN(cap) || cap < 1) {
+    showToast('Isi nama lokasi dan kapasitas!', 'error');
+    return;
+  }
+
+  var exists = wizardData.locations.some(function (l) {
+    return l.name.toLowerCase() === name.toLowerCase();
   });
-  if (!ok) return;
-  await SafeReservation.remove(id);
-  return;
-}
 
-if (e.target.closest('[data-action="wa"]')) {
-  const r = await _getById(id);
-  if (r) Communication?.sendConfirmation?.(r);
-  return;
-}
-
-if (e.target.closest('[data-action="thank"]')) {
-  const r = await _getById(id);
-  if (r) Communication?.sendThankYou?.(r);
-  return;
-}
-
-if (e.target.closest('[data-action="reminder"]')) {
-  const r = await _getById(id);
-  if (r) Communication?.sendReminder?.(r);
-  return;
-}
-```
-
-});
-
-})();
-
-window.contactWA = async (id) => {
-const list = await DataProvider.getAllReservations();
-const r = list.find(x => x.id === id);
-if (r) Communication?.sendConfirmation?.(r);
-};
-
-/* ============================================================
-PART 15 — WHATSAPP + COMMUNICATION ENGINE
-============================================================ */
-
-const PhoneUtil = (() => {
-
-function normalize(phone) {
-let cleaned = String(phone || ‘’).replace(/\D/g, ‘’);
-if (cleaned.startsWith(‘0’)) cleaned = ‘62’ + cleaned.slice(1);
-if (!cleaned.startsWith(‘62’)) cleaned = ‘62’ + cleaned;
-return cleaned;
-}
-
-function isValid(phone) { return normalize(phone).length >= 10; }
-
-return { normalize, isValid };
-
-})();
-
-const TemplateEngine = (() => {
-
-function render(template, data) {
-return template.replace(/{{(.*?)}}/g, (_, key) => {
-const k = key.trim();
-return (data[k] !== undefined && data[k] !== null) ? data[k] : ‘’;
-});
-}
-
-function formatDate(dateStr) {
-if (!dateStr) return ‘’;
-const d = new Date(dateStr + ‘T00:00:00’);
-return d.toLocaleDateString(‘id-ID’, { day: ‘numeric’, month: ‘long’, year: ‘numeric’ });
-}
-
-return { render, formatDate };
-
-})();
-
-const MessageTemplates = {
-confirmation: `Halo Kak *{{name}}* 👋\n\nReservasi kamu di *{{biz}}* sudah kami terima.\n\n📅 {{date}}\n⏰ {{time}}\n👥 {{guests}} orang\n\nKami tunggu kedatangannya 😊`,
-reminder:     `Halo Kak *{{name}}* 👋\n\nKami mengingatkan reservasi kamu hari ini di *{{biz}}*:\n\n⏰ {{time}}\n👥 {{guests}} orang\n\nSampai jumpa 😊`,
-thankYou:     `Halo Kak *{{name}}* 🙏\n\nTerima kasih sudah berkunjung ke *{{biz}}* 😊\n\nKami tunggu kedatangan berikutnya!`,
-broadcast:    `Halo Kak *{{name}}* 👋\n\n{{message}}\n\nSalam,\n*{{biz}}*`
-};
-
-const MessageBuilder = (() => {
-
-function build(type, data = {}) {
-const template = MessageTemplates[type];
-if (!template) return ‘’;
-return TemplateEngine.render(template, {
-name:    data.name    || ‘Customer’,
-biz:     SettingsBridge.get()?.businessName || ‘Usaha’,
-date:    TemplateEngine.formatDate(data.date),
-time:    data.time    || ‘’,
-guests:  data.guests  || ‘’,
-message: data.message || ‘’
-});
-}
-
-return { build };
-
-})();
-
-const WhatsAppService = (() => {
-
-function send(phone, message) {
-if (!BusinessRules.isWAEnabled()) {
-NotifySafe.error(‘Fitur WhatsApp dinonaktifkan’);
-return;
-}
-if (!phone) phone = BusinessRules.getBusinessPhone();
-if (!PhoneUtil.isValid(phone)) {
-NotifySafe.error(‘Nomor tidak valid’);
-return;
-}
-const url =
-‘https://wa.me/’ +
-PhoneUtil.normalize(phone) +
-‘?text=’ + encodeURIComponent(message);
-window.open(url, ‘_blank’, ‘noopener’);
-}
-
-return { send };
-
-})();
-
-const Communication = (() => {
-
-function sendConfirmation(res) {
-if (!res) return;
-WhatsAppService.send(res.phone, MessageBuilder.build(‘confirmation’, res));
-NotifySafe.success(‘Pesan konfirmasi dibuka’);
-}
-
-function sendReminder(res) {
-if (!res) return;
-WhatsAppService.send(res.phone, MessageBuilder.build(‘reminder’, res));
-NotifySafe.info(‘Reminder dibuka’);
-}
-
-function sendThankYou(res) {
-if (!res) return;
-WhatsAppService.send(res.phone, MessageBuilder.build(‘thankYou’, res));
-NotifySafe.success(‘Ucapan terima kasih dibuka’);
-}
-
-function sendCustom(phone, message) {
-if (!phone || !message) { NotifySafe.error(‘Data tidak lengkap’); return; }
-WhatsAppService.send(phone, message);
-}
-
-function sendBroadcast(list, message) {
-if (!list?.length) { NotifySafe.error(‘Tidak ada penerima’); return; }
-if (!message)      { NotifySafe.error(‘Pesan kosong’); return; }
-list.forEach((c, i) => {
-setTimeout(() => {
-WhatsAppService.send(
-c.phone,
-MessageBuilder.build(‘broadcast’, { name: c.name, message })
-);
-}, i * 800);
-});
-NotifySafe.success(`Broadcast dimulai (${list.length} kontak)`);
-}
-
-return { sendConfirmation, sendReminder, sendThankYou, sendCustom, sendBroadcast };
-
-})();
-
-/* S2: AutoReminder dengan tab-lock via localStorage */
-const AutoReminder = (() => {
-
-const LOCK_KEY    = ‘psv_reminder_lock’;
-const LOCK_TTL_MS = 90000;
-let started       = false;
-
-function _acquireLock() {
-const existing = SafeStorage.get(LOCK_KEY);
-if (existing && Date.now() - existing < LOCK_TTL_MS) return false;
-SafeStorage.set(LOCK_KEY, Date.now());
-return true;
-}
-
-function _releaseLock() {
-SafeStorage.remove(LOCK_KEY);
-}
-
-function start() {
-if (!FeatureFlags.isEnabled(‘AUTO_REMINDER’)) return;
-if (started) return;
-started = true;
-
-```
-setInterval(async () => {
-
-  if (!_acquireLock()) {
-    Logger.log('[AutoReminder] lock held by another tab, skipping');
+  if (exists) {
+    showToast('Nama lokasi sudah ditambahkan!', 'error');
     return;
   }
 
-  const today = Utils.today?.();
-  if (!today) { _releaseLock(); return; }
+  wizardData.locations.push({
+    name: name,
+    capacity: cap
+  });
 
-  try {
-    const list = await DataProvider.getByDate(today);
-    const now  = new Date();
+  document.getElementById('wz-loc-name').value = '';
+  document.getElementById('wz-loc-cap').value  = '';
 
-    for (const r of list) {
-      if (!r.time || r.reminderSent) continue;
+  _renderWizardLocations();
+}
 
-      const [h, m] = r.time.split(':').map(Number);
-      const resTime = new Date();
-      resTime.setHours(h, m, 0, 0);
-
-      const diff = resTime - now;
-
-      if (diff > 0 && diff < 3600000) {
-        Communication.sendReminder(r);
-        await Reservation.update(r.id, { reminderSent: true });
-        EventBridge.emit('reservation:updated', { ...r, reminderSent: true });
-      }
+function _renderWizardLocations () {
+  renderWizardList(
+    'wz-locations-list',
+    wizardData.locations,
+    function (i) {
+      wizardData.locations.splice(i, 1);
+      _renderWizardLocations();
+    },
+    function (l) {
+      return '<strong>' + escapeHtml(l.name) + '</strong> - ' + l.capacity + ' orang';
     }
-
-  } catch (err) {
-    Logger.warn('[AutoReminder]', err);
-  } finally {
-    _releaseLock();
-  }
-
-}, 60000);
-```
-
-}
-
-return { start };
-
-})();
-
-AutoReminder.start();
-Logger.log(’[Communication] engine ready’);
-
-/* ============================================================
-PART 16 — ANALYTICS CONTROLLER
-============================================================ */
-
-const AnalyticsController = (() => {
-
-async function loadSummary() {
-if (!FeatureFlags.isEnabled(‘ANALYTICS’)) return;
-
-```
-try {
-  let data = SmartCache.get('anl_summary');
-  if (!data) {
-    data = await Analytics.getSummary();
-    SmartCache.set('anl_summary', data, 30000);
-  }
-
-  const el = document.getElementById('anl-stats');
-  if (!el) return;
-
-  el.innerHTML = [
-    { val: data.totalReservations, label: 'Total Reservasi' },
-    { val: data.totalGuests,       label: 'Total Tamu' },
-    { val: data.occupancy + '%',   label: 'Tingkat Okupansi' },
-    { val: data.peakDay || '-',    label: 'Hari Tersibuk' }
-  ].map(c => `
-    <div class="anl-card">
-      <div class="anl-val">${c.val}</div>
-      <div class="anl-label">${c.label}</div>
-    </div>
-  `).join('');
-
-} catch (err) {
-  Logger.error('[Analytics] summary error', err);
-  NotifySafe.error('Gagal memuat analisis');
-}
-```
-
-}
-
-async function loadDaily() {
-if (!FeatureFlags.isEnabled(‘ANALYTICS’)) return;
-
-```
-try {
-  let data = SmartCache.get('anl_daily');
-  if (!data) {
-    data = await Analytics.getDaily();
-    SmartCache.set('anl_daily', data, 30000);
-  }
-
-  const el = document.getElementById('anl-daily');
-  if (!el) return;
-
-  if (!data.length) {
-    el.innerHTML = UI.empty('Belum ada data analitik');
-    return;
-  }
-
-  el.innerHTML = data.map(item => {
-    const d = new Date(item.date + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-    return `
-      <div class="anl-row">
-        <div>${d}</div>
-        <div>${item.total} reservasi</div>
-        <div>${item.guests} tamu</div>
-        <div>${item.occupancy}%</div>
-      </div>`;
-  }).join('');
-
-} catch (err) {
-  Logger.error('[Analytics] daily error', err);
-}
-```
-
-}
-
-async function loadAll() {
-await loadSummary();
-await loadDaily();
-}
-
-return { loadAll };
-
-})();
-
-addRouteHook(async (name) => {
-if (name === ‘analysis’) await AnalyticsController.loadAll();
-});
-
-EventBridge.on(‘reservation:changed’, () => {
-if (Router?.getCurrent?.() === ‘analysis’) AnalyticsController.loadAll();
-});
-
-/* ============================================================
-PART 17 — CUSTOMER MANAGEMENT
-============================================================ */
-
-const CustomerController = (() => {
-
-let cache = [];
-
-async function build() {
-const list = await DataProvider.getAllReservations();
-const map  = {};
-list.forEach(r => {
-const key = r.phone || (r.name + ‘_’ + r.date);
-if (!map[key]) {
-map[key] = { name: r.name || ‘Tanpa Nama’, phone: r.phone || ‘’, count: 0, lastDate: r.date };
-}
-map[key].count++;
-if (r.date > map[key].lastDate) map[key].lastDate = r.date;
-});
-cache = Object.values(map).sort((a, b) => b.count - a.count);
-return cache;
-}
-
-function get()         { return cache; }
-function filter(query) {
-if (!query) return cache;
-const q = query.toLowerCase();
-return cache.filter(c =>
-c.name?.toLowerCase().includes(q) || c.phone?.includes(q)
-);
-}
-
-function contact(customer) {
-if (!customer?.phone) { NotifySafe.error(‘Nomor tidak tersedia’); return; }
-Communication.sendCustom(
-customer.phone,
-`Halo Kak *${customer.name}* 👋\n\nTerima kasih sudah menjadi pelanggan kami 😊`
-);
-}
-
-return { build, get, filter, contact };
-
-})();
-
-const CustomerUI = (() => {
-
-function _esc(str) {
-return String(str || ‘’).replace(/[&<>”’]/g, s => ({
-‘&’: ‘&’, ‘<’: ‘<’, ‘>’: ‘>’, ‘”’: ‘"’, “’”: ‘'’
-})[s]);
-}
-
-function _fmt(d) {
-if (!d) return ‘-’;
-return new Date(d + ‘T00:00:00’).toLocaleDateString(‘id-ID’, { day: ‘numeric’, month: ‘short’, year: ‘numeric’ });
-}
-
-function render(list) {
-const el = document.getElementById(‘customers-tbody’);
-if (!el) return;
-if (!list.length) {
-el.innerHTML = `<tr><td colspan="5">${UI.empty('Tidak ada data pelanggan')}</td></tr>`;
-return;
-}
-el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ?`<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'}</td> </tr>`).join(’’);
-}
-
-return { render };
-
-})();
-
-(function bindCustomerEvents() {
-const search = document.getElementById(‘customer-search’);
-const table  = document.getElementById(‘customers-tbody’);
-if (search) {
-search.addEventListener(‘input’, Utils.debounce((e) => {
-CustomerUI.render(CustomerController.filter(e.target.value));
-}, 250));
-}
-if (table) {
-table.addEventListener(‘click’, (e) => {
-const btn = e.target.closest(’.btn-wa’);
-if (!btn) return;
-CustomerController.contact({ phone: btn.dataset.phone, name: btn.dataset.name });
-});
-}
-})();
-
-addRouteHook(async (name) => {
-if (name === ‘customers’) {
-const data = await CustomerController.build();
-CustomerUI.render(data);
-}
-});
-
-EventBridge.on(‘reservation:changed’, async () => {
-if (Router?.getCurrent?.() !== ‘customers’) return;
-CustomerUI.render(await CustomerController.build());
-});
-
-/* ============================================================
-PART 18 — BROADCAST SYSTEM
-============================================================ */
-
-const BroadcastController = (() => {
-
-let list = [];
-
-async function load() {
-list = (await CustomerController.build()).filter(c => c.phone);
-return list;
-}
-
-function get()         { return list; }
-function filter(query) {
-if (!query) return list;
-const q = query.toLowerCase();
-return list.filter(c => c.name?.toLowerCase().includes(q) || c.phone?.includes(q));
-}
-
-function send(phone, name, template) {
-if (!phone || !template) { NotifySafe.error(‘Data tidak lengkap’); return; }
-Communication.sendCustom(phone, template.replace(/{name}/gi, name || ‘’));
-}
-
-async function sendAll(template) {
-if (!FeatureFlags.isEnabled(‘BROADCAST’)) { NotifySafe.error(‘Fitur broadcast dinonaktifkan’); return; }
-if (!list.length) { NotifySafe.error(‘Tidak ada penerima’); return; }
-if (!template)    { NotifySafe.error(‘Pesan kosong’); return; }
-Communication.sendBroadcast(list, template);
-}
-
-return { load, get, filter, send, sendAll };
-
-})();
-
-const BroadcastUI = (() => {
-
-function _esc(str) {
-return String(str || ‘’).replace(/[&<>”’]/g, s => ({
-‘&’: ‘&’, ‘<’: ‘<’, ‘>’: ‘>’, ‘”’: ‘"’, “’”: ‘'’
-})[s]);
-}
-
-function render(list) {
-const el = document.getElementById(‘bc-list’);
-if (!el) return;
-if (!list.length) {
-el.innerHTML = UI.empty(‘Tidak ada data pelanggan’);
-return;
-}
-el.innerHTML = list.map(c => ` <div class="bc-item" data-phone="${c.phone}" data-name="${_esc(c.name)}"> <div> <div class="bc-name">${_esc(c.name)}</div> <div class="bc-phone">${c.phone}</div> </div> <button class="btn-wa">Kirim</button> </div>`).join(’’);
-}
-
-function getMessage() { return document.getElementById(‘broadcast-msg’)?.value || ‘’; }
-
-return { render, getMessage };
-
-})();
-
-(function bindBroadcastEvents() {
-const search     = document.getElementById(‘bc-search’);
-const listEl     = document.getElementById(‘bc-list’);
-const sendAllBtn = document.getElementById(‘bc-send-all’);
-
-if (search) {
-search.addEventListener(‘input’, Utils.debounce((e) => {
-BroadcastUI.render(BroadcastController.filter(e.target.value));
-}, 250));
-}
-
-if (listEl) {
-listEl.addEventListener(‘click’, (e) => {
-const item = e.target.closest(’.bc-item’);
-if (!item) return;
-const msg = BroadcastUI.getMessage();
-if (!msg) { NotifySafe.error(‘Isi pesan terlebih dahulu’); return; }
-BroadcastController.send(item.dataset.phone, item.dataset.name, msg);
-});
-}
-
-if (sendAllBtn) {
-sendAllBtn.addEventListener(‘click’, async () => {
-const msg = BroadcastUI.getMessage();
-if (!msg) { NotifySafe.error(‘Pesan kosong’); return; }
-const ok = await ConfirmDialog.show({
-title:   ‘Kirim Broadcast’,
-message: `Kirim broadcast ke semua pelanggan (${BroadcastController.get?.()?.length ?? '?'} kontak)?`
-});
-if (!ok) return;
-await BroadcastController.sendAll(msg);
-NotifySafe.success(‘Broadcast dijalankan’);
-});
-}
-
-})();
-
-addRouteHook(async (name) => {
-if (name === ‘broadcast’) {
-const data = await BroadcastController.load();
-BroadcastUI.render(data);
-}
-});
-
-EventBridge.on(‘reservation:changed’, async () => {
-if (Router?.getCurrent?.() !== ‘broadcast’) return;
-BroadcastUI.render(await BroadcastController.load());
-});
-
-/* ============================================================
-PART 19 — LAZY VIEW + VIRTUAL LIST
-C2: VirtualList render dari DATA (bukan clone DOM)
-============================================================ */
-
-const VirtualList = (() => {
-
-function render(container, list, renderItem, limit = 50) {
-if (!container) return;
-const frag = document.createDocumentFragment();
-list.slice(0, limit).forEach(item => {
-const el = renderItem(item);
-if (el) frag.appendChild(el);
-});
-container.innerHTML = ‘’;
-container.appendChild(frag);
-
-```
-if (list.length > limit) {
-  const more = document.createElement('div');
-  more.className = 'load-more';
-  more.textContent = `Tampilkan ${list.length - limit} lagi...`;
-  more.addEventListener('click', () => render(container, list, renderItem, limit + 50));
-  container.appendChild(more);
-}
-```
-
-}
-
-return { render };
-
-})();
-
-(function patchDetailRender() {
-if (!window.UI?.renderDetail) return;
-if (UI.**VIRTUAL_PATCHED**) return;
-
-const original = UI.renderDetail.bind(UI);
-
-UI.renderDetail = async function (date) {
-
-```
-const list = await DataProvider.getByDate(date).catch(() => []);
-
-if (list.length <= 50) {
-  await original(date);
-} else {
-  const container = document.getElementById('reservation-list');
-  if (!container) { await original(date); return; }
-
-  VirtualList.render(
-    container,
-    list,
-    (item) => UI.renderReservationCard(item)
   );
 }
-```
+window.wizardAddLocation = wizardAddLocation;
+/* ===================== MENU ===================== */
 
-};
+function wizardAddMenu () {
+  var name = document.getElementById('wz-menu-name').value.trim();
+  var price = parseInt(document.getElementById('wz-menu-price').value, 10) || 0;
 
-UI.**VIRTUAL_PATCHED** = true;
-})();
+  var details = document.getElementById('wz-menu-detail').value
+    .split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean);
 
-const LazyView = (() => {
+  if (!name) {
+    showToast('Isi nama menu!', 'error');
+    return;
+  }
 
-const loaded = new Set();
+  var exists = wizardData.menus.some(function (m) {
+    return m.name.toLowerCase() === name.toLowerCase();
+  });
 
-function handle(name) {
-if (loaded.has(name)) return;
-if (name === ‘analysis’) {
-AnalyticsController.loadAll();
-loaded.add(name);
-}
-if (name === ‘broadcast’) {
-BroadcastController.load().then(data => BroadcastUI.render(data));
-loaded.add(name);
-}
-}
+  if (exists) {
+    showToast('Nama menu sudah ditambahkan!', 'error');
+    return;
+  }
 
-return { handle };
+  wizardData.menus.push({
+    name: name,
+    price: price,
+    details: details
+  });
 
-})();
+  document.getElementById('wz-menu-name').value   = '';
+  document.getElementById('wz-menu-price').value  = '';
+  document.getElementById('wz-menu-detail').value = '';
 
-/* ============================================================
-PART 20 — UX MICRO INTERACTIONS
-============================================================ */
-
-const ButtonUX = {
-setLoading(btn, state = true) {
-if (!btn) return;
-if (state) { btn.dataset._text = btn.innerHTML; btn.innerHTML = ‘⏳’; btn.disabled = true; }
-else       { btn.innerHTML = btn.dataset._text || btn.innerHTML; btn.disabled = false; }
-}
-};
-
-(function clickFeedback() {
-document.addEventListener(‘click’, (e) => {
-const btn = e.target.closest(’.btn’);
-if (!btn) return;
-btn.style.transform = ‘scale(0.96)’;
-setTimeout(() => { btn.style.transform = ‘’; }, 120);
-});
-})();
-
-(function hoverEffect() {
-const container = document.getElementById(‘reservation-list’);
-if (!container) return;
-container.addEventListener(‘mouseover’, (e) => {
-const card = e.target.closest(’.res-card’);
-if (card) card.style.transform = ‘translateY(-2px)’;
-});
-container.addEventListener(‘mouseout’, (e) => {
-const card = e.target.closest(’.res-card’);
-if (card) card.style.transform = ‘’;
-});
-})();
-
-(function inputGuard() {
-document.addEventListener(‘input’, (e) => {
-const el = e.target;
-if (!(el instanceof HTMLInputElement)) return;
-if (el.name === ‘guests’ && el.value < 1) el.value = 1;
-if (el.name === ‘name’ && el.value.length > 50) el.value = el.value.slice(0, 50);
-});
-document.addEventListener(‘input’, (e) => {
-if (e.target.tagName === ‘TEXTAREA’ && e.target.value.length > 500) {
-e.target.value = e.target.value.slice(0, 500);
-}
-});
-})();
-
-/* P2: Empty state terpusat */
-function buildEmptyState(title, subtitle = ‘’) {
-return `<div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> ${subtitle ?`<div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div>` : ''} </div>`;
+  _renderWizardMenus();
 }
 
-if (window.UI && !UI.empty) {
-UI.empty = buildEmptyState;
+function _renderWizardMenus () {
+  renderWizardList(
+    'wz-menus-list',
+    wizardData.menus,
+    function (i) {
+      wizardData.menus.splice(i, 1);
+      _renderWizardMenus();
+    },
+    function (m) {
+      return '<strong>' + escapeHtml(m.name) + '</strong> - Rp' + formatRupiah(m.price);
+    }
+  );
+}
+window.wizardAddMenu = wizardAddMenu;
+/* ===================== GENERIC LIST ===================== */
+
+function renderWizardList (containerId, arr, onRemove, labelFn) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+
+  if (!arr.length) {
+    el.innerHTML = '';
+    return;
+  }
+
+  el.innerHTML = arr.map(function (item, i) {
+    return (
+      '<div class="wz-added-item">' +
+        '<span>' + labelFn(item) + '</span>' +
+        (onRemove
+          ? '<button class="wz-remove" onclick="wizardRemoveItem(\'' + containerId + '\',' + i + ')" title="Hapus">' +
+              '<i class="fas fa-times"></i>' +
+            '</button>'
+          : '') +
+      '</div>'
+    );
+  }).join('');
 }
 
-Logger.log(’[UX] interaction layer active’);
-
-/* ============================================================
-PART 21 — AUDIT LOG (S4)
-============================================================ */
-
-const AuditLog = (() => {
-
-const LOG_KEY  = ‘psv_audit_log’;
-const MAX_LOGS = 200;
-
-function record(action, meta = {}) {
-try {
-const logs = SafeStorage.get(LOG_KEY, []);
-logs.unshift({
-action,
-meta,
-ts: Date.now(),
-view: Router?.getCurrent?.() ?? null
-});
-if (logs.length > MAX_LOGS) logs.length = MAX_LOGS;
-SafeStorage.set(LOG_KEY, logs);
-} catch (err) {
-Logger.warn(’[AuditLog] failed to record:’, action, err);
-}
+function wizardRemoveItem(containerId, index) {
+  if (containerId === 'wz-locations-list') {
+    wizardData.locations.splice(index, 1);
+    _renderWizardLocations();
+  } else if (containerId === 'wz-menus-list') {
+    wizardData.menus.splice(index, 1);
+    _renderWizardMenus();
+  }
 }
 
-function getAll() {
-return SafeStorage.get(LOG_KEY, []);
-}
+/* ===================== FINISH ===================== */
 
-function clear() {
-SafeStorage.remove(LOG_KEY);
-Logger.log(’[AuditLog] cleared’);
-}
+function wizardFinish () {
+  if (!wizardData.bizName) {
+    showToast('Nama usaha belum diisi!', 'error');
+    wizardNext(1);
+    return;
+  }
 
-return { record, getAll, clear };
-
-})();
-
-window.AuditLog = AuditLog;
-
-/* ============================================================
-PART 22 — MODULE REGISTRY + ARCHITECTURE
-============================================================ */
-
-const ModuleRegistry = (() => {
-const map = {};
-function register(name, module) { if (name && module) map[name] = module; }
-function get(name)  { return map[name]; }
-function list()     { return Object.keys(map); }
-return { register, get, list };
-})();
-
-(function registerCoreModules() {
-[
-‘Reservation’, ‘Calendar’, ‘UI’, ‘Form’, ‘Menu’,
-‘Filter’, ‘Analytics’, ‘Backup’, ‘Settings’, ‘Sync’
-].forEach(name => {
-if (window[name]) ModuleRegistry.register(name, window[name]);
-});
-})();
-
-(function bindSyncLayer() {
-if (!window.Sync?.subscribe) return;
-Sync.subscribe(() => EventBridge.emit(‘reservation:changed’));
-})();
-
-window.AppAPI = {
-create:  (d)     => SafeReservation.create(d),
-update:  (id, d) => SafeReservation.update(id, d),
-delete:  (id)    => SafeReservation.remove(id),
-refresh: ()      => EventBridge.emit(‘reservation:changed’),
-getAll:  ()      => DataProvider.getAllReservations(),
-audit:   ()      => AuditLog.getAll(),
-debug:   ()      => console.log({ modules: ModuleRegistry.list() })
-};
-
-setTimeout(() => {
-Logger.log(’[HealthCheck] modules:’, ModuleRegistry.list().length);
-}, 2000);
-
-Logger.log(’[Architecture] clean & stable’);
-
-/* ============================================================
-PART 23 — PRODUCTION HARDENING
-============================================================ */
-
-(function setProductionMode() {
-window.**PROD** = !CONFIG.DEBUG;
-Logger.log(’[MODE]’, window.**PROD** ? ‘Production’ : ‘Development’);
-})();
-
-(function autoBackup() {
-setInterval(async () => {
-try {
-const data = await DataProvider.getAllReservations();
-if (!data?.length) return;
-SafeStorage.set(‘psv_autobackup’, { t: Date.now(), data });
-} catch (err) { Logger.warn(’[Backup] skipped’); }
-}, 60000);
-})();
-
-/* B20: autoRecoveryCheck — pakai fallback key jika KEYS tidak tersedia */
-(function autoRecoveryCheck() {
-try {
-/* Fallback hardcoded jika KEYS dari modules.js belum tersedia */
-const RESERVATION_KEY = (typeof KEYS !== ‘undefined’ && KEYS?.reservations)
-? KEYS.reservations
-: ‘psv_reservations_v1’;
-
-```
-const backup  = SafeStorage.get('psv_autobackup');
-if (!backup?.data) return;
-
-const current = SafeStorage.get(RESERVATION_KEY);
-if (!current || !Array.isArray(current) || current.length === 0) {
-  Logger.warn('[Recovery] restoring from autobackup');
-  SafeStorage.set(RESERVATION_KEY, backup.data);
-}
-```
-
-} catch (err) { Logger.warn(’[Recovery] failed’); }
-})();
-
-(function networkMonitor() {
-function update() {
-if (!navigator.onLine) NotifySafe.info(‘Mode offline aktif’);
-else {
-Logger.log(’[Network] online’);
-OfflineQueue.flush();
-}
-}
-window.addEventListener(‘offline’, update);
-window.addEventListener(‘online’, update);
-})();
-
-(function performanceWatch() {
-const start = performance.now();
-window.addEventListener(‘load’, () => {
-const t = performance.now() - start;
-if (t > 2500) Logger.warn(’[PERF] slow load:’, Math.round(t), ‘ms’);
-});
-})();
-
-/* Public API (frozen) */
-window.Proserva = Object.freeze({
-
-create:   safeCreateReservation,
-update:   (data) => safeUpdateReservation(data.id, data),
-delete:   safeDeleteReservation,
-getAll:   () => DataProvider.getAllReservations(),
-backup:   () => Backup.exportData?.(),
-restore:  (file) => Backup.importFile?.(file),
-settings: () => Settings.get?.(),
-refresh:  () => EventBridge.emit(‘reservation:changed’),
-audit:    () => AuditLog.getAll(),
-version:  ‘1.2.2’,
-
-async health() {
-try {
-const t0        = performance.now();
-const list      = await DataProvider.getAllReservations();
-const latencyMs = Math.round(performance.now() - t0);
-
-```
-  return {
-    ok:       true,
-    total:    list.length,
-    mode:     CONFIG.DATA_MODE,
-    prod:     window.__PROD__,
-    latencyMs,
-    features: FeatureFlags.getAll()
+  // Save biz
+  state.biz = {
+    name: wizardData.bizName,
+    type: wizardData.bizType
   };
-} catch (err) {
-  return { ok: false, error: err?.message };
+  saveBiz();
+
+  // Save locations
+  wizardData.locations.forEach(function (loc) {
+    state.locations[genId()] = {
+      name: loc.name,
+      capacity: loc.capacity
+    };
+  });
+  saveLocations();
+
+  // Save menus
+  wizardData.menus.forEach(function (m) {
+    state.menus[genId()] = {
+      name: m.name,
+      price: m.price,
+      details: m.details
+    };
+  });
+  saveMenus();
+
+  // Finalize
+  DB.set(KEYS.SETUP_DONE, true);
+  TRIAL.init();
+
+  document.getElementById('setup-wizard').style.display = 'none';
+  document.getElementById('app-shell').style.display    = 'block';
+
+  initApp();
+
+  showToast('Selamat datang di Proserva! 🎉', 'success', 4000);
 }
-```
+window.wizardFinish = wizardFinish;
+/* ============================================================
+5. CALENDAR VIEW
+============================================================ */
 
+function navMonth (dir) {
+  state.currentMonth += dir;
+
+  if (state.currentMonth < 0) {
+    state.currentMonth = 11;
+    state.currentYear--;
+  }
+
+  if (state.currentMonth > 11) {
+    state.currentMonth = 0;
+    state.currentYear++;
+  }
+
+  renderCalendar();
 }
 
-});
-
-window.recoverApp = function () {
-try {
-localStorage.removeItem(
-(typeof KEYS !== ‘undefined’ && KEYS?.reservations)
-? KEYS.reservations
-: ‘psv_reservations_v1’
-);
-location.reload();
-} catch (err) { Logger.error(’[RECOVERY FAILED]’, err); }
-};
-
-if (CONFIG.DEBUG) {
-window.**DEV** = {
-async seed() {
-for (let i = 1; i <= 10; i++) {
-await SafeReservation.create({
-name:   ’Customer ’ + i,
-phone:  ‘08123456789’,
-date:   Utils.today(),
-time:   ‘18:00’,
-guests: Math.ceil(Math.random() * 5)
-});
-}
-},
-clear()  { localStorage.clear(); location.reload(); },
-audit()  { console.table(AuditLog.getAll()); },
-flags()  { console.log(FeatureFlags.getAll()); }
-};
+function goToToday () {
+  var now = new Date();
+  state.currentMonth = now.getMonth();
+  state.currentYear  = now.getFullYear();
+  renderCalendar();
 }
 
-console.log(’%cProserva v1.2.2 🚀’, ‘color:#22c55e;font-weight:bold;’);
+function renderCalendar () {
+  var m = state.currentMonth;
+  var y = state.currentYear;
+
+  var label = document.getElementById('cal-month-label');
+  if (label) label.textContent = MONTHS_ID[m] + ' ' + y;
+
+  var firstDay    = new Date(y, m, 1).getDay();
+  var daysInMonth = new Date(y, m + 1, 0).getDate();
+  var monthRes    = getResForMonth(y, m);
+
+  var dayCounts = {};
+  var dayNames  = {};
+
+  monthRes.forEach(function (r) {
+    if (!r.date) return;
+
+    var parts = r.date.split('-');
+    var d = parseInt(parts[2], 10);
+
+    dayCounts[d] = (dayCounts[d] || 0) + 1;
+
+    if (!dayNames[d]) dayNames[d] = [];
+    if (dayNames[d].length < 3) {
+      dayNames[d].push(r.nama || '?');
+    }
+  });
+
+  // Stats
+  var totalPax = monthRes.reduce(function (s, r) {
+    return s + (parseInt(r.jumlah, 10) || 0);
+  }, 0);
+
+  var totalDp = monthRes.reduce(function (s, r) {
+    return s + (parseInt(r.dp, 10) || 0);
+  }, 0);
+
+  var busiestDay = '-';
+
+  if (Object.keys(dayCounts).length > 0) {
+    var top = Object.entries(dayCounts)
+      .sort(function (a, b) { return b[1] - a[1]; })[0];
+
+    busiestDay = top[0] + ' ' + MONTHS_SHORT[m] + ' (' + top[1] + ')';
+  }
+
+  setText('stat-total', monthRes.length);
+  setText('stat-pax', totalPax);
+  setText('stat-dp', 'Rp' + formatRupiahK(totalDp));
+  setText('stat-busiest', busiestDay);
+
+  var today = new Date();
+  var calEl = document.getElementById('cal-days');
+  if (!calEl) return;
+
+  calEl.innerHTML = '';
+
+  // Offset kosong
+  for (var i = 0; i < firstDay; i++) {
+    calEl.insertAdjacentHTML('beforeend', '<div class="cal-day empty"></div>');
+  }
+
+  // Render hari
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dateStr = buildDateStr(y, m + 1, d);
+
+    var isToday =
+      today.getFullYear() === y &&
+      today.getMonth() === m &&
+      today.getDate() === d;
+
+    var isSelected = state.selectedDate === dateStr;
+
+    var count = dayCounts[d] || 0;
+    var names = dayNames[d]  || [];
+
+    var cls = 'cal-day';
+    if (isToday) cls += ' today';
+    if (isSelected) cls += ' selected';
+
+    var pillHtml = '';
+    if (count > 0) {
+      pillHtml =
+        '<div class="cal-res-pill">' +
+          '<i class="fas fa-calendar-check"></i> ' + count +
+        '</div>';
+    }
+
+    var namesHtml = '';
+    if (names.length > 0) {
+      namesHtml =
+        '<div class="cal-mini-names">' +
+          names.map(function (n) {
+            return '<div class="cal-mini-name">' + escapeHtml(n) + '</div>';
+          }).join('') +
+        '</div>';
+    }
+
+    calEl.insertAdjacentHTML(
+      'beforeend',
+      '<div class="' + cls + '" onclick="selectDate(\'' + dateStr + '\')">' +
+        '<div class="cal-day-num">' + d + '</div>' +
+        pillHtml +
+        namesHtml +
+      '</div>'
+    );
+  }
+}
+
+/* ===================== SELECT DATE ===================== */
+
+function selectDate (dateStr) {
+  state.selectedDate = dateStr;
+
+  var parts = dateStr.split('-');
+  var d = parseInt(parts[2], 10);
+  var m = parseInt(parts[1], 10) - 1;
+  var y = parseInt(parts[0], 10);
+
+  setText('detail-title', d + ' ' + MONTHS_ID[m] + ' ' + y);
+  setPageTitle('detail');
+
+  // Switch view manual
+  var views = document.querySelectorAll('#content .view');
+  views.forEach(function (v) {
+    v.style.display = 'none';
+    v.classList.remove('active-view');
+  });
+
+  var dv = document.getElementById('view-detail');
+  if (dv) {
+    dv.style.display = 'block';
+    dv.classList.add('active-view');
+  }
+
+  var navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(function (n) {
+    n.classList.remove('active');
+  });
+
+  // Hide add button
+  var addBtn = document.getElementById('btn-add-res');
+  if (addBtn) addBtn.style.display = 'none';
+
+  renderDetailList(getResForDate(dateStr));
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
+function backToCalendar () {
+  state.selectedDate = null;
+  showView('calendar');
+  renderCalendar();
+}
+/* ============================================================
+6. DETAIL VIEW - Reservation Cards
+============================================================ */
+
+function renderDetailList (reservations) {
+  var el = document.getElementById('detail-list');
+  if (!el) return;
+
+  if (!reservations || reservations.length === 0) {
+    el.innerHTML =
+      '<div class="empty-state">' +
+        '<div class="es-icon"><i class="fas fa-calendar-times"></i></div>' +
+        '<div class="es-title">Belum ada reservasi</div>' +
+        '<div class="es-sub">Klik tombol <strong>Tambah</strong> untuk menambah reservasi baru</div>' +
+      '</div>';
+    return;
+  }
+
+  var sorted = reservations.slice().sort(function (a, b) {
+    return (a.jam || '').localeCompare(b.jam || '');
+  });
+
+  el.innerHTML = sorted.map(buildResCardHTML).join('');
+}
+
+function buildResCardHTML (r) {
+  /* ===== MENU SECTION ===== */
+  var menuHtml =
+    '<div style="color:var(--ink-4);font-size:0.82rem;font-style:italic;">Tidak ada pesanan</div>';
+
+  if (Array.isArray(r.menus) && r.menus.length > 0) {
+    menuHtml = r.menus.map(function (item) {
+      var md = getMenuByName(item.name);
+      var details = md ? (md.details || []) : [];
+
+      return (
+        '<div class="rc-menu-item">' +
+          '<strong>' + item.quantity + 'x ' + escapeHtml(item.name) + '</strong>' +
+          (details.length
+            ? '<div class="rc-menu-sub">' + details.map(escapeHtml).join(' · ') + '</div>'
+            : '') +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  /* ===== INFO CHIPS ===== */
+  var chips = '';
+
+  if (r.nomorHp) {
+    chips +=
+      '<div class="rc-info-chip">' +
+        '<i class="fas fa-phone"></i>' + escapeHtml(r.nomorHp) +
+      '</div>';
+  }
+
+  if (r.dp > 0) {
+    chips +=
+      '<div class="rc-info-chip">' +
+        '<i class="fas fa-money-bill-wave"></i>' +
+        'DP Rp' + formatRupiah(r.dp) +
+        (r.tipeDp ? ' · ' + escapeHtml(r.tipeDp) : '') +
+      '</div>';
+  }
+
+  if (r.tambahan) {
+    chips +=
+      '<div class="rc-info-chip">' +
+        '<i class="fas fa-comment-dots"></i>' +
+        escapeHtml(r.tambahan) +
+      '</div>';
+  }
+
+  /* ===== THANK YOU BUTTON ===== */
+  var thankBtn = '';
+
+  if (r.nomorHp) {
+    if (r.thankYouSent) {
+      thankBtn =
+        '<button class="btn-success-soft" disabled>' +
+          '<i class="fas fa-check-circle"></i> Terima Kasih Terkirim' +
+        '</button>';
+    } else {
+      thankBtn =
+        '<button class="btn-secondary" style="font-size:0.78rem;padding:7px 11px;" onclick="sendThankYouById(\'' + r.id + '\')">' +
+          '<i class="fas fa-gift"></i> Ucapan Terima Kasih' +
+        '</button>';
+    }
+  }
+
+  var initials = getInitials(r.nama || '?');
+  var avatarBg = nameToColor(r.nama || '?');
+
+  /* ===== CARD ===== */
+  return (
+    '<div class="res-card" id="res-card-' + r.id + '">' +
+
+      /* TOP */
+      '<div class="rc-top">' +
+        '<div class="rc-name">' +
+          '<div class="rc-avatar" style="background:' + avatarBg + ';">' +
+            initials +
+          '</div>' +
+          escapeHtml(r.nama || 'Tanpa Nama') +
+        '</div>' +
+
+        '<div class="rc-badges">' +
+          '<span class="badge badge-orange"><i class="far fa-clock"></i> ' + escapeHtml(r.jam || '?') + '</span>' +
+          '<span class="badge badge-gray"><i class="fas fa-map-pin"></i> ' + escapeHtml(r.tempat || '?') + '</span>' +
+          '<span class="badge badge-green"><i class="fas fa-users"></i> ' + (r.jumlah || '?') + ' orang</span>' +
+        '</div>' +
+      '</div>' +
+
+      /* BODY */
+      '<div class="rc-body">' +
+        '<div class="rc-section-title">Pesanan</div>' +
+        menuHtml +
+        (chips ? '<div style="margin-top:12px;">' + chips + '</div>' : '') +
+      '</div>' +
+
+      /* FOOTER */
+      '<div class="rc-footer">' +
+
+        (r.nomorHp
+          ? '<button class="btn-wa-soft" onclick="contactWA(\'' + r.id + '\')">' +
+              '<i class="fab fa-whatsapp"></i> Hubungi' +
+            '</button>'
+          : '') +
+
+        thankBtn +
+
+        '<button class="btn-info-soft" onclick="openEditReservationModal(\'' + r.id + '\')">' +
+          '<i class="fas fa-edit"></i> Edit' +
+        '</button>' +
+
+        '<button class="btn-danger-soft" onclick="deleteRes(\'' + r.id + '\')">' +
+          '<i class="fas fa-trash-alt"></i>' +
+        '</button>' +
+
+      '</div>' +
+
+    '</div>'
+  );
+}
+
+/* ===================== FILTER ===================== */
+
+function filterDetailList (q) {
+  if (!state.selectedDate) return;
+
+  var all = getResForDate(state.selectedDate);
+  var query = q.toLowerCase();
+
+  var result = !query
+    ? all
+    : all.filter(function (r) {
+        return (
+          (r.nama && r.nama.toLowerCase().includes(query)) ||
+          (r.tempat && r.tempat.toLowerCase().includes(query)) ||
+          (r.nomorHp && r.nomorHp.includes(query)) ||
+          (Array.isArray(r.menus) && r.menus.some(function (m) {
+            return m.name.toLowerCase().includes(query);
+          }))
+        );
+      });
+
+  renderDetailList(result);
+}
+/* ============================================================
+7. RESERVATION CRUD
+============================================================ */
+
+function openAddReservationModal () {
+  clearFormErrors();
+
+  document.getElementById('res-edit-id').value = '';
+  document.getElementById('res-modal-title').innerHTML =
+    '<i class="fas fa-calendar-plus"></i> Tambah Reservasi';
+
+  // Reset fields
+  ['res-nama', 'res-hp', 'res-tambahan'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  document.getElementById('res-jam').value     = '';
+  document.getElementById('res-jumlah').value  = '';
+  document.getElementById('res-dp').value      = '0';
+  document.getElementById('res-tipe-dp').value = '';
+  document.getElementById('res-cap-hint').textContent = '';
+
+  populateLocationSelect('res-tempat', '');
+
+  var mc = document.getElementById('res-menus-container');
+  if (mc) mc.innerHTML = '';
+
+  addMenuRow('res-menus-container');
+
+  openModal('modal-reservation');
+}
+
+function openEditReservationModal (id) {
+  var r = findReservationById(id);
+  if (!r) {
+    showToast('Reservasi tidak ditemukan!', 'error');
+    return;
+  }
+
+  clearFormErrors();
+
+  document.getElementById('res-edit-id').value = id;
+  document.getElementById('res-modal-title').innerHTML =
+    '<i class="fas fa-edit"></i> Edit Reservasi';
+
+  document.getElementById('res-nama').value     = r.nama || '';
+  document.getElementById('res-hp').value       = r.nomorHp || '';
+  document.getElementById('res-jam').value      = r.jam || '';
+  document.getElementById('res-jumlah').value   = r.jumlah || '';
+  document.getElementById('res-dp').value       = r.dp || 0;
+  document.getElementById('res-tipe-dp').value  = r.tipeDp || '';
+  document.getElementById('res-tambahan').value = r.tambahan || '';
+
+  populateLocationSelect('res-tempat', r.tempat);
+  onLocationChange();
+
+  var mc = document.getElementById('res-menus-container');
+  if (mc) {
+    mc.innerHTML = '';
+
+    if (Array.isArray(r.menus) && r.menus.length > 0) {
+      r.menus.forEach(function (item) {
+        addMenuRow('res-menus-container', item.name, item.quantity);
+      });
+    } else {
+      addMenuRow('res-menus-container');
+    }
+  }
+
+  openModal('modal-reservation');
+}
+
+function saveReservation () {
+  clearFormErrors();
+
+  var nama     = document.getElementById('res-nama').value.trim();
+  var hp       = document.getElementById('res-hp').value.trim();
+  var jam      = document.getElementById('res-jam').value;
+  var jumlah   = parseInt(document.getElementById('res-jumlah').value, 10);
+  var tempat   = document.getElementById('res-tempat').value;
+  var dp       = parseInt(document.getElementById('res-dp').value, 10) || 0;
+  var tipeDp   = document.getElementById('res-tipe-dp').value;
+  var tambahan = document.getElementById('res-tambahan').value.trim();
+
+  var valid = true;
+
+  if (!nama) {
+    showFieldError('err-nama', 'Nama wajib diisi');
+    valid = false;
+  }
+
+  if (hp && !validatePhone(hp)) {
+    showFieldError('err-hp', 'Nomor HP tidak valid (10-13 digit)');
+    valid = false;
+  }
+
+  if (!jam) {
+    showFieldError('err-jam', 'Jam wajib diisi');
+    valid = false;
+  }
+
+  if (!jumlah || jumlah < 1) {
+    showFieldError('err-jumlah', 'Jumlah tamu minimal 1');
+    valid = false;
+  }
+
+  if (!tempat) {
+    showFieldError('err-tempat', 'Lokasi wajib dipilih');
+    valid = false;
+  }
+
+  // Capacity check
+  if (tempat && jumlah) {
+    var loc = getLocationByName(tempat);
+    if (loc && jumlah > loc.capacity) {
+      showFieldError(
+        'err-jumlah',
+        'Melebihi kapasitas lokasi (maks. ' + loc.capacity + ' orang)'
+      );
+      valid = false;
+    }
+  }
+
+  /* ===== MENUS ===== */
+  var menus = [];
+  var usedNames = {};
+  var menuValid = true;
+
+  var rows = document.querySelectorAll('#res-menus-container .menu-row');
+
+  rows.forEach(function (row) {
+    var sel = row.querySelector('select');
+    var qtyInput = row.querySelector('input[type="number"]');
+
+    var val = sel ? sel.value : '';
+    var qty = parseInt(qtyInput ? qtyInput.value : 0, 10);
+
+    if (!val) return;
+
+    if (!qty || qty < 1) {
+      showFieldError('err-menus', 'Jumlah menu minimal 1');
+      menuValid = false;
+      return;
+    }
+
+    if (usedNames[val]) {
+      showFieldError('err-menus', 'Menu ' + val + ' dipilih lebih dari satu kali');
+      menuValid = false;
+      return;
+    }
+
+    usedNames[val] = true;
+
+    menus.push({
+      name: val,
+      quantity: qty
+    });
+  });
+
+  if (!menuValid) valid = false;
+  if (!valid) return;
+
+  var editId  = document.getElementById('res-edit-id').value;
+  var dateStr = state.selectedDate || todayStr();
+
+  if (editId) {
+    var existing = findReservationById(editId);
+    if (!existing) {
+      showToast('Reservasi tidak ditemukan!', 'error');
+      return;
+    }
+
+    var updated = Object.assign({}, existing, {
+      nama: nama,
+      nomorHp: normalizePhone(hp),
+      jam: jam,
+      jumlah: jumlah,
+      dp: dp,
+      tipeDp: tipeDp,
+      tempat: tempat,
+      tambahan: tambahan,
+      menus: menus
+    });
+
+    updateReservation(updated);
+    showToast('Reservasi berhasil diperbarui!', 'success');
+
+  } else {
+    var newRes = {
+      id: genId(),
+      date: dateStr,
+      nama: nama,
+      nomorHp: normalizePhone(hp),
+      jam: jam,
+      jumlah: jumlah,
+      dp: dp,
+      tipeDp: tipeDp,
+      tempat: tempat,
+      tambahan: tambahan,
+      menus: menus,
+      createdAt: Date.now(),
+      thankYouSent: false
+    };
+
+    addReservation(newRes);
+    showToast('Reservasi berhasil disimpan! 🎉', 'success');
+  }
+
+  closeModal('modal-reservation');
+
+  if (state.selectedDate) {
+    renderDetailList(getResForDate(state.selectedDate));
+  }
+
+  renderCalendar();
+}
+
+function deleteRes (id) {
+  var r = findReservationById(id);
+  var name = r ? r.nama : 'reservasi ini';
+
+  if (!confirm('Hapus reservasi untuk ' + name + '?\n\nTindakan ini tidak bisa dibatalkan.')) {
+    return;
+  }
+
+  deleteReservation(id);
+
+  showToast('Reservasi dihapus', 'info');
+
+  if (state.selectedDate) {
+    renderDetailList(getResForDate(state.selectedDate));
+  }
+
+  renderCalendar();
+}
+/* ============================================================
+8. MENU ROWS (multi-item picker inside reservation modal)
+============================================================ */
+
+function addMenuRow (containerId, menuName, qty) {
+  menuName = menuName || '';
+  qty      = qty || 1;
+
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  var menus = getMenusSorted();
+
+  if (menus.length === 0) {
+  container.innerHTML = `
+    <div style="padding:12px;text-align:center;color:var(--ink-4);font-size:0.82rem;">
+      Belum ada menu. 
+      <a onclick="showView('menus')" style="color:var(--accent);cursor:pointer;">
+        Tambah menu dulu
+      </a>
+    </div>
+  `;
+  return;
+}
+
+var opts = menus.map(function (m) {
+  var sel   = m.name === menuName ? ' selected' : '';
+  var price = m.price ? ' - Rp' + formatRupiah(m.price) : '';
+
+  return '<option value="' + escapeHtml(m.name) + '"' + sel + '>' +
+         escapeHtml(m.name) + price +
+         '</option>';
+}).join('');
+  var uid = genId();
+
+  var div = document.createElement('div');
+  div.className = 'menu-row';
+
+  div.innerHTML =
+    '<select class="form-input mr-select" onchange="updateMenuRowPrice(this)">' +
+      '<option value="">Pilih menu…</option>' +
+      opts +
+    '</select>' +
+
+    '<input type="number" class="form-input mr-qty" value="' + qty + '" min="1"/>' +
+
+    '<span class="mr-price" id="mrp-' + uid + '"></span>' +
+
+    '<button class="mr-del" onclick="this.closest(\'.menu-row\').remove()" title="Hapus baris">' +
+      '<i class="fas fa-times"></i>' +
+    '</button>';
+
+  container.appendChild(div);
+
+  if (menuName) {
+    updateMenuRowPrice(div.querySelector('select'));
+  }
+}
+
+function updateMenuRowPrice (sel) {
+  var row = sel.closest('.menu-row');
+  if (!row) return;
+
+  var priceEl = row.querySelector('.mr-price');
+  if (!priceEl) return;
+
+  var m = getMenuByName(sel.value);
+
+  priceEl.textContent = (m && m.price)
+    ? 'Rp' + formatRupiah(m.price)
+    : '';
+}
 
 /* ============================================================
-END OF APP.JS — PROSERVA v1.2.2
+LOCATION SELECT + CAPACITY HINT
 ============================================================ */
+
+function populateLocationSelect (selectId, selectedValue) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+
+  sel.innerHTML = '<option value="">Pilih lokasi…</option>';
+
+  getLocationsSorted().forEach(function (loc) {
+    var opt = document.createElement('option');
+
+    opt.value = loc.name;
+    opt.textContent = loc.name + ' (maks. ' + loc.capacity + ' orang)';
+
+    if (loc.name === selectedValue) {
+      opt.selected = true;
+    }
+
+    sel.appendChild(opt);
+  });
+}
+
+function onLocationChange () {
+  var tempat = document.getElementById('res-tempat').value;
+  var loc    = getLocationByName(tempat);
+
+  var hint = document.getElementById('res-cap-hint');
+
+  if (hint) {
+    hint.textContent = loc
+      ? 'Kapasitas: ' + loc.capacity + ' orang'
+      : '';
+  }
+}
+/* ============================================================
+9. MENUS MANAGEMENT
+============================================================ */
+
+function renderMenusTable () {
+  var tbody = document.getElementById('menus-tbody');
+  if (!tbody) return;
+
+  var menus = getMenusSorted();
+
+  if (menus.length === 0) {
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="4" style="text-align:center;padding:24px;color:var(--ink-4);">
+        Belum ada menu. Tambahkan menu pertama kamu.
+      </td>
+    </tr>
+  `;
+  return;
+}
+
+  tbody.innerHTML = menus.map(function (m) {
+    return (
+      '<tr>' +
+        '<td><strong>' + escapeHtml(m.name) + '</strong></td>' +
+
+        '<td>' +
+          (m.price
+            ? '<span class="chip chip-orange">Rp ' + formatRupiah(m.price) + '</span>'
+            : '<span class="chip chip-gray">Gratis</span>') +
+        '</td>' +
+
+        '<td>' +
+          '<span style="font-size:0.82rem;color:var(--ink-3);">' +
+            (m.details && m.details.length
+              ? m.details.map(escapeHtml).join(', ')
+              : '—') +
+          '</span>' +
+        '</td>' +
+
+        '<td>' +
+          '<div style="display:flex;gap:6px;">' +
+
+            '<button class="btn-info-soft" onclick="openMenuModal(\'' + m.id + '\')">' +
+              '<i class="fas fa-edit"></i>' +
+            '</button>' +
+
+            '<button class="btn-danger-soft" onclick="deleteMenu(\'' + m.id + '\')">' +
+              '<i class="fas fa-trash-alt"></i>' +
+            '</button>' +
+
+          '</div>' +
+        '</td>' +
+      '</tr>'
+    );
+  }).join('');
+}
+
+function openMenuModal (editId) {
+  editId = editId || null;
+
+  document.getElementById('menu-edit-id').value = editId || '';
+
+  if (editId && state.menus[editId]) {
+    var m = state.menus[editId];
+
+    document.getElementById('menu-modal-title').innerHTML =
+      '<i class="fas fa-edit"></i> Edit Menu';
+
+    document.getElementById('menu-name').value    = m.name;
+    document.getElementById('menu-price').value   = m.price || '';
+    document.getElementById('menu-details').value = (m.details || []).join(', ');
+
+  } else {
+    document.getElementById('menu-modal-title').innerHTML =
+      '<i class="fas fa-utensils"></i> Tambah Menu';
+
+    document.getElementById('menu-name').value    = '';
+    document.getElementById('menu-price').value   = '';
+    document.getElementById('menu-details').value = '';
+  }
+
+  openModal('modal-menu');
+}
+
+function saveMenu () {
+  var name    = document.getElementById('menu-name').value.trim();
+  var price   = parseInt(document.getElementById('menu-price').value, 10) || 0;
+  var details = document.getElementById('menu-details').value
+    .split(',')
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean);
+
+  var editId = document.getElementById('menu-edit-id').value;
+
+  if (!name) {
+    showToast('Nama menu wajib diisi!', 'error');
+    return;
+  }
+
+  // Duplicate check (exclude self)
+  var isDupe = Object.entries(state.menus).some(function (entry) {
+    return entry[1].name.toLowerCase() === name.toLowerCase() &&
+           entry[0] !== editId;
+  });
+
+  if (isDupe) {
+    showToast('Nama menu sudah ada!', 'error');
+    return;
+  }
+
+  if (editId) {
+    state.menus[editId] = {
+      name: name,
+      price: price,
+      details: details
+    };
+  } else {
+    state.menus[genId()] = {
+      name: name,
+      price: price,
+      details: details
+    };
+  }
+
+  saveMenus();
+  renderMenusTable();
+  closeModal('modal-menu');
+
+  showToast('Menu "' + name + '" berhasil disimpan!', 'success');
+}
+
+function deleteMenu (id) {
+  var name = state.menus[id] ? state.menus[id].name : 'menu ini';
+
+  if (!confirm('Hapus menu "' + name + '"?\n\nMenu ini juga akan hilang dari semua reservasi yang sudah ada.')) {
+    return;
+  }
+
+  delete state.menus[id];
+
+  saveMenus();
+  renderMenusTable();
+
+  showToast('Menu dihapus', 'info');
+}
+/* ============================================================
+10. LOCATIONS MANAGEMENT
+============================================================ */
+
+function renderLocationsTable () {
+  var tbody = document.getElementById('locations-tbody');
+  if (!tbody) return;
+
+  var locs = getLocationsSorted();
+
+  if (locs.length === 0) {
+    tbody.innerHTML =
+      '<tr>' +
+        '<td colspan="3" style="text-align:center;padding:36px;color:var(--ink-4);">' +
+          'Belum ada lokasi. Klik <strong>Tambah Lokasi</strong> untuk mulai.' +
+        '</td>' +
+      '</tr>';
+    return;
+  }
+
+  tbody.innerHTML = locs.map(function (loc) {
+    return (
+      '<tr>' +
+        '<td><strong>' + escapeHtml(loc.name) + '</strong></td>' +
+
+        '<td>' +
+          '<span class="chip chip-blue">' +
+            '<i class="fas fa-users"></i> ' + loc.capacity + ' orang' +
+          '</span>' +
+        '</td>' +
+
+        '<td>' +
+          '<div style="display:flex;gap:6px;">' +
+
+            '<button class="btn-info-soft" onclick="openLocationModal(\'' + loc.id + '\')">' +
+              '<i class="fas fa-edit"></i>' +
+            '</button>' +
+
+            '<button class="btn-danger-soft" onclick="deleteLocation(\'' + loc.id + '\')">' +
+              '<i class="fas fa-trash-alt"></i>' +
+            '</button>' +
+
+          '</div>' +
+        '</td>' +
+      '</tr>'
+    );
+  }).join('');
+}
+
+function openLocationModal (editId) {
+  editId = editId || null;
+
+  document.getElementById('loc-edit-id').value = editId || '';
+
+  if (editId && state.locations[editId]) {
+    var loc = state.locations[editId];
+
+    document.getElementById('loc-modal-title').innerHTML =
+      '<i class="fas fa-edit"></i> Edit Lokasi';
+
+    document.getElementById('loc-name').value     = loc.name;
+    document.getElementById('loc-capacity').value = loc.capacity;
+
+  } else {
+    document.getElementById('loc-modal-title').innerHTML =
+      '<i class="fas fa-map-marker-alt"></i> Tambah Lokasi';
+
+    document.getElementById('loc-name').value     = '';
+    document.getElementById('loc-capacity').value = '';
+  }
+
+  openModal('modal-location');
+}
+
+function saveLocation () {
+  var name     = document.getElementById('loc-name').value.trim();
+  var capacity = parseInt(document.getElementById('loc-capacity').value, 10);
+  var editId   = document.getElementById('loc-edit-id').value;
+
+  if (!name) {
+    showToast('Nama lokasi wajib diisi!', 'error');
+    return;
+  }
+
+  if (!capacity || capacity < 1) {
+    showToast('Kapasitas minimal 1 orang!', 'error');
+    return;
+  }
+
+  // Duplicate check (exclude self)
+  var isDupe = Object.entries(state.locations).some(function (entry) {
+    return entry[1].name.toLowerCase() === name.toLowerCase() &&
+           entry[0] !== editId;
+  });
+
+  if (isDupe) {
+    showToast('Nama lokasi sudah ada!', 'error');
+    return;
+  }
+
+  if (editId) {
+    state.locations[editId] = {
+      name: name,
+      capacity: capacity
+    };
+  } else {
+    state.locations[genId()] = {
+      name: name,
+      capacity: capacity
+    };
+  }
+
+  saveLocations();
+  renderLocationsTable();
+  closeModal('modal-location');
+
+  showToast('Lokasi "' + name + '" berhasil disimpan!', 'success');
+}
+
+function deleteLocation (id) {
+  var name = state.locations[id]
+    ? state.locations[id].name
+    : 'lokasi ini';
+
+  if (!confirm('Hapus lokasi "' + name + '"?')) return;
+
+  delete state.locations[id];
+
+  saveLocations();
+  renderLocationsTable();
+
+  showToast('Lokasi dihapus', 'info');
+}
+/* ============================================================
+11. CUSTOMERS VIEW
+============================================================ */
+
+var _allCustomers = [];
+
+function renderCustomersTable (filter) {
+  filter = filter || '';
+
+  _allCustomers = buildCustomerList();
+
+  var tbody = document.getElementById('customers-tbody');
+  if (!tbody) return;
+
+  var list = filter
+    ? _allCustomers.filter(function (c) {
+        return (
+          c.nama.toLowerCase().includes(filter.toLowerCase()) ||
+          (c.nomorHp && c.nomorHp.includes(filter))
+        );
+      })
+    : _allCustomers;
+
+  if (list.length === 0) {
+    tbody.innerHTML =
+      '<tr>' +
+        '<td colspan="5" style="text-align:center;padding:36px;color:var(--ink-4);">' +
+          (filter
+            ? 'Tidak ada hasil untuk "' + escapeHtml(filter) + '"'
+            : 'Belum ada data pelanggan.') +
+        '</td>' +
+      '</tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(function (c) {
+
+    var waBtn = '';
+
+    if (c.nomorHp) {
+      waBtn =
+        '<button class="btn-wa-soft" ' +
+          'data-phone="' + escapeHtml(c.nomorHp) + '" ' +
+          'data-name="'  + escapeHtml(c.nama)    + '" ' +
+          'onclick="contactCustomerWAFromBtn(this)">' +
+          '<i class="fab fa-whatsapp"></i> Hubungi' +
+        '</button>';
+    }
+
+    return (
+      '<tr>' +
+
+        '<td>' +
+          '<div style="display:flex;align-items:center;gap:9px;">' +
+
+            '<div style="' +
+              'width:32px;height:32px;border-radius:50%;' +
+              'background:' + nameToColor(c.nama) + ';' +
+              'color:white;font-size:0.72rem;font-weight:700;' +
+              'display:flex;align-items:center;justify-content:center;' +
+              'flex-shrink:0;">' +
+              getInitials(c.nama) +
+            '</div>' +
+
+            '<strong>' + escapeHtml(c.nama) + '</strong>' +
+          '</div>' +
+        '</td>' +
+
+        '<td>' +
+          (c.nomorHp
+            ? '<span class="chip chip-gray">' + escapeHtml(c.nomorHp) + '</span>'
+            : '<span style="color:var(--ink-4);">—</span>') +
+        '</td>' +
+
+        '<td>' +
+          '<span class="chip chip-orange">' + c.count + 'x kunjungan</span>' +
+        '</td>' +
+
+        '<td>' +
+          (c.lastDate ? formatDateDisplay(c.lastDate) : '—') +
+        '</td>' +
+
+        '<td>' + waBtn + '</td>' +
+
+      '</tr>'
+    );
+  }).join('');
+}
+
+/* ============================================================
+CUSTOMER ACTIONS
+============================================================ */
+
+function contactCustomerWAFromBtn (btn) {
+  var phone = btn.getAttribute('data-phone');
+  var name  = btn.getAttribute('data-name');
+
+  if (!phone || !name) return;
+
+  contactCustomerWA(phone, name);
+}
+
+function filterCustomers (q) {
+  renderCustomersTable(q);
+}
+
+function contactCustomerWA (phone, name) {
+  var msg =
+    'Halo Kak *' + name + '* 👋\n\n' +
+    'Kami dari *' + state.biz.name + '* ingin menyapa. ' +
+    'Terima kasih sudah pernah berkunjung! 😊\n\n' +
+    'Ada yang bisa kami bantu atau ada pertanyaan mengenai reservasi?';
+
+  openWhatsApp(phone, msg);
+}
+/* ============================================================
+12. WHATSAPP ACTIONS
+============================================================ */
+
+function contactWA (id) {
+  var r = findReservationById(id);
+
+  if (!r || !r.nomorHp) {
+    showToast('Nomor HP tidak tersedia', 'error');
+    return;
+  }
+
+  openWhatsApp(r.nomorHp, buildConfirmationMsg(r));
+}
+
+function sendThankYouById (id) {
+  var r = findReservationById(id);
+
+  if (!r || !r.nomorHp) {
+    showToast('Nomor HP tidak tersedia', 'error');
+    return;
+  }
+
+  // Kirim pesan
+  openWhatsApp(r.nomorHp, buildThankYouMsg(r));
+
+  // Mark as sent
+  var updated = Object.assign({}, r, {
+    thankYouSent: true
+  });
+
+  updateReservation(updated);
+
+  showToast('Pesan terima kasih dikirim! 🎉', 'success');
+
+  // Update tombol di card tanpa re-render full
+  var card = document.getElementById('res-card-' + id);
+
+  if (card) {
+    var btn = card.querySelector('[onclick*="sendThankYouById"]');
+
+    if (btn) {
+      btn.outerHTML =
+        '<button class="btn-success-soft" disabled>' +
+          '<i class="fas fa-check-circle"></i> Terima Kasih Terkirim' +
+        '</button>';
+    }
+  }
+
+  // Refresh notif list
+  NOTIF.render();
+
+  // Hapus dari dropdown notif (jika ada)
+  var ni = document.getElementById('ni-' + id);
+
+  if (ni) {
+    ni.style.opacity   = '0';
+    ni.style.transform = 'translateY(-6px)';
+    ni.style.transition = 'all 0.25s ease';
+
+    setTimeout(function () {
+      ni.remove();
+      NOTIF.render();
+    }, 280);
+  }
+}
+
+/* ============================================================
+SHARE VIA WHATSAPP
+============================================================ */
+
+function shareWA (scope) {
+  if (scope === 'day' && state.selectedDate) {
+
+    var res = getResForDate(state.selectedDate)
+      .slice()
+      .sort(function (a, b) {
+        return (a.jam || '').localeCompare(b.jam || '');
+      });
+
+    var msg = buildDailySummaryMsg(state.selectedDate, res);
+
+    window.open(
+      'https://wa.me/?text=' + encodeURIComponent(msg),
+      '_blank',
+      'noopener'
+    );
+  }
+}
+/* ============================================================
+13. PRINT
+============================================================ */
+
+function showPrintOptions () {
+  openModal('modal-print');
+}
+
+function executePrint () {
+  closeModal('modal-print');
+
+  var reservations = getResForDate(state.selectedDate || '')
+    .slice()
+    .sort(function (a, b) {
+      return (a.jam || '').localeCompare(b.jam || '');
+    });
+
+  var opts = {
+    menu:     document.getElementById('po-menu').checked,
+    hp:       document.getElementById('po-hp').checked,
+    dp:       document.getElementById('po-dp').checked,
+    tambahan: document.getElementById('po-tambahan').checked
+  };
+
+  var html = buildPrintHTML(state.selectedDate || '', reservations, opts);
+
+  var w = window.open('', '_blank', 'noopener');
+
+  if (!w) {
+    showToast('Pop-up diblokir. Izinkan pop-up untuk mencetak.', 'error');
+    return;
+  }
+
+  w.document.write(html);
+  w.document.close();
+
+  // Delay kecil agar DOM siap sebelum print
+  setTimeout(function () {
+    w.print();
+  }, 600);
+}
+/* ============================================================
+14. EXPORT / IMPORT UI
+============================================================ */
+
+function handleExport () {
+  var code = exportData();
+
+  document.getElementById('export-output').value = code;
+  document.getElementById('import-input').value  = '';
+
+  openModal('modal-export');
+}
+
+function copyExport () {
+  var el = document.getElementById('export-output');
+
+  if (!el || !el.value) {
+    showToast('Tidak ada data untuk disalin', 'error');
+    return;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(el.value)
+      .then(function () {
+        showToast('Kode backup berhasil disalin! 📋', 'success');
+      })
+      .catch(function () {
+        fallbackCopy(el);
+      });
+  } else {
+    fallbackCopy(el);
+  }
+}
+
+function fallbackCopy (el) {
+  el.select();
+  document.execCommand('copy');
+
+  showToast('Kode backup disalin!', 'success');
+}
+
+function doImportData () {
+  var code = document.getElementById('import-input').value.trim();
+
+  if (!code) {
+    showToast('Tempel kode backup terlebih dahulu!', 'error');
+    return;
+  }
+
+  var validated;
+
+  try {
+    validated = JSON.parse(
+      decodeURIComponent(
+        escape(
+          atob(code.trim())
+        )
+      )
+    );
+
+    if (!validated.v) {
+      throw new Error('format tidak valid (missing version)');
+    }
+
+  } catch (e) {
+    showToast('Kode backup tidak valid: ' + e.message, 'error');
+    return;
+  }
+
+  if (!confirm('Import akan menggantikan semua data saat ini. Lanjutkan?')) {
+    return;
+  }
+
+  // Assign data (safe fallback)
+  state.biz          = validated.biz          || state.biz;
+  state.menus        = validated.menus        || {};
+  state.locations    = validated.locations    || {};
+  state.reservations = validated.reservations || {};
+
+  saveBiz();
+  saveMenus();
+  saveLocations();
+  saveReservations();
+
+  DB.set(KEYS.SETUP_DONE, true);
+
+  showToast('Data berhasil diimport! ✅', 'success');
+
+  closeModal('modal-export');
+  initApp();
+}
+/* ============================================================
+15. ANALYSIS VIEW
+============================================================ */
+
+var _anlChartInstance = null;
+
+function setupAnalysisSelectors () {
+  var yearSel  = document.getElementById('anl-year');
+  var monthSel = document.getElementById('anl-month');
+
+  if (!yearSel || !monthSel) return;
+
+  var curYear = new Date().getFullYear();
+
+  yearSel.innerHTML = '';
+
+  for (var y = curYear; y >= curYear - 4; y--) {
+    yearSel.insertAdjacentHTML(
+      'beforeend',
+      '<option value="' + y + '">' + y + '</option>'
+    );
+  }
+
+  monthSel.innerHTML = '<option value="all">Satu Tahun Penuh</option>';
+
+  MONTHS_ID.forEach(function (name, i) {
+    var sel = i === new Date().getMonth() ? ' selected' : '';
+
+    monthSel.insertAdjacentHTML(
+      'beforeend',
+      '<option value="' + i + '"' + sel + '>' + name + '</option>'
+    );
+  });
+}
+
+function runAnalysis () {
+  var year     = parseInt(document.getElementById('anl-year').value, 10);
+  var monthVal = document.getElementById('anl-month').value;
+
+  var allRes = getAllReservations();
+
+  var filtered, chartMode, chartMonth;
+
+  if (monthVal === 'all') {
+    filtered = allRes.filter(function (r) {
+      return r.date && r.date.startsWith(String(year));
+    });
+
+    chartMode  = 'month';
+    chartMonth = null;
+
+  } else {
+    var mIdx = parseInt(monthVal, 10);
+    var mk   = getMonthKey(year, mIdx);
+
+    filtered   = state.reservations[mk] || [];
+    chartMode  = 'day';
+    chartMonth = mIdx;
+  }
+
+  var stats = computeStats(filtered);
+
+  document.getElementById('anl-stats').innerHTML =
+    anlCard(stats.count,                          'Total Reservasi',          'fas fa-calendar-check') +
+    anlCard(stats.totalPax,                       'Total Tamu',               'fas fa-users') +
+    anlCard('Rp' + formatRupiahK(stats.totalDp), 'Total DP Masuk',           'fas fa-money-bill-wave') +
+    anlCard(stats.avgPax,                         'Rata-rata Tamu/Reservasi', 'fas fa-chart-line');
+
+  var chartData = buildChartData(filtered, chartMode, year, chartMonth);
+
+  renderAnalysisChart(
+    chartData.labels,
+    chartData.data,
+    chartMode === 'month'
+      ? 'Reservasi per Bulan'
+      : 'Reservasi per Tanggal'
+  );
+
+  /* =========================
+     INSIGHTS + TOP DATA
+  ========================= */
+
+  var insights = generateInsights(filtered, stats);
+
+  document.getElementById('anl-insight').innerHTML =
+    '<h5><i class="fas fa-robot"></i> Insight Otomatis</h5>' +
+    '<ul>' +
+      insights.map(function (i) {
+        return '<li>' + i + '</li>';
+      }).join('') +
+    '</ul>';
+
+  // Top customers
+  var custCounts = {};
+
+  filtered.forEach(function (r) {
+    if (!r.nomorHp) return;
+
+    if (!custCounts[r.nomorHp]) {
+      custCounts[r.nomorHp] = {
+        name: r.nama,
+        count: 0
+      };
+    }
+
+    custCounts[r.nomorHp].count++;
+  });
+
+  var topCusts = Object.values(custCounts)
+    .sort(function (a, b) { return b.count - a.count; })
+    .slice(0, 5);
+
+  document.getElementById('anl-frequent').innerHTML = topCusts.length
+    ? topCusts.map(function (c) {
+        return (
+          '<li class="rank-item">' +
+            '<span class="ri-name">' + escapeHtml(c.name) + '</span>' +
+            '<span class="ri-val">' + c.count + 'x</span>' +
+          '</li>'
+        );
+      }).join('')
+    : '<li style="color:var(--ink-4);font-size:0.85rem;padding:12px 0;">Belum ada data</li>';
+
+  // Top menus
+  var topMenusList = countMenus(filtered).slice(0, 5);
+
+  document.getElementById('anl-menus').innerHTML = topMenusList.length
+    ? topMenusList.map(function (m) {
+        return (
+          '<li class="rank-item">' +
+            '<span class="ri-name">' + escapeHtml(m.key) + '</span>' +
+            '<span class="ri-val">' + m.count + ' porsi</span>' +
+          '</li>'
+        );
+      }).join('')
+    : '<li style="color:var(--ink-4);font-size:0.85rem;padding:12px 0;">Belum ada data</li>';
+}
+/* ============================================================
+ANALYSIS CHART RENDERER
+============================================================ */
+
+function anlCard (value, label, icon) {
+  return (
+    '<div class="anl-card">' +
+
+      '<div style="font-size:0.75rem;color:var(--accent);margin-bottom:8px;">' +
+        '<i class="' + icon + '"></i>' +
+      '</div>' +
+
+      '<div class="anl-val">' + value + '</div>' +
+      '<div class="anl-label">' + label + '</div>' +
+
+    '</div>'
+  );
+}
+
+function renderAnalysisChart (labels, data, title) {
+  var ctx = document.getElementById('anl-chart');
+
+  if (!ctx) return;
+
+  // Destroy previous instance (prevent memory leak)
+  if (_anlChartInstance) {
+    _anlChartInstance.destroy();
+    _anlChartInstance = null;
+  }
+
+  _anlChartInstance = new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+
+    data: {
+      labels: labels,
+
+      datasets: [{
+        label: 'Reservasi',
+        data: data,
+
+        backgroundColor: function (context) {
+          var chart = context.chart;
+          var ctx2  = chart.ctx;
+          var area  = chart.chartArea;
+
+          // Chart belum siap → fallback warna solid
+          if (!area) {
+            return 'rgba(232,99,10,0.7)';
+          }
+
+          var gradient = ctx2.createLinearGradient(
+            0,
+            area.top,
+            0,
+            area.bottom
+          );
+
+          gradient.addColorStop(0, 'rgba(232,99,10,0.85)');
+          gradient.addColorStop(1, 'rgba(232,99,10,0.25)');
+
+          return gradient;
+        },
+
+        borderRadius: 8,
+        borderSkipped: false,
+
+        hoverBackgroundColor: 'rgba(232,99,10,1)'
+      }]
+    },
+
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+
+      plugins: {
+        legend: {
+          display: false
+        },
+
+        title: {
+          display: true,
+          text: title,
+          font: { size: 13, weight: '600' },
+          color: '#3f3f46',
+          padding: { bottom: 16 }
+        },
+
+        tooltip: {
+          backgroundColor: '#18181b',
+          titleFont: { size: 12 },
+          bodyFont: { size: 13 },
+          padding: 10,
+          cornerRadius: 8,
+
+          callbacks: {
+            label: function (ctx) {
+              return ' ' + ctx.raw + ' reservasi';
+            }
+          }
+        }
+      },
+
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#a1a1aa',
+            font: { size: 11 }
+          }
+        },
+
+        y: {
+          beginAtZero: true,
+
+          ticks: {
+            stepSize: 1,
+            color: '#a1a1aa',
+            font: { size: 11 }
+          },
+
+          grid: {
+            color: 'rgba(0,0,0,0.04)'
+          }
+        }
+      }
+    }
+  });
+}
+/* ============================================================
+16. BROADCAST VIEW
+============================================================ */
+
+function loadBroadcastView () {
+  var savedMsg = getBroadcastMessage();
+
+  var el = document.getElementById('broadcast-msg');
+  if (el) el.value = savedMsg;
+
+  var all = getAllReservations();
+  var map = {};
+
+  // Build unique customer list (by phone)
+  all.forEach(function (r) {
+    if (r.nomorHp && !map[r.nomorHp]) {
+      map[r.nomorHp] = {
+        name: r.nama,
+        phone: r.nomorHp
+      };
+    }
+  });
+
+  state.bcList = Object.values(map)
+    .sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    });
+
+  renderBcList(state.bcList);
+}
+
+function saveBroadcastMsg () {
+  var msg = (document.getElementById('broadcast-msg').value || '').trim();
+
+  if (!msg) {
+    showToast('Pesan tidak boleh kosong!', 'error');
+    return;
+  }
+
+  saveBroadcastMessage(msg);
+
+  showToast('Pesan broadcast disimpan!', 'success');
+}
+
+function renderBcList (list) {
+  var el = document.getElementById('bc-list');
+  if (!el) return;
+
+  if (!list.length) {
+    el.innerHTML =
+      '<div style="text-align:center;padding:32px;color:var(--ink-4);font-size:0.875rem;">' +
+        'Belum ada data pelanggan dengan nomor HP.' +
+      '</div>';
+    return;
+  }
+
+  el.innerHTML = list.map(function (c) {
+    return (
+      '<div class="bc-item" id="bc-item-' + escapeHtml(c.phone) + '">' +
+
+        '<div>' +
+          '<div class="bc-name">' + escapeHtml(c.name) + '</div>' +
+          '<div class="bc-phone">' + escapeHtml(c.phone) + '</div>' +
+        '</div>' +
+
+        '<button class="btn-wa-soft" ' +
+          'id="bc-btn-' + escapeHtml(c.phone) + '" ' +
+          'data-phone="' + escapeHtml(c.phone) + '" ' +
+          'data-name="'  + escapeHtml(c.name)  + '" ' +
+          'onclick="sendBroadcastFromBtn(this)">' +
+
+          '<i class="fab fa-whatsapp"></i> Kirim' +
+        '</button>' +
+
+      '</div>'
+    );
+  }).join('');
+}
+
+/* ============================================================
+BROADCAST ACTIONS
+============================================================ */
+
+function sendBroadcastFromBtn (btn) {
+  var phone = btn.getAttribute('data-phone');
+  var name  = btn.getAttribute('data-name');
+
+  if (!phone || !name) return;
+
+  sendBroadcast(phone, name);
+}
+
+function filterBcList (q) {
+  var query = q.toLowerCase();
+
+  var filtered = q
+    ? state.bcList.filter(function (c) {
+        return (
+          c.name.toLowerCase().includes(query) ||
+          c.phone.includes(query)
+        );
+      })
+    : state.bcList;
+
+  renderBcList(filtered);
+}
+
+function sendBroadcast (phone, name) {
+  var template = getBroadcastMessage();
+
+  if (!template) {
+    showToast('Atur pesan broadcast dulu!', 'error');
+    return;
+  }
+
+  var msg = personalizeBroadcast(template, name);
+
+  openWhatsApp(phone, msg);
+
+  // Update button state (no re-render)
+  var btn = document.getElementById('bc-btn-' + phone);
+
+  if (btn) {
+    btn.innerHTML = '<i class="fas fa-check"></i> Terkirim';
+    btn.className = 'btn-success-soft';
+    btn.disabled  = true;
+  }
+}
+/* ============================================================
+17. NOTIFICATION DROPDOWN TOGGLE
+============================================================ */
+
+function toggleNotifDropdown (e) {
+  // Prevent click bubbling ke document (yang akan langsung menutup dropdown)
+  if (e && typeof e.stopPropagation === 'function') {
+    e.stopPropagation();
+  }
+
+  var nd = document.getElementById('notif-dropdown');
+  if (!nd) return;
+
+  nd.classList.toggle('open');
+}
+/* ============================================================
+18. DOM UTILITIES
+============================================================ */
+
+function setText (id, value) {
+  var el = document.getElementById(id);
+  if (el) {
+    el.textContent = value;
+  }
+}
+function closeNotifHandler (e) {
+  var nd = document.getElementById('notif-dropdown');
+  var btn = document.getElementById('notif-btn');
+
+  if (!nd) return;
+
+  // Kalau klik di dalam dropdown → jangan tutup
+  if (nd.contains(e.target)) return;
+
+  // Kalau klik tombol notif → jangan tutup
+  if (btn && btn.contains(e.target)) return;
+
+  nd.classList.remove('open');
+}
+/* ============================================================
+SAFE HTML ESCAPE (CRITICAL)
+============================================================ */
+
+function escapeHtml (str) {
+  if (str === null || str === undefined) return '';
+
+  return String(str)
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#39;');
+}
+
+/* ============================================================
+SMALL HELPERS
+============================================================ */
+
+function clearFormErrors () {
+  document.querySelectorAll('.form-error').forEach(function (el) {
+    el.textContent = '';
+  });
+}
+
+function showFieldError (id, msg) {
+  var el = document.getElementById(id);
+  if (el) {
+    el.textContent = msg;
+  }
+}
+
+function setPageTitle (name) {
+  var el = document.getElementById('page-title');
+  if (!el) return;
+
+  var map = {
+    calendar:  'Kalender',
+    detail:    'Detail Reservasi',
+    menus:     'Menu',
+    locations: 'Lokasi',
+    customers: 'Pelanggan',
+    analysis:  'Analisis',
+    broadcast: 'Broadcast'
+  };
+
+  el.textContent = map[name] || '';
+}
+/* ============================================================
+19. GLOBAL HELPERS
+============================================================ */
+
+/* ---------- ID & DATE ---------- */
+
+function genId () {
+  // Simple unique id (timestamp + random)
+  return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function todayStr () {
+  var d = new Date();
+  return buildDateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+
+function pad2 (n) {
+  return n < 10 ? '0' + n : '' + n;
+}
+
+function buildDateStr (y, m, d) {
+  return y + '-' + pad2(m) + '-' + pad2(d);
+}
+
+/* ---------- FORMAT ---------- */
+
+function formatRupiah (num) {
+  num = parseInt(num, 10) || 0;
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function formatRupiahK (num) {
+  num = parseInt(num, 10) || 0;
+
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace('.0', '') + 'k';
+  }
+
+  return String(num);
+}
+
+function formatDateDisplay (dateStr) {
+  if (!dateStr) return '';
+
+  var parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+
+  var y = parseInt(parts[0], 10);
+  var m = parseInt(parts[1], 10) - 1;
+  var d = parseInt(parts[2], 10);
+
+  return d + ' ' + (MONTHS_ID[m] || '') + ' ' + y;
+}
+
+/* ---------- STRING & NAME ---------- */
+
+function getInitials (name) {
+  if (!name) return '?';
+
+  var parts = name.trim().split(/\s+/);
+
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+
+  return (
+    parts[0].charAt(0) +
+    parts[parts.length - 1].charAt(0)
+  ).toUpperCase();
+}
+
+function nameToColor (name) {
+  if (!name) return '#64748b';
+
+  var hash = 0;
+
+  for (var i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  var colors = [
+    '#ef4444', '#f97316', '#eab308',
+    '#22c55e', '#06b6d4', '#3b82f6',
+    '#8b5cf6', '#ec4899'
+  ];
+
+  return colors[Math.abs(hash) % colors.length];
+}
+
+/* ---------- VALIDATION ---------- */
+
+function validatePhone (hp) {
+  if (!hp) return false;
+
+  var cleaned = hp.replace(/\D/g, '');
+
+  // 10–13 digit
+  return cleaned.length >= 10 && cleaned.length <= 13;
+}
+
+function normalizePhone (hp) {
+  if (!hp) return '';
+
+  var cleaned = hp.replace(/\D/g, '');
+
+  // Convert 08xxx → 628xxx
+  if (cleaned.startsWith('0')) {
+    return '62' + cleaned.slice(1);
+  }
+
+  // Already 62...
+  if (cleaned.startsWith('62')) {
+    return cleaned;
+  }
+
+  return cleaned;
+}
+/* ============================================================
+20. GLUE FUNCTIONS (STATE + DATA ACCESS HELPERS)
+============================================================ */
+
+/* ---------- RESERVATION FINDERS ---------- */
+
+function findReservationById (id) {
+  if (!id) return null;
+
+  var all = getAllReservations();
+
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].id === id) {
+      return all[i];
+    }
+  }
+
+  return null;
+}
+
+function getResForDate (dateStr) {
+  if (!dateStr) return [];
+
+  var parts = dateStr.split('-');
+  if (parts.length !== 3) return [];
+
+  var y = parts[0];
+  var m = parseInt(parts[1], 10) - 1;
+
+  var mk = getMonthKey(parseInt(y, 10), m);
+
+  var arr = state.reservations[mk] || [];
+
+  return arr.filter(function (r) {
+    return r.date === dateStr;
+  });
+}
+
+function getResForMonth (year, monthIdx) {
+  var mk = getMonthKey(year, monthIdx);
+  return state.reservations[mk] || [];
+}
+
+function getAllReservations () {
+  var all = [];
+
+  Object.values(state.reservations || {}).forEach(function (arr) {
+    if (Array.isArray(arr)) {
+      all = all.concat(arr);
+    }
+  });
+
+  return all;
+}
+
+/* ---------- MENU & LOCATION LOOKUP ---------- */
+
+function getMenuByName (name) {
+  var list = Object.values(state.menus || {});
+
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].name === name) {
+      return list[i];
+    }
+  }
+
+  return null;
+}
+
+function getMenusSorted () {
+  return Object.entries(state.menus || {})
+    .map(function (entry) {
+      return Object.assign({ id: entry[0] }, entry[1]);
+    })
+    .sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function getLocationByName (name) {
+  var list = Object.values(state.locations || {});
+
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].name === name) {
+      return list[i];
+    }
+  }
+
+  return null;
+}
+
+function getLocationsSorted () {
+  return Object.entries(state.locations || {})
+    .map(function (entry) {
+      return Object.assign({ id: entry[0] }, entry[1]);
+    })
+    .sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    });
+}
+
+/* ---------- CUSTOMER BUILDER ---------- */
+
+function buildCustomerList () {
+  var map = {};
+
+  getAllReservations().forEach(function (r) {
+    var key = r.nomorHp || (r.nama + '_' + r.date);
+
+    if (!map[key]) {
+      map[key] = {
+        nama: r.nama || 'Tanpa Nama',
+        nomorHp: r.nomorHp || '',
+        count: 0,
+        lastDate: r.date
+      };
+    }
+
+    map[key].count++;
+
+    if (r.date > map[key].lastDate) {
+      map[key].lastDate = r.date;
+    }
+  });
+
+  return Object.values(map).sort(function (a, b) {
+    return b.count - a.count;
+  });
+}
+
+/* ---------- SIMPLE STATS ---------- */
+
+function computeStats (arr) {
+  arr = arr || [];
+
+  var totalPax = 0;
+  var totalDp  = 0;
+
+  arr.forEach(function (r) {
+    totalPax += parseInt(r.jumlah, 10) || 0;
+    totalDp  += parseInt(r.dp, 10)     || 0;
+  });
+
+  return {
+    count:    arr.length,
+    totalPax: totalPax,
+    totalDp:  totalDp,
+    avgPax:   arr.length ? Math.round(totalPax / arr.length) : 0
+  };
+}
+
+function buildChartData(arr, mode, year, monthIdx) {
+
+  var labels = [];
+
+  var data   = [];
+
+  if (mode === 'month') {
+
+    var counts = Array(12).fill(0);
+
+    arr.forEach(function (r) {
+
+      if (!r.date) return;
+
+      var parts = r.date.split('-');
+
+      var m = parseInt(parts[1], 10) - 1;
+
+      counts[m]++;
+
+    });
+
+    labels = MONTHS_SHORT;
+
+    data   = counts;
+
+  } else {
+
+    var daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+
+    var counts = Array(daysInMonth).fill(0);
+
+    arr.forEach(function (r) {
+
+      if (!r.date) return;
+
+      var parts = r.date.split('-');
+
+      var d = parseInt(parts[2], 10) - 1;
+
+      counts[d]++;
+
+    });
+
+    labels = counts.map(function (_, i) {
+
+      return String(i + 1);
+
+    });
+
+    data = counts;
+
+  }
+
+  return { labels: labels, data: data };
+
+}
+/* ============================================================
+21. FINALIZATION & SAFETY GUARD
+============================================================ */
+
+// Basic runtime sanity check (optional, ringan)
+(function () {
+  try {
+    if (!window.state) {
+      console.warn('[Proserva] state belum terinisialisasi');
+    }
+
+    if (!window.DB || !window.KEYS) {
+      console.warn('[Proserva] DB / KEYS belum tersedia');
+    }
+
+    if (!window.getMonthKey) {
+      console.warn('[Proserva] getMonthKey tidak ditemukan');
+    }
+
+  } catch (e) {
+    console.error('[Proserva] Init check error:', e);
+  }
+})();
+/* ============================================================
+DEBUG TRIGGER (5x TAP HEADER)
+============================================================ */
+
+function initDebugTap() {
+  var header = document.getElementById('topbar') 
+            || document.querySelector('.topbar');
+
+  if (!header) return;
+
+  var tapCount = 0;
+  var lastTap  = 0;
+
+  header.addEventListener('click', function () {
+    var now = Date.now();
+
+    if (now - lastTap > 1000) {
+      tapCount = 0;
+    }
+
+    tapCount++;
+    lastTap = now;
+
+    if (tapCount >= 5) {
+      tapCount = 0;
+      debugToggle();
+    }
+  });
+}
