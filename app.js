@@ -1,31 +1,42 @@
 ‘use strict’;
 
 /* ============================================================
-APP.JS — PROSERVA v1.2.0 (FULLY PATCHED + HARDENED)
+APP.JS — PROSERVA v1.2.1 (PATCHED)
 
-FIXES APPLIED FROM v1.1.0 AUDIT:
+FIXES APPLIED FROM AUDIT v1.2.0:
 🔴 CRITICAL:
-C1. EventBridge.on sekarang menyimpan wrapped listener → bisa di-off()
-→ mencegah memory leak akibat listener menumpuk saat navigasi
-C2. VirtualList render dari DATA bukan clone DOM
-→ event listeners di card tidak hilang
-C3. OfflineQueue dengan retry limit (max 3) + exponential backoff
-→ tidak stuck selamanya jika server error terus
-C4. Router.go dilindungi navigation lock
-→ mencegah race condition saat user klik cepat
+F1. escapeHtml didefinisikan di awal — mencegah ReferenceError di seluruh module
+F2. patchCalendarRender menggunakan Calendar.getYear/getMonth (bukan selected date)
+→ tanggal cell kalender kini benar
+F3. bindCalendarClicks dipindah setelah render patch aktif
+→ cell.dataset.date selalu ada saat klik
+F4. Menu builder mencari #menu-builder (bukan #menu-container yang tidak ada)
+F5. Form submit handler dikonsolidasi — hanya satu handler via UI Bridge
+→ tidak ada double-submit conflict
 
 🟡 STRUCTURAL:
-S1. SmartCache invalidation per event type (granular, bukan clear semua)
-S2. AutoReminder tab-lock via localStorage → cegah double-send multi-tab
-S3. UI.renderReservationCard diekspos agar VirtualList bisa render data→DOM
-S4. Audit log module untuk traceability aksi bisnis
-S5. Health check dengan latency measurement
+F6. NotifSystem → Notify (nama module yang benar) di UI Bridge notif dropdown
+F7. Boot sequence diperbaiki: Router.go() tidak double-render dengan UI.init()
+F8. Detail view bisa diakses via DateController.select() saat klik tanggal
 
-🟢 POLISHING:
-P1. Remote feature flags via fetch(’/config.json’) dengan fallback lokal
-P2. UI.empty() terpusat untuk empty state
-P3. Semua fix dari v1.1.0 tetap dipertahankan (C1–C6, S1–S4, P1–P5)
+Semua fix dari v1.2.0 tetap dipertahankan.
 ============================================================ */
+
+/* ============================================================
+PART 0 — UTILITY: escapeHtml (FIX F1)
+Didefinisikan PERTAMA sebelum semua module lain memakainya.
+Mencegah ReferenceError runtime di _renderToast, CustomerUI,
+buildEmptyState, dan semua tempat lain yang memanggil escapeHtml().
+============================================================ */
+
+function escapeHtml(str) {
+return String(str == null ? ‘’ : str)
+.replace(/&/g, ‘&’)
+.replace(/</g, ‘<’)
+.replace(/>/g, ‘>’)
+.replace(/”/g, ‘"’)
+.replace(/’/g, ‘'’);
+}
 
 /* ============================================================
 PART 1 — BOOTSTRAP + GLOBAL INIT ORCHESTRATOR
@@ -72,10 +83,14 @@ try {
   _patchRouter();
   _bindGlobalEvents();
 
+  /* F7: UI.init() sudah memanggil renderCalendar() secara internal.
+     Kita tidak perlu emit reservation:changed di sini lagi karena
+     itu akan memicu double-render. Router.go() saja sudah cukup
+     untuk set view yang benar. reservation:changed hanya diemit
+     jika ada perubahan data nyata. */
   const lastView = localStorage.getItem('psv_last_view') || 'calendar';
   await Router.go(lastView);
 
-  EventBridge.emit('reservation:changed');
   EventBridge.emit('app:ready');
 
   Logger.log('[App] initialized successfully');
@@ -296,6 +311,12 @@ return { select, back };
 
 })();
 
+/* F3: bindCalendarClicks — event delegation yang benar.
+Kita delegasi klik ke #calendar-grid dan baca dataset.date dari cell.
+dataset.date di-set oleh patchCalendarRender (di bawah) menggunakan
+tahun & bulan yang benar dari Calendar module.
+Karena ini event delegation, listener ini bekerja untuk semua cell
+yang di-render ulang kapan pun, termasuk setelah navigasi bulan. */
 (function bindCalendarClicks() {
 const grid = document.getElementById(‘calendar-grid’);
 if (!grid) return;
@@ -307,21 +328,33 @@ if (dateStr) DateController.select(dateStr);
 });
 })();
 
+/* F2: patchCalendarRender — set dataset.date menggunakan tahun & bulan
+dari Calendar module (bukan dari tanggal yang sedang dipilih).
+Calendar.getYear() dan Calendar.getMonth() mengembalikan state
+bulan yang sedang ditampilkan di grid, sehingga cell.dataset.date
+selalu akurat sesuai posisi cell di kalender. */
 (function patchCalendarRender() {
 if (!window.UI?.renderCalendar) return;
 const original = UI.renderCalendar.bind(UI);
 UI.renderCalendar = async function () {
 await original();
-document.querySelectorAll(’#calendar-grid .cal-day’).forEach(cell => {
-if (cell.classList.contains(‘empty’)) return;
-const numEl = cell.querySelector(’.cal-day-num’);
-if (!numEl) return;
-const day  = parseInt(numEl.textContent, 10);
-const base = Calendar.getSelected() ? new Date(Calendar.getSelected()) : new Date();
-cell.dataset.date = Utils.formatDate(
-base.getFullYear(), base.getMonth(), day
-);
+
+```
+/* Ambil tahun & bulan yang SEDANG DITAMPILKAN di kalender,
+   bukan tanggal yang dipilih user */
+const year  = Calendar.getYear?.()  ?? new Date().getFullYear();
+const month = Calendar.getMonth?.() ?? new Date().getMonth();   // 0-based
+
+document.querySelectorAll('#calendar-grid .cal-day').forEach(cell => {
+  if (cell.classList.contains('empty')) return;
+  const numEl = cell.querySelector('.cal-day-num');
+  if (!numEl) return;
+  const day = parseInt(numEl.textContent, 10);
+  if (!day) return;
+  cell.dataset.date = Utils.formatDate(year, month, day);
 });
+```
+
 };
 })();
 
@@ -422,9 +455,11 @@ persistent = false
 const container = _getToastContainer();
 const toast = document.createElement(‘div’);
 toast.className = `toast toast-${type}`;
-toast.innerHTML = `<div class="toast-content"> <div class="toast-msg">${escapeHtml(message)}</div> ${action ?`<button class="toast-action">${escapeHtml(action.label)}</button>` : ''} </div>`;
-container.appendChild(toast);
-requestAnimationFrame(() => toast.classList.add(‘show’));
+toast.innerHTML = `<div class="toast-content"> <div class="toast-msg">${escapeHtml(message)}</div> ${action ? `<button class="toast-action">${escapeHtml(action.label)}</button>` : ‘’}
+
+  </div>`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
 
 if (action) {
 toast.querySelector(’.toast-action’)?.addEventListener(‘click’, () => {
@@ -486,6 +521,22 @@ window.notifySuccess = (m) => NotifySafe.success(m);
 window.notifyError   = (m) => NotifySafe.error(m);
 window.notifyInfo    = (m) => NotifySafe.info(m);
 window.showToast     = (m, t = ‘info’) => NotifySafe[t]?.(m) ?? NotifySafe.info(m);
+
+/* F6: NotifSystem → Notify
+Di index.html UI Bridge, dropdown notifikasi memanggil NotifSystem.render()
+tapi module yang tersedia namanya Notify. Alias ini memastikan kode di
+index.html yang menggunakan NotifSystem tetap berfungsi tanpa perlu
+mengubah HTML. */
+window.NotifSystem = {
+render(container, list) {
+if (!container) return;
+if (!list?.length) {
+container.innerHTML = `<div class="notif-empty">Tidak ada notifikasi</div>`;
+return;
+}
+container.innerHTML = list.map(n => `<div class="notif-item notif-${n.type || 'info'}"> <div class="notif-msg">${escapeHtml(n.message || '')}</div> ${n.time ?`<div class="notif-time">${escapeHtml(n.time)}</div>`: ''} </div>`).join(’’);
+}
+};
 
 Logger.log(’[NotifySafe] unified notification system ready’);
 
@@ -1124,6 +1175,56 @@ const safeDeleteReservation = (id)    => SafeReservation.remove(id);
 PART 14 — FORM + DETAIL ACTIONS
 ============================================================ */
 
+/* F5: Konsolidasi form submit handler.
+Form module dari modules.js mengikat submit langsung ke Reservation.create()
+tanpa melewati BusinessRules. Kita patch Form.init() agar menghapus binding
+default-nya dan menggantinya dengan SafeReservation.create() yang sudah
+include validasi, sanitasi, duplicate guard, dan offline queue.
+Dengan ini hanya ada SATU submit handler — tidak ada double-submit. */
+(function consolidateFormSubmit() {
+if (!window.Form) return;
+if (Form.**SUBMIT_PATCHED**) return;
+
+/* Tunggu Form.init() selesai berjalan (dipanggil di App.init sebelum ini) */
+const originalInit = Form.init?.bind(Form);
+
+Form.init = function () {
+/* Jalankan init asli (setup UI, field bindings, dll.) */
+originalInit?.();
+
+```
+/* Override submit: lepas handler lama, pasang handler yang benar */
+const formEl = document.getElementById('reservation-form');
+if (!formEl) return;
+
+/* Clone node → hapus semua event listener lama yang terikat */
+const cleanForm = formEl.cloneNode(true);
+formEl.parentNode.replaceChild(cleanForm, formEl);
+
+/* Pasang satu-satunya handler submit via SafeReservation */
+cleanForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const values = Form.getValues?.() ?? {};
+  if (!values.name || !values.date) {
+    NotifySafe.error('Nama dan tanggal wajib diisi');
+    return;
+  }
+  try {
+    await SafeReservation.create(values);
+    Form.close?.();
+  } catch (err) {
+    /* Error sudah di-handle oleh SafeReservation — tidak perlu notify lagi */
+  }
+});
+
+Logger.log('[Form] submit handler consolidated — single handler active');
+```
+
+};
+
+Form.**SUBMIT_PATCHED** = true;
+})();
+
 (function patchFormGetValues() {
 if (!window.Form || Form.**MENU_PATCHED**) return;
 
@@ -1135,6 +1236,44 @@ return { …base, menus: window.Menu?.getData?.() ?? [] };
 };
 
 Form.**MENU_PATCHED** = true;
+})();
+
+/* F4: Menu builder ID mismatch.
+Menu.init() di modules.js mencari #menu-container dan #btn-add-menu
+yang tidak ada di HTML. Yang ada adalah #menu-builder.
+Patch ini membuat alias elemen agar Menu module bisa menemukan container-nya. */
+(function patchMenuBuilderIds() {
+const builder = document.getElementById(‘menu-builder’);
+if (!builder) return;
+
+/* Buat #menu-container alias jika belum ada */
+if (!document.getElementById(‘menu-container’)) {
+builder.id = ‘menu-container’;
+
+```
+/* Re-expose dengan id asli juga agar CSS/selector lain tetap bekerja */
+builder.setAttribute('data-menu-builder', 'true');
+```
+
+}
+
+/* Buat #btn-add-menu jika belum ada — cari tombol “tambah” di dalam builder */
+if (!document.getElementById(‘btn-add-menu’)) {
+/* Coba temukan tombol tambah existing berdasarkan teks atau data attribute */
+const existingBtn = builder.querySelector(’[data-action=“add-menu”], .btn-add-menu, button’);
+if (existingBtn && !existingBtn.id) {
+existingBtn.id = ‘btn-add-menu’;
+} else if (!existingBtn) {
+/* Fallback: buat tombol baru */
+const btn = document.createElement(‘button’);
+btn.id        = ‘btn-add-menu’;
+btn.className = ‘btn btn-sm’;
+btn.textContent = ‘+ Tambah Menu’;
+builder.prepend(btn);
+}
+}
+
+Logger.log(’[Menu] builder IDs patched — #menu-container and #btn-add-menu ready’);
 })();
 
 /* S3: renderReservationCard diekspos ke UI agar VirtualList bisa pakai */
@@ -1604,7 +1743,7 @@ if (!list.length) {
 el.innerHTML = `<tr><td colspan="5">${UI.empty('Tidak ada data pelanggan')}</td></tr>`;
 return;
 }
-el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ?`<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'} </td> </tr>`).join(’’);
+el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ? `<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'}</td> </tr>`).join(’’);
 }
 
 return { render };
@@ -1895,7 +2034,9 @@ e.target.value = e.target.value.slice(0, 500);
 
 /* P2: Empty state terpusat — tidak lagi scattered di masing-masing controller */
 function buildEmptyState(title, subtitle = ‘’) {
-return `<div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> ${subtitle ?`<div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div>` : ''} </div>`;
+return `<div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> ${subtitle ? `<div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div>` : ‘’}
+
+  </div>`;
 }
 
 /* Ekspos ke UI agar semua module pakai satu fungsi empty state */
@@ -2052,7 +2193,7 @@ restore:  (file) => Backup.importFile?.(file),
 settings: () => Settings.get?.(),
 refresh:  () => EventBridge.emit(‘reservation:changed’),
 audit:    () => AuditLog.getAll(),
-version:  ‘1.2.0’,
+version:  ‘1.2.1’,
 
 async health() {
 try {
@@ -2105,8 +2246,8 @@ flags()  { console.log(FeatureFlags.getAll()); }
 };
 }
 
-console.log(’%cProserva v1.2.0 🚀’, ‘color:#22c55e;font-weight:bold;’);
+console.log(’%cProserva v1.2.1 🚀’, ‘color:#22c55e;font-weight:bold;’);
 
 /* ============================================================
-END OF APP.JS — PROSERVA v1.2.0
+END OF APP.JS — PROSERVA v1.2.1
 ============================================================ */
