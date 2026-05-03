@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Proserva — Smart Reservation System</title>
+  <title>Proserva &mdash; Smart Reservation System</title>
   <meta name="description" content="Proserva - Sistem reservasi restoran modern" />
   <meta name="theme-color" content="#18181b" />
 
@@ -591,6 +591,14 @@
       text-align: center;
     }
 
+    /* Notif empty state from NotifSystem.render */
+    .notif-empty {
+      padding: 12px;
+      font-size: 0.8rem;
+      color: var(--ink-3);
+      text-align: center;
+    }
+
     /* =========================
        GLOBAL LOADING
     ========================== */
@@ -752,6 +760,16 @@
       <i class="fas fa-calendar"></i>
       <span>Kalender</span>
     </div>
+    <!--
+      FIX #3: Tambah nav-item "detail" agar Router.go('detail') bisa
+      meng-update active state dengan benar saat user klik tanggal kalender.
+      Item ini disembunyikan dari tampilan nav karena detail view
+      diakses via klik kalender, bukan nav langsung.
+    -->
+    <div class="nav-item hidden" data-view="detail">
+      <i class="fas fa-list"></i>
+      <span>Detail</span>
+    </div>
     <div class="nav-item" data-view="menus">
       <i class="fas fa-utensils"></i>
       <span>Menu</span>
@@ -776,7 +794,12 @@
       <button class="btn-icon" id="btn-toggle-sidebar">
         <i class="fas fa-bars"></i>
       </button>
-      <div id="topbar-breadcrumb" class="tb-title">Kalender</div>
+      <!--
+        FIX: Ganti id "topbar-breadcrumb" menjadi "page-title"
+        agar sinkron dengan Router._updatePageTitle() di app.js
+        yang mencari elemen #page-title, bukan #topbar-breadcrumb.
+      -->
+      <div id="page-title" class="tb-title">Kalender</div>
     </div>
 
     <!-- NOTIFICATION BELL -->
@@ -786,7 +809,14 @@
         <span id="notif-dot"></span>
       </button>
       <div id="notif-dropdown">
-        <div id="notif-list"></div>
+        <!--
+          FIX #6/#7: notif-list diisi oleh NotifSystem.render()
+          yang sudah di-alias di app.js (window.NotifSystem = { render(...) }).
+          Container id tetap "notif-list" agar UI Bridge menemukan elemen ini.
+        -->
+        <div id="notif-list">
+          <div class="nd-empty">Tidak ada notifikasi</div>
+        </div>
       </div>
     </div>
   </header>
@@ -799,7 +829,11 @@
       <div class="cal-header">
         <div class="cal-title">
           <h2>Reservasi</h2>
-          <p>Kelola booking harian</p>
+          <!--
+            FIX #8: id="cal-subtitle" ditambahkan agar SettingsUIBridge
+            di app.js bisa update teks subtitle dengan businessName.
+          -->
+          <p id="cal-subtitle">Kelola booking harian</p>
         </div>
         <button id="btn-open-modal" class="btn-primary">
           <i class="fas fa-plus"></i> Tambah
@@ -825,9 +859,20 @@
     </div>
 
     <!-- VIEW: DETAIL -->
+    <!--
+      FIX #3: View detail sudah ada di HTML tapi tidak bisa diakses
+      karena bug klik kalender. Setelah bug #1 dan #2 di app.js diperbaiki,
+      view ini akan tampil otomatis via Router.go('detail').
+      Tombol "Kembali" ditambahkan untuk navigasi balik ke kalender.
+    -->
     <div id="view-detail" class="view">
       <div class="detail-header">
-        <h3 id="detail-title">Detail Reservasi</h3>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <button class="btn-ghost" id="btn-back-to-calendar" style="padding:4px 8px; font-size:0.8rem;">
+            <i class="fas fa-chevron-left"></i> Kembali
+          </button>
+          <h3 id="detail-title">Detail Reservasi</h3>
+        </div>
       </div>
       <div class="detail-filters">
         <input id="detail-search" type="text" class="input" placeholder="Cari nama / HP..." />
@@ -860,6 +905,7 @@
         <p style="font-size:0.8rem; color:var(--ink-3);">Ringkasan performa reservasi</p>
       </div>
       <div id="anl-stats" class="anl-stats"></div>
+      <div id="anl-daily"></div>
       <div id="anl-insight"></div>
     </div>
 
@@ -875,15 +921,22 @@
         </button>
       </div>
 
-      <form id="reservation-form" class="modal-body" onsubmit="return false;">
+      <!--
+        FIX #5: Hapus atribut onsubmit="return false;" dari tag form.
+        Handler submit dikelola sepenuhnya oleh UI Bridge (satu handler).
+        app.js Part 14 (consolidateFormSubmit) akan clone & replace form
+        untuk membersihkan handler duplikat dari Form module.
+        onsubmit inline akan mengganggu proses clone tersebut.
+      -->
+      <form id="reservation-form" class="modal-body">
         <div class="form-group">
           <label>Nama</label>
-          <input id="input-name" class="input" type="text" placeholder="Nama pemesan" />
+          <input id="input-name" class="input" type="text" placeholder="Nama pemesan" autocomplete="off" />
           <span class="form-error" id="err-name">Nama minimal 2 karakter</span>
         </div>
         <div class="form-group">
           <label>No HP</label>
-          <input id="input-phone" class="input" type="text" placeholder="08xxxxxxxxxx" />
+          <input id="input-phone" class="input" type="tel" placeholder="08xxxxxxxxxx" autocomplete="off" />
         </div>
         <div class="form-group">
           <label>Tanggal</label>
@@ -897,15 +950,34 @@
         </div>
         <div class="form-group">
           <label>Jumlah Tamu</label>
-          <input id="input-guests" class="input" type="number" min="1" placeholder="1" />
+          <!--
+            FIX: Tambah name="guests" agar inputGuard di app.js
+            bisa mendeteksi field ini via el.name === 'guests'.
+          -->
+          <input id="input-guests" name="guests" class="input" type="number" min="1" placeholder="1" />
           <span class="form-error" id="err-guests">Jumlah tamu tidak valid</span>
+        </div>
+        <div class="form-group">
+          <label>Nama Pemesan</label>
+          <!--
+            FIX: Tambah name="name" agar inputGuard bisa deteksi
+            field ini via el.name === 'name' untuk batasan 50 karakter.
+          -->
+          <input id="input-name-hidden" name="name" class="input hidden" type="text" aria-hidden="true" tabindex="-1" />
         </div>
         <div class="form-group">
           <label>Catatan</label>
           <textarea id="input-note" class="input" rows="3" placeholder="Permintaan khusus..."></textarea>
         </div>
 
-        <!-- Menu builder injected by Menu module -->
+        <!--
+          FIX #4: Container menu builder pakai id="menu-builder"
+          di dalam modal agar patchMenuBuilderIds di app.js bisa
+          menemukan elemen ini dan membuat alias #menu-container
+          + #btn-add-menu di dalamnya.
+          id="menu-container" di view menus TIDAK diubah karena
+          itu untuk halaman Menu terpisah.
+        -->
         <div id="menu-builder"></div>
 
         <div class="modal-footer">
@@ -1011,7 +1083,7 @@
   <!-- ============================================================
        CONFIRM DIALOG
        UI-only helper. Logic resolve/reject dipanggil oleh app.js
-       melalui ConfirmDialog.show() → Promise<boolean>.
+       melalui ConfirmDialog.show() -> Promise<boolean>.
   ============================================================ -->
 
   <script>
@@ -1049,7 +1121,7 @@
   <!-- ============================================================
        UI BRIDGE
        Menghubungkan elemen HTML ke app.js (Router, SafeReservation,
-       EventBridge). Tidak ada logic bisnis di sini — hanya wiring DOM.
+       EventBridge). Tidak ada logic bisnis di sini - hanya wiring DOM.
        Semua handler berjalan SETELAH app.js selesai di-load.
   ============================================================ -->
 
@@ -1057,13 +1129,8 @@
   (function () {
     'use strict';
 
-    /* ----------------------------------------------------------
-       Tunggu sampai app.js selesai boot lalu hubungkan semua UI.
-       Menggunakan requestAnimationFrame + polling ringan agar
-       tidak bergantung pada urutan load yang tidak pasti.
-    ---------------------------------------------------------- */
     function _waitFor(condition, callback, maxMs) {
-      var elapsed = 0;
+      var elapsed  = 0;
       var interval = 50;
       var timer = setInterval(function () {
         elapsed += interval;
@@ -1080,8 +1147,8 @@
     document.addEventListener('DOMContentLoaded', function () {
 
       /* ---- 1. SIDEBAR TOGGLE ---- */
-      var sb  = document.getElementById('sidebar');
-      var ov  = document.getElementById('sidebar-overlay');
+      var sb        = document.getElementById('sidebar');
+      var ov        = document.getElementById('sidebar-overlay');
       var toggleBtn = document.getElementById('btn-toggle-sidebar');
 
       function _openSidebar()  { if (sb) sb.classList.add('open');    if (ov) ov.classList.add('show'); }
@@ -1092,16 +1159,21 @@
       });
       if (ov) ov.addEventListener('click', _closeSidebar);
 
-      /* ---- 2. NAVIGATION (.nav-item → Router.go) ---- */
+      /* ---- 2. NAVIGATION (.nav-item -> Router.go) ---- */
+      /*
+        FIX #3 + sinkronisasi app.js:
+        VIEW_LABELS sinkron dengan map di Router._updatePageTitle().
+        'detail' ditambahkan agar breadcrumb tampil benar saat view detail aktif.
+      */
       var VIEW_LABELS = {
         calendar: 'Kalender',
-        detail:   'Detail',
+        detail:   'Detail Reservasi',
         menus:    'Menu',
         analysis: 'Analisis'
       };
 
       function _updateBreadcrumb(name) {
-        var bc = document.getElementById('topbar-breadcrumb');
+        var bc = document.getElementById('page-title');
         if (bc) bc.textContent = VIEW_LABELS[name] || name;
       }
 
@@ -1119,7 +1191,7 @@
           if (window.Router) {
             Router.go(view);
           } else {
-            /* Fallback jika Router belum siap: tampilkan view langsung */
+            /* Fallback jika Router belum siap */
             document.querySelectorAll('.view').forEach(function (v) {
               v.classList.remove('active-view');
             });
@@ -1131,8 +1203,11 @@
         });
       });
 
-      /* ---- 3. BREADCRUMB — update saat Router berubah ---- */
-      /* Router bisa tersedia belakangan, pakai polling */
+      /* ---- 3. BREADCRUMB - update saat Router berubah ---- */
+      /*
+        FIX #6/#7 sinkronisasi: EventBridge tersedia via app.js.
+        Polling _waitFor memastikan kita tidak bind sebelum app.js siap.
+      */
       _waitFor(
         function () { return !!window.EventBridge; },
         function () {
@@ -1147,7 +1222,14 @@
       var resModal = document.getElementById('reservation-modal');
 
       function _openModal()  { if (resModal) resModal.classList.add('open'); }
-      function _closeModal() { if (resModal) resModal.classList.remove('open'); }
+      function _closeModal() {
+        if (resModal) resModal.classList.remove('open');
+        /* Reset editing state saat modal ditutup */
+        var form = document.getElementById('reservation-form');
+        if (form) form.dataset.editingId = '';
+        var modalTitle = document.getElementById('modal-title');
+        if (modalTitle) modalTitle.textContent = 'Tambah Reservasi';
+      }
 
       var openBtn   = document.getElementById('btn-open-modal');
       var closeBtn  = document.getElementById('modal-close');
@@ -1160,62 +1242,144 @@
         if (e.target === resModal) _closeModal();
       });
 
-      /* ---- 5. FORM SUBMIT → SafeReservation ---- */
-      var form     = document.getElementById('reservation-form');
+      /* ---- 5. FORM SUBMIT -> SafeReservation ---- */
+      /*
+        FIX #5: Satu-satunya submit handler ada di sini.
+        Form module dari modules.js akan di-patch oleh consolidateFormSubmit()
+        di app.js yang meng-clone form dan menghapus binding lama.
+        Handler ini adalah sumber kebenaran tunggal untuk submit.
+
+        Catatan: setelah consolidateFormSubmit() berjalan di app.js,
+        form element mungkin sudah di-clone/replace. Kita bind ulang
+        via event delegation ke #reservation-modal agar tetap bekerja.
+      */
       var submitBtn = document.getElementById('btn-submit');
 
-      if (form) {
-        form.addEventListener('submit', async function (e) {
-          e.preventDefault();
-          if (!window.SafeReservation) {
-            Notify.error('SafeReservation belum siap');
-            return;
+      _waitFor(
+        function () { return !!window.SafeReservation; },
+        function () {
+          /* Gunakan event delegation ke modal agar tetap bekerja
+             meski form di-clone oleh consolidateFormSubmit di app.js */
+          if (resModal) {
+            resModal.addEventListener('submit', async function (e) {
+              e.preventDefault();
+
+              /* Cegah double-submit: cek apakah ada SafeReservation dulu */
+              if (!window.SafeReservation) {
+                Notify.error('SafeReservation belum siap');
+                return;
+              }
+
+              var form = document.getElementById('reservation-form');
+              var data = {
+                name:   (document.getElementById('input-name') ? document.getElementById('input-name').value : '').trim(),
+                phone:  (document.getElementById('input-phone') ? document.getElementById('input-phone').value : '').trim(),
+                date:    document.getElementById('input-date') ? document.getElementById('input-date').value : '',
+                time:    document.getElementById('input-time') ? document.getElementById('input-time').value : '',
+                guests:  Number(document.getElementById('input-guests') ? document.getElementById('input-guests').value : 0),
+                note:   (document.getElementById('input-note') ? document.getElementById('input-note').value : '').trim(),
+                menus:  (window.Menu && Menu.getData) ? Menu.getData() : []
+              };
+
+              /* Validasi minimal sebelum kirim */
+              if (!data.name || data.name.length < 2) {
+                var errName = document.getElementById('err-name');
+                if (errName) errName.classList.add('show');
+                document.getElementById('input-name') && document.getElementById('input-name').classList.add('error');
+                return;
+              }
+              if (!data.date) {
+                var errDate = document.getElementById('err-date');
+                if (errDate) errDate.classList.add('show');
+                document.getElementById('input-date') && document.getElementById('input-date').classList.add('error');
+                return;
+              }
+
+              /* Bersihkan error sebelumnya */
+              ['err-name','err-date','err-time','err-guests'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.remove('show');
+              });
+              ['input-name','input-date','input-time','input-guests'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.remove('error');
+              });
+
+              setBtnLoading(submitBtn, true);
+
+              try {
+                var editingId = form ? (form.dataset.editingId || '') : '';
+                if (editingId) {
+                  await SafeReservation.update(editingId, data);
+                } else {
+                  await SafeReservation.create(data);
+                }
+                _closeModal();
+                /* Reset form setelah sukses */
+                if (form) {
+                  form.reset();
+                  form.dataset.editingId = '';
+                }
+                if (window.EventBridge) EventBridge.emit('reservation:changed');
+              } catch (err) {
+                /* Error sudah di-handle oleh SafeReservation / ErrorHandler */
+              } finally {
+                setBtnLoading(submitBtn, false);
+              }
+            });
           }
+        }
+      );
 
-          var data = {
-            name:   (document.getElementById('input-name')?.value   || '').trim(),
-            phone:  (document.getElementById('input-phone')?.value  || '').trim(),
-            date:    document.getElementById('input-date')?.value   || '',
-            time:    document.getElementById('input-time')?.value   || '',
-            guests:  Number(document.getElementById('input-guests')?.value || 0),
-            note:   (document.getElementById('input-note')?.value   || '').trim(),
-            menus:   (window.Menu && Menu.getData) ? Menu.getData() : []
-          };
+      /* ---- 5b. BERSIHKAN validation error saat input berubah ---- */
+      ['input-name','input-date','input-time','input-guests'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function () {
+          this.classList.remove('error');
+          var errId = this.id.replace('input-', 'err-');
+          var errEl = document.getElementById(errId);
+          if (errEl) errEl.classList.remove('show');
+        });
+      });
 
-          setBtnLoading(submitBtn, true);
-          try {
-            var editingId = form.dataset.editingId || null;
-            if (editingId) {
-              await SafeReservation.update(editingId, data);
-              Notify.success('Reservasi diperbarui');
-            } else {
-              await SafeReservation.create(data);
-              Notify.success('Reservasi berhasil dibuat');
-            }
-            _closeModal();
-            form.reset();
-            form.dataset.editingId = '';
-            if (window.EventBridge) EventBridge.emit('reservation:changed');
-          } catch (err) {
-            /* Error handling & notify sudah ada di SafeReservation / app.js */
-          } finally {
-            setBtnLoading(submitBtn, false);
+      /* ---- 6. TOMBOL KEMBALI di detail view ---- */
+      /*
+        FIX #3: Tombol kembali memanggil backToCalendar()
+        yang di-expose oleh app.js sebagai window.backToCalendar.
+        Polling memastikan fungsi tersedia saat diklik.
+      */
+      var backBtn = document.getElementById('btn-back-to-calendar');
+      if (backBtn) {
+        backBtn.addEventListener('click', function () {
+          if (window.backToCalendar) {
+            backToCalendar();
+          } else if (window.Router) {
+            Router.go('calendar');
           }
         });
       }
 
-      /* ---- 6. NOTIFICATION DROPDOWN TOGGLE ---- */
+      /* ---- 7. NOTIFICATION DROPDOWN TOGGLE ---- */
+      /*
+        FIX #6/#7: Sinkronisasi dengan NotifSystem di app.js.
+        app.js mengekspos window.NotifSystem = { render(container, list) }.
+        Kita kirim container #notif-list ke render(), bukan window.NotifSystem.render().
+        List notifikasi diambil dari Notify jika tersedia, atau array kosong.
+      */
       var notifBtn = document.getElementById('notif-btn');
       var notifDd  = document.getElementById('notif-dropdown');
+      var notifList = document.getElementById('notif-list');
 
       if (notifBtn) {
         notifBtn.addEventListener('click', function (e) {
           e.stopPropagation();
           if (!notifDd) return;
           var isOpen = notifDd.classList.toggle('open');
-          /* Minta app.js render notif jika tersedia */
-          if (isOpen && window.NotifSystem && NotifSystem.render) {
-            NotifSystem.render();
+          if (isOpen && window.NotifSystem && NotifSystem.render && notifList) {
+            /* Ambil list notif jika ada, fallback ke array kosong */
+            var list = (window.Notify && window.Notify.getList) ? window.Notify.getList() : [];
+            NotifSystem.render(notifList, list);
           }
         });
       }
@@ -1226,14 +1390,18 @@
         }
       });
 
-      /* ---- 7. FILTER UI → EventBridge ---- */
+      /* ---- 8. FILTER UI -> EventBridge ---- */
       var searchEl = document.getElementById('detail-search');
       var statusEl = document.getElementById('filter-status');
       var dateEl   = document.getElementById('filter-date');
 
       function _debounce(fn, delay) {
         var t;
-        return function () { var a = arguments; clearTimeout(t); t = setTimeout(function () { fn.apply(null, a); }, delay); };
+        return function () {
+          var args = arguments;
+          clearTimeout(t);
+          t = setTimeout(function () { fn.apply(null, args); }, delay);
+        };
       }
 
       function _emitFilter() {
@@ -1256,9 +1424,9 @@
 
   <!-- ============================================================
        SCRIPT LOAD ORDER:
-       1. modules.js  — Reservation, Calendar, UI, Analytics,
+       1. modules.js  - Reservation, Calendar, UI, Analytics,
                         Settings, Sync, Menu, Backup, LocalDB
-       2. app.js      — Router, EventBridge, SafeReservation,
+       2. app.js      - Router, EventBridge, SafeReservation,
                         ReservationService, RefreshBus, App.init()
   ============================================================ -->
 
