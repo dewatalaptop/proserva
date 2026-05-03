@@ -1,32 +1,36 @@
 ‘use strict’;
 
 /* ============================================================
-APP.JS — PROSERVA v1.2.1 (PATCHED)
+APP.JS — PROSERVA v1.2.2 (PATCHED)
 
-FIXES APPLIED FROM AUDIT v1.2.0:
+FIXES APPLIED FROM AUDIT (v1.2.1 → v1.2.2):
+
 🔴 CRITICAL:
-F1. escapeHtml didefinisikan di awal — mencegah ReferenceError di seluruh module
-F2. patchCalendarRender menggunakan Calendar.getYear/getMonth (bukan selected date)
-→ tanggal cell kalender kini benar
-F3. bindCalendarClicks dipindah setelah render patch aktif
-→ cell.dataset.date selalu ada saat klik
-F4. Menu builder mencari #menu-builder (bukan #menu-container yang tidak ada)
-F5. Form submit handler dikonsolidasi — hanya satu handler via UI Bridge
-→ tidak ada double-submit conflict
+B16. Semua Unicode ellipsis (…) diganti spread operator ASCII (…)
+B17. patchCalendarRender dipindah ke dalam App.init() setelah module siap
+→ tidak lagi IIFE yang bisa gagal saat DOM/module belum ready
+B01. UI.init() tidak lagi auto-trigger renderCalendar — patch dulu aktif,
+baru render dipanggil manual dari App.init()
+B03. Double-submit diatasi: consolidateFormSubmit() clone form + satu handler
+(handler di UI Bridge index.html HARUS dihapus secara terpisah)
+B18. Router.go() tidak skip re-render saat view sama — selalu re-render data
+B19. OfflineQueue.flush() dilindungi cross-tab lock via localStorage
+B20. autoRecoveryCheck() pakai fallback key jika KEYS undefined
 
-🟡 STRUCTURAL:
-F6. NotifSystem → Notify (nama module yang benar) di UI Bridge notif dropdown
-F7. Boot sequence diperbaiki: Router.go() tidak double-render dengan UI.init()
-F8. Detail view bisa diakses via DateController.select() saat klik tanggal
-
-Semua fix dari v1.2.0 tetap dipertahankan.
+🟡 STRUCTURAL (dari v1.2.1 tetap dipertahankan):
+F1.  escapeHtml didefinisikan paling awal
+F2.  patchCalendarRender pakai Calendar.getYear/getMonth
+F3.  bindCalendarClicks — event delegation ke #calendar-grid
+F4.  Menu builder cari #menu-builder
+F5.  Form submit dikonsolidasi — satu handler via SafeReservation
+F6.  NotifSystem alias → Notify
+F7.  Boot sequence: Router.go() tidak double-render
+F8.  Detail view via DateController.select()
 ============================================================ */
 
 /* ============================================================
 PART 0 — UTILITY: escapeHtml (FIX F1)
 Didefinisikan PERTAMA sebelum semua module lain memakainya.
-Mencegah ReferenceError runtime di _renderToast, CustomerUI,
-buildEmptyState, dan semua tempat lain yang memanggil escapeHtml().
 ============================================================ */
 
 function escapeHtml(str) {
@@ -74,6 +78,11 @@ try {
 
   Sync.init?.();
   Settings.init?.();
+
+  /* B17: Pasang patch SEBELUM UI.init() agar render pertama
+     sudah menggunakan versi yang di-patch */
+  _patchCalendarRender();
+
   UI.init?.();
   Form.init?.();
   Menu.init?.();
@@ -83,11 +92,8 @@ try {
   _patchRouter();
   _bindGlobalEvents();
 
-  /* F7: UI.init() sudah memanggil renderCalendar() secara internal.
-     Kita tidak perlu emit reservation:changed di sini lagi karena
-     itu akan memicu double-render. Router.go() saja sudah cukup
-     untuk set view yang benar. reservation:changed hanya diemit
-     jika ada perubahan data nyata. */
+  /* F7: UI.init() sudah dipanggil tapi TIDAK auto-renderCalendar.
+     Router.go() akan trigger render yang benar via view lifecycle. */
   const lastView = localStorage.getItem('psv_last_view') || 'calendar';
   await Router.go(lastView);
 
@@ -122,6 +128,42 @@ CONFIG.MAX_CAPACITY_PER_SLOT = s.maxCapacityPerDay;
 } catch (err) {
 Logger.warn(’[Settings Sync Failed]’);
 }
+}
+
+/* B17: Dipindah dari IIFE global ke dalam App.init() agar berjalan
+hanya setelah semua module dipastikan sudah tersedia */
+function _patchCalendarRender() {
+if (!window.UI?.renderCalendar) {
+Logger.warn(’[App] UI.renderCalendar tidak tersedia — patch ditunda’);
+return;
+}
+if (UI.**CALENDAR_PATCHED**) return;
+
+```
+const original = UI.renderCalendar.bind(UI);
+
+UI.renderCalendar = async function () {
+  await original();
+
+  /* Ambil tahun & bulan yang SEDANG DITAMPILKAN di kalender,
+     bukan tanggal yang dipilih user (FIX F2) */
+  const year  = Calendar.getYear?.()  ?? new Date().getFullYear();
+  const month = Calendar.getMonth?.() ?? new Date().getMonth(); // 0-based
+
+  document.querySelectorAll('#calendar-grid .cal-day').forEach(cell => {
+    if (cell.classList.contains('empty')) return;
+    const numEl = cell.querySelector('.cal-day-num');
+    if (!numEl) return;
+    const day = parseInt(numEl.textContent, 10);
+    if (!day) return;
+    cell.dataset.date = Utils.formatDate(year, month, day);
+  });
+};
+
+UI.__CALENDAR_PATCHED__ = true;
+Logger.log('[App] patchCalendarRender active');
+```
+
 }
 
 function _patchRouter() {
@@ -204,34 +246,46 @@ function getViews()    { return document.querySelectorAll(’#content .view’);
 function getNavItems() { return document.querySelectorAll(’.nav-item’); }
 function getViewEl(n)  { return document.getElementById(‘view-’ + n); }
 
+/* B18: Hapus guard “if (currentView === name) return” yang mencegah
+re-render saat user kembali ke view yang sama.
+currentView tetap di-update, tapi DOM dan data selalu di-refresh. */
 async function go(name) {
 if (!VIEWS.includes(name)) {
 Logger.warn(’[Router] unknown view:’, name);
 return;
 }
-if (currentView === name) return;
-currentView = name;
 
 ```
-Logger.log('[Router] navigating →', name);
+const isSameView = (currentView === name);
+currentView = name;
 
-getViews().forEach(v => {
-  v.style.display = 'none';
-  v.classList.remove('active-view');
-});
+Logger.log('[Router] navigating →', name, isSameView ? '(refresh)' : '');
 
-const target = getViewEl(name);
-if (target) {
-  target.style.display = 'block';
-  target.classList.add('active-view');
+if (!isSameView) {
+  /* Hanya update DOM jika berpindah view */
+  getViews().forEach(v => {
+    v.style.display = 'none';
+    v.classList.remove('active-view');
+  });
+
+  const target = getViewEl(name);
+  if (target) {
+    target.style.display = 'block';
+    target.classList.add('active-view');
+  }
+
+  getNavItems().forEach(n => {
+    n.classList.toggle('active', n.dataset.view === name);
+  });
+
+  _updatePageTitle(name);
+  _closeSidebarIfOpen();
 }
 
-getNavItems().forEach(n => {
-  n.classList.toggle('active', n.dataset.view === name);
-});
-
-_updatePageTitle(name);
-_closeSidebarIfOpen();
+/* Selalu re-render data calendar meski view sama — cegah stale data */
+if (name === 'calendar') {
+  await UI.renderCalendar?.();
+}
 ```
 
 }
@@ -240,10 +294,10 @@ function _updatePageTitle(name) {
 const el = document.getElementById(‘page-title’);
 if (!el) return;
 const map = {
-calendar: ‘Kalender’,    detail: ‘Detail Reservasi’,
-menus: ‘Menu’,           locations: ‘Lokasi’,
-customers: ‘Pelanggan’,  analysis: ‘Analisis’,
-broadcast: ‘Broadcast’,  settings: ‘Pengaturan’
+calendar: ‘Kalender’,    detail:    ‘Detail Reservasi’,
+menus:    ‘Menu’,         locations: ‘Lokasi’,
+customers: ‘Pelanggan’,  analysis:  ‘Analisis’,
+broadcast: ‘Broadcast’,  settings:  ‘Pengaturan’
 };
 el.textContent = map[name] || ‘’;
 }
@@ -311,12 +365,8 @@ return { select, back };
 
 })();
 
-/* F3: bindCalendarClicks — event delegation yang benar.
-Kita delegasi klik ke #calendar-grid dan baca dataset.date dari cell.
-dataset.date di-set oleh patchCalendarRender (di bawah) menggunakan
-tahun & bulan yang benar dari Calendar module.
-Karena ini event delegation, listener ini bekerja untuk semua cell
-yang di-render ulang kapan pun, termasuk setelah navigasi bulan. */
+/* F3: bindCalendarClicks — event delegation ke #calendar-grid.
+Bekerja untuk semua cell yang di-render ulang kapan pun. */
 (function bindCalendarClicks() {
 const grid = document.getElementById(‘calendar-grid’);
 if (!grid) return;
@@ -328,43 +378,12 @@ if (dateStr) DateController.select(dateStr);
 });
 })();
 
-/* F2: patchCalendarRender — set dataset.date menggunakan tahun & bulan
-dari Calendar module (bukan dari tanggal yang sedang dipilih).
-Calendar.getYear() dan Calendar.getMonth() mengembalikan state
-bulan yang sedang ditampilkan di grid, sehingga cell.dataset.date
-selalu akurat sesuai posisi cell di kalender. */
-(function patchCalendarRender() {
-if (!window.UI?.renderCalendar) return;
-const original = UI.renderCalendar.bind(UI);
-UI.renderCalendar = async function () {
-await original();
-
-```
-/* Ambil tahun & bulan yang SEDANG DITAMPILKAN di kalender,
-   bukan tanggal yang dipilih user */
-const year  = Calendar.getYear?.()  ?? new Date().getFullYear();
-const month = Calendar.getMonth?.() ?? new Date().getMonth();   // 0-based
-
-document.querySelectorAll('#calendar-grid .cal-day').forEach(cell => {
-  if (cell.classList.contains('empty')) return;
-  const numEl = cell.querySelector('.cal-day-num');
-  if (!numEl) return;
-  const day = parseInt(numEl.textContent, 10);
-  if (!day) return;
-  cell.dataset.date = Utils.formatDate(year, month, day);
-});
-```
-
-};
-})();
-
 window.selectDate     = (d) => DateController.select(d);
 window.backToCalendar = ()  => DateController.back();
 
 /* ============================================================
 PART 4 — EVENT BRIDGE (UNIFIED + MEMORY-SAFE)
 FIX C1: on() menyimpan wrapped listener → off() bisa bekerja
-Cegah memory leak akibat anonymous listener yang menumpuk
 ============================================================ */
 
 const EventBridge = (() => {
@@ -381,10 +400,8 @@ function on(name, handler) {
 window.Events?.on?.(name, handler);
 
 ```
-/* Buat key unik per (name + handler) */
 const key = name + '::' + (handler.__eb_id__ = handler.__eb_id__ || Math.random().toString(36).slice(2));
 
-/* Hindari duplikasi listener yang sama */
 if (listenerMap.has(key)) return;
 
 const wrapped = (e) => handler(e.detail);
@@ -455,11 +472,9 @@ persistent = false
 const container = _getToastContainer();
 const toast = document.createElement(‘div’);
 toast.className = `toast toast-${type}`;
-toast.innerHTML = `<div class="toast-content"> <div class="toast-msg">${escapeHtml(message)}</div> ${action ? `<button class="toast-action">${escapeHtml(action.label)}</button>` : ‘’}
-
-  </div>`;
-  container.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
+toast.innerHTML = `<div class="toast-content"> <div class="toast-msg">${escapeHtml(message)}</div> ${action ?`<button class="toast-action">${escapeHtml(action.label)}</button>` : ''} </div>`;
+container.appendChild(toast);
+requestAnimationFrame(() => toast.classList.add(‘show’));
 
 if (action) {
 toast.querySelector(’.toast-action’)?.addEventListener(‘click’, () => {
@@ -522,11 +537,7 @@ window.notifyError   = (m) => NotifySafe.error(m);
 window.notifyInfo    = (m) => NotifySafe.info(m);
 window.showToast     = (m, t = ‘info’) => NotifySafe[t]?.(m) ?? NotifySafe.info(m);
 
-/* F6: NotifSystem → Notify
-Di index.html UI Bridge, dropdown notifikasi memanggil NotifSystem.render()
-tapi module yang tersedia namanya Notify. Alias ini memastikan kode di
-index.html yang menggunakan NotifSystem tetap berfungsi tanpa perlu
-mengubah HTML. */
+/* F6: NotifSystem alias → module yang benar bernama Notify */
 window.NotifSystem = {
 render(container, list) {
 if (!container) return;
@@ -534,7 +545,7 @@ if (!list?.length) {
 container.innerHTML = `<div class="notif-empty">Tidak ada notifikasi</div>`;
 return;
 }
-container.innerHTML = list.map(n => `<div class="notif-item notif-${n.type || 'info'}"> <div class="notif-msg">${escapeHtml(n.message || '')}</div> ${n.time ?`<div class="notif-time">${escapeHtml(n.time)}</div>`: ''} </div>`).join(’’);
+container.innerHTML = list.map(n => `<div class="notif-item notif-${n.type || 'info'}"> <div class="notif-msg">${escapeHtml(n.message || '')}</div> ${n.time ?`<div class="notif-time">${escapeHtml(n.time)}</div>` : ''} </div>`).join(’’);
 }
 };
 
@@ -548,9 +559,9 @@ const ErrorHandler = (() => {
 
 function log(error, context = ‘’, level = ‘error’) {
 try {
-if (level === ‘warn’)       Logger.warn(’[Warn]’,  context, error);
-else if (level === ‘info’)  Logger.log(’[Info]’,  context, error);
-else                        Logger.error(’[Error]’, context, error);
+if (level === ‘warn’)      Logger.warn(’[Warn]’,  context, error);
+else if (level === ‘info’) Logger.log(’[Info]’,   context, error);
+else                       Logger.error(’[Error]’, context, error);
 } catch (e) { console.error(error); }
 }
 
@@ -647,7 +658,7 @@ Logger.log(’[SafetyLayer] clean & active’);
 
 /* ============================================================
 PART 7 — FEATURE FLAGS
-P1: Mendukung remote config dari /config.json (dengan fallback lokal)
+P1: Remote config dari /config.json (dengan fallback lokal)
 ============================================================ */
 
 const FeatureFlags = (() => {
@@ -672,7 +683,6 @@ flags = Object.assign({}, defaults, CONFIG?.FEATURES || {}, remote.FEATURES);
 Logger.log(’[FeatureFlags] remote config loaded:’, flags);
 }
 } catch (err) {
-/* Gagal fetch remote config → pakai local defaults (tidak error fatal) */
 Logger.warn(’[FeatureFlags] remote config unavailable, using local defaults’);
 }
 }
@@ -821,7 +831,7 @@ const DataStore = DataProvider;
 
 /* ============================================================
 PART 10 — SMART CACHE
-S1: Invalidasi granular per event type — tidak clear semua sekaligus
+S1: Invalidasi granular per event type
 ============================================================ */
 
 const SmartCache = (() => {
@@ -846,7 +856,6 @@ if (key.startsWith(prefix)) store.delete(key);
 }
 }
 
-/* Invalidasi spesifik per tanggal — efisien untuk update 1 hari */
 function invalidateDate(date) {
 clear(`res_date_${date}`);
 clear(‘res_all’);
@@ -871,7 +880,6 @@ SmartCache.clear(‘anl_’);
 });
 
 EventBridge.on(‘reservation:updated’, (res) => {
-/* Hanya invalidasi tanggal yang berubah, bukan semua cache */
 if (res?.date) {
 SmartCache.invalidateDate(res.date);
 } else {
@@ -880,7 +888,6 @@ SmartCache.clear(‘res_’);
 SmartCache.clear(‘anl_’);
 });
 
-/* Fallback: reservation:changed untuk backward compat */
 EventBridge.on(‘reservation:changed’, () => {
 SmartCache.clear(‘res_’);
 SmartCache.clear(‘anl_’);
@@ -958,16 +965,31 @@ return { create, update, remove };
 
 /* ============================================================
 PART 12 — OFFLINE QUEUE
-C3: Retry limit (max 3) + exponential backoff — tidak stuck selamanya
+C3: Retry limit (max 3) + exponential backoff
+B19: Cross-tab flush lock agar tidak double-execute
 ============================================================ */
 
 const OfflineQueue = (() => {
 
 const QUEUE_KEY  = ‘psv_offline_queue’;
+const FLUSH_LOCK = ‘psv_flush_lock’;
+const LOCK_TTL   = 10000; /* 10 detik */
 const MAX_RETRY  = 3;
 
 function _load()   { return SafeStorage.get(QUEUE_KEY, []); }
 function _save(q)  { SafeStorage.set(QUEUE_KEY, q); }
+
+/* B19: Cegah double-flush di beberapa tab */
+function _acquireFlushLock() {
+const lockTime = SafeStorage.get(FLUSH_LOCK);
+if (lockTime && Date.now() - lockTime < LOCK_TTL) return false;
+SafeStorage.set(FLUSH_LOCK, Date.now());
+return true;
+}
+
+function _releaseFlushLock() {
+SafeStorage.remove(FLUSH_LOCK);
+}
 
 function push(op) {
 if (!FeatureFlags.isEnabled(‘OFFLINE_QUEUE’)) return;
@@ -979,40 +1001,50 @@ Logger.warn(’[OfflineQueue] queued operation:’, op.type);
 
 async function flush() {
 if (!FeatureFlags.isEnabled(‘OFFLINE_QUEUE’)) return;
-const q = _load();
-if (!q.length) return;
 
 ```
+/* B19: Cek cross-tab lock */
+if (!_acquireFlushLock()) {
+  Logger.log('[OfflineQueue] flush blocked — another tab is flushing');
+  return;
+}
+
+const q = _load();
+if (!q.length) { _releaseFlushLock(); return; }
+
 Logger.log('[OfflineQueue] flushing', q.length, 'queued ops');
 
 const failed = [];
 
-for (const op of q) {
+try {
+  for (const op of q) {
 
-  /* C3: Skip jika sudah melebihi batas retry */
-  if (op.retries >= MAX_RETRY) {
-    Logger.warn('[OfflineQueue] max retries reached, dropping op:', op.type, op.queuedAt);
-    AuditLog.record('offline:drop', { type: op.type, retries: op.retries });
-    continue;
-  }
+    /* C3: Skip jika sudah melebihi batas retry */
+    if (op.retries >= MAX_RETRY) {
+      Logger.warn('[OfflineQueue] max retries reached, dropping op:', op.type, op.queuedAt);
+      AuditLog.record('offline:drop', { type: op.type, retries: op.retries });
+      continue;
+    }
 
-  /* C3: Exponential backoff sebelum retry */
-  if (op.retries > 0) {
-    await new Promise(r => setTimeout(r, op.retries * 1000));
-  }
+    /* C3: Exponential backoff sebelum retry */
+    if (op.retries > 0) {
+      await new Promise(r => setTimeout(r, op.retries * 1000));
+    }
 
-  try {
-    if (op.type === 'create') await ReservationService.create(op.data);
-    if (op.type === 'update') await ReservationService.update(op.id, op.data);
-    if (op.type === 'delete') await ReservationService.remove(op.id);
-  } catch (err) {
-    Logger.error('[OfflineQueue] replay failed:', op, err);
-    op.retries++;
-    failed.push(op);
+    try {
+      if (op.type === 'create') await ReservationService.create(op.data);
+      if (op.type === 'update') await ReservationService.update(op.id, op.data);
+      if (op.type === 'delete') await ReservationService.remove(op.id);
+    } catch (err) {
+      Logger.error('[OfflineQueue] replay failed:', op, err);
+      op.retries++;
+      failed.push(op);
+    }
   }
+} finally {
+  _save(failed);
+  _releaseFlushLock();
 }
-
-_save(failed);
 
 if (!failed.length && q.length > 0) {
   NotifySafe.success('Data offline berhasil disinkronkan');
@@ -1175,33 +1207,28 @@ const safeDeleteReservation = (id)    => SafeReservation.remove(id);
 PART 14 — FORM + DETAIL ACTIONS
 ============================================================ */
 
-/* F5: Konsolidasi form submit handler.
-Form module dari modules.js mengikat submit langsung ke Reservation.create()
-tanpa melewati BusinessRules. Kita patch Form.init() agar menghapus binding
-default-nya dan menggantinya dengan SafeReservation.create() yang sudah
-include validasi, sanitasi, duplicate guard, dan offline queue.
-Dengan ini hanya ada SATU submit handler — tidak ada double-submit. */
+/* F5 + B03: Konsolidasi form submit handler — satu handler saja.
+Form di-clone untuk menghapus semua listener lama (termasuk dari
+modules.js). Handler UI Bridge di index.html HARUS dihapus secara
+manual agar tidak ada double-submit dari sana. */
 (function consolidateFormSubmit() {
 if (!window.Form) return;
 if (Form.**SUBMIT_PATCHED**) return;
 
-/* Tunggu Form.init() selesai berjalan (dipanggil di App.init sebelum ini) */
 const originalInit = Form.init?.bind(Form);
 
 Form.init = function () {
-/* Jalankan init asli (setup UI, field bindings, dll.) */
 originalInit?.();
 
 ```
-/* Override submit: lepas handler lama, pasang handler yang benar */
 const formEl = document.getElementById('reservation-form');
 if (!formEl) return;
 
-/* Clone node → hapus semua event listener lama yang terikat */
+/* Clone node → hapus semua event listener lama */
 const cleanForm = formEl.cloneNode(true);
 formEl.parentNode.replaceChild(cleanForm, formEl);
 
-/* Pasang satu-satunya handler submit via SafeReservation */
+/* Satu-satunya submit handler */
 cleanForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const values = Form.getValues?.() ?? {};
@@ -1213,7 +1240,7 @@ cleanForm.addEventListener('submit', async (e) => {
     await SafeReservation.create(values);
     Form.close?.();
   } catch (err) {
-    /* Error sudah di-handle oleh SafeReservation — tidak perlu notify lagi */
+    /* Error sudah di-handle oleh SafeReservation */
   }
 });
 
@@ -1238,33 +1265,21 @@ return { …base, menus: window.Menu?.getData?.() ?? [] };
 Form.**MENU_PATCHED** = true;
 })();
 
-/* F4: Menu builder ID mismatch.
-Menu.init() di modules.js mencari #menu-container dan #btn-add-menu
-yang tidak ada di HTML. Yang ada adalah #menu-builder.
-Patch ini membuat alias elemen agar Menu module bisa menemukan container-nya. */
+/* F4: Menu builder ID mismatch — alias #menu-builder → #menu-container */
 (function patchMenuBuilderIds() {
 const builder = document.getElementById(‘menu-builder’);
 if (!builder) return;
 
-/* Buat #menu-container alias jika belum ada */
 if (!document.getElementById(‘menu-container’)) {
 builder.id = ‘menu-container’;
-
-```
-/* Re-expose dengan id asli juga agar CSS/selector lain tetap bekerja */
-builder.setAttribute('data-menu-builder', 'true');
-```
-
+builder.setAttribute(‘data-menu-builder’, ‘true’);
 }
 
-/* Buat #btn-add-menu jika belum ada — cari tombol “tambah” di dalam builder */
 if (!document.getElementById(‘btn-add-menu’)) {
-/* Coba temukan tombol tambah existing berdasarkan teks atau data attribute */
 const existingBtn = builder.querySelector(’[data-action=“add-menu”], .btn-add-menu, button’);
 if (existingBtn && !existingBtn.id) {
 existingBtn.id = ‘btn-add-menu’;
 } else if (!existingBtn) {
-/* Fallback: buat tombol baru */
 const btn = document.createElement(‘button’);
 btn.id        = ‘btn-add-menu’;
 btn.className = ‘btn btn-sm’;
@@ -1281,7 +1296,6 @@ Logger.log(’[Menu] builder IDs patched — #menu-container and #btn-add-menu r
 if (!window.UI || UI.**CARD_PATCHED**) return;
 
 if (typeof UI.renderReservationCard !== ‘function’) {
-/* Fallback jika UI belum mengekspos fungsi ini */
 UI.renderReservationCard = function (r) {
 const div = document.createElement(‘div’);
 div.className = ‘res-card’;
@@ -1509,14 +1523,11 @@ return { sendConfirmation, sendReminder, sendThankYou, sendCustom, sendBroadcast
 
 })();
 
-/*
-S2: AutoReminder dengan tab-lock via localStorage
-→ cegah double-send jika app dibuka di banyak tab sekaligus
-*/
+/* S2: AutoReminder dengan tab-lock via localStorage */
 const AutoReminder = (() => {
 
 const LOCK_KEY    = ‘psv_reminder_lock’;
-const LOCK_TTL_MS = 90000; /* 90 detik — lebih dari 1 tick interval */
+const LOCK_TTL_MS = 90000;
 let started       = false;
 
 function _acquireLock() {
@@ -1538,7 +1549,6 @@ started = true;
 ```
 setInterval(async () => {
 
-  /* S2: Hanya 1 tab yang boleh kirim reminder dalam satu waktu */
   if (!_acquireLock()) {
     Logger.log('[AutoReminder] lock held by another tab, skipping');
     return;
@@ -1727,7 +1737,7 @@ const CustomerUI = (() => {
 
 function _esc(str) {
 return String(str || ‘’).replace(/[&<>”’]/g, s => ({
-‘&’:’&’,’<’:’<’,’>’:’>’,’”’:’"’,”’”:’'’
+‘&’: ‘&’, ‘<’: ‘<’, ‘>’: ‘>’, ‘”’: ‘"’, “’”: ‘'’
 })[s]);
 }
 
@@ -1743,7 +1753,7 @@ if (!list.length) {
 el.innerHTML = `<tr><td colspan="5">${UI.empty('Tidak ada data pelanggan')}</td></tr>`;
 return;
 }
-el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ? `<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'}</td> </tr>`).join(’’);
+el.innerHTML = list.map(c => `<tr> <td><strong>${_esc(c.name)}</strong></td> <td>${c.phone || '-'}</td> <td>${c.count}x</td> <td>${_fmt(c.lastDate)}</td> <td>${c.phone ?`<button class="btn-wa" data-phone="${c.phone}" data-name="${_esc(c.name)}">WA</button>` : '-'}</td> </tr>`).join(’’);
 }
 
 return { render };
@@ -1819,7 +1829,7 @@ const BroadcastUI = (() => {
 
 function _esc(str) {
 return String(str || ‘’).replace(/[&<>”’]/g, s => ({
-‘&’:’&’,’<’:’<’,’>’:’>’,’”’:’"’,”’”:’'’
+‘&’: ‘&’, ‘<’: ‘<’, ‘>’: ‘>’, ‘”’: ‘"’, “’”: ‘'’
 })[s]);
 }
 
@@ -1891,14 +1901,8 @@ BroadcastUI.render(await BroadcastController.load());
 /* ============================================================
 PART 19 — LAZY VIEW + VIRTUAL LIST
 C2: VirtualList render dari DATA (bukan clone DOM)
-→ event listener di card tidak hilang
 ============================================================ */
 
-/*
-C2: Prinsip benar: DATA → DOM
-VirtualList.render menerima array data + fungsi renderItem yang
-menghasilkan elemen DOM baru. Tidak boleh clone elemen yang sudah ada.
-*/
 const VirtualList = (() => {
 
 function render(container, list, renderItem, limit = 50) {
@@ -1927,10 +1931,6 @@ return { render };
 
 })();
 
-/*
-C2: renderDetail dipatch untuk gunakan VirtualList dari DATA, bukan DOM.
-UI.renderReservationCard dipanggil per item untuk membuat elemen baru.
-*/
 (function patchDetailRender() {
 if (!window.UI?.renderDetail) return;
 if (UI.**VIRTUAL_PATCHED**) return;
@@ -1940,21 +1940,18 @@ const original = UI.renderDetail.bind(UI);
 UI.renderDetail = async function (date) {
 
 ```
-/* Ambil data untuk tanggal yang dipilih */
 const list = await DataProvider.getByDate(date).catch(() => []);
 
 if (list.length <= 50) {
-  /* List pendek: render normal via original */
   await original(date);
 } else {
-  /* C2: List panjang: render dari DATA menggunakan VirtualList */
   const container = document.getElementById('reservation-list');
   if (!container) { await original(date); return; }
 
   VirtualList.render(
     container,
     list,
-    (item) => UI.renderReservationCard(item) /* data → DOM */
+    (item) => UI.renderReservationCard(item)
   );
 }
 ```
@@ -2032,14 +2029,11 @@ e.target.value = e.target.value.slice(0, 500);
 });
 })();
 
-/* P2: Empty state terpusat — tidak lagi scattered di masing-masing controller */
+/* P2: Empty state terpusat */
 function buildEmptyState(title, subtitle = ‘’) {
-return `<div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> ${subtitle ? `<div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div>` : ‘’}
-
-  </div>`;
+return `<div class="empty-state" style="padding:24px;text-align:center;"> <div style="font-size:2rem;">📭</div> <div style="font-weight:600;">${escapeHtml(title)}</div> ${subtitle ?`<div style="opacity:0.6;font-size:0.85rem;">${escapeHtml(subtitle)}</div>` : ''} </div>`;
 }
 
-/* Ekspos ke UI agar semua module pakai satu fungsi empty state */
 if (window.UI && !UI.empty) {
 UI.empty = buildEmptyState;
 }
@@ -2048,7 +2042,6 @@ Logger.log(’[UX] interaction layer active’);
 
 /* ============================================================
 PART 21 — AUDIT LOG (S4)
-Traceability untuk aksi-aksi bisnis penting
 ============================================================ */
 
 const AuditLog = (() => {
@@ -2065,7 +2058,6 @@ meta,
 ts: Date.now(),
 view: Router?.getCurrent?.() ?? null
 });
-/* Jaga ukuran log agar tidak membengkak */
 if (logs.length > MAX_LOGS) logs.length = MAX_LOGS;
 SafeStorage.set(LOG_KEY, logs);
 } catch (err) {
@@ -2102,8 +2094,8 @@ return { register, get, list };
 
 (function registerCoreModules() {
 [
-‘Reservation’,‘Calendar’,‘UI’,‘Form’,‘Menu’,
-‘Filter’,‘Analytics’,‘Backup’,‘Settings’,‘Sync’
+‘Reservation’, ‘Calendar’, ‘UI’, ‘Form’, ‘Menu’,
+‘Filter’, ‘Analytics’, ‘Backup’, ‘Settings’, ‘Sync’
 ].forEach(name => {
 if (window[name]) ModuleRegistry.register(name, window[name]);
 });
@@ -2149,15 +2141,25 @@ SafeStorage.set(‘psv_autobackup’, { t: Date.now(), data });
 }, 60000);
 })();
 
+/* B20: autoRecoveryCheck — pakai fallback key jika KEYS tidak tersedia */
 (function autoRecoveryCheck() {
 try {
-const backup  = SafeStorage.get(‘psv_autobackup’);
+/* Fallback hardcoded jika KEYS dari modules.js belum tersedia */
+const RESERVATION_KEY = (typeof KEYS !== ‘undefined’ && KEYS?.reservations)
+? KEYS.reservations
+: ‘psv_reservations_v1’;
+
+```
+const backup  = SafeStorage.get('psv_autobackup');
 if (!backup?.data) return;
-const current = SafeStorage.get(KEYS.reservations);
+
+const current = SafeStorage.get(RESERVATION_KEY);
 if (!current || !Array.isArray(current) || current.length === 0) {
-Logger.warn(’[Recovery] restoring backup’);
-SafeStorage.set(KEYS.reservations, backup.data);
+  Logger.warn('[Recovery] restoring from autobackup');
+  SafeStorage.set(RESERVATION_KEY, backup.data);
 }
+```
+
 } catch (err) { Logger.warn(’[Recovery] failed’); }
 })();
 
@@ -2193,13 +2195,12 @@ restore:  (file) => Backup.importFile?.(file),
 settings: () => Settings.get?.(),
 refresh:  () => EventBridge.emit(‘reservation:changed’),
 audit:    () => AuditLog.getAll(),
-version:  ‘1.2.1’,
+version:  ‘1.2.2’,
 
 async health() {
 try {
-/* S5: Health check dengan latency measurement */
-const t0   = performance.now();
-const list = await DataProvider.getAllReservations();
+const t0        = performance.now();
+const list      = await DataProvider.getAllReservations();
 const latencyMs = Math.round(performance.now() - t0);
 
 ```
@@ -2222,7 +2223,11 @@ const latencyMs = Math.round(performance.now() - t0);
 
 window.recoverApp = function () {
 try {
-localStorage.removeItem(KEYS.reservations);
+localStorage.removeItem(
+(typeof KEYS !== ‘undefined’ && KEYS?.reservations)
+? KEYS.reservations
+: ‘psv_reservations_v1’
+);
 location.reload();
 } catch (err) { Logger.error(’[RECOVERY FAILED]’, err); }
 };
@@ -2246,8 +2251,8 @@ flags()  { console.log(FeatureFlags.getAll()); }
 };
 }
 
-console.log(’%cProserva v1.2.1 🚀’, ‘color:#22c55e;font-weight:bold;’);
+console.log(’%cProserva v1.2.2 🚀’, ‘color:#22c55e;font-weight:bold;’);
 
 /* ============================================================
-END OF APP.JS — PROSERVA v1.2.1
+END OF APP.JS — PROSERVA v1.2.2
 ============================================================ */
