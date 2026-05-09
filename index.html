@@ -1286,7 +1286,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed !important; }
       <div class="wz-eyebrow">Langkah 2 dari 3</div>
       <h2 class="wz-title" style="font-size:1.8rem;">Tambah Lokasi <em>& Area</em></h2>
       <p class="wz-sub">Gazebo, meja, atau area yang bisa dipesan tamu.</p>
-      <div class="wz-list" id="wz-loc-list"></div>
+      <div class="wz-list" id="wz-loc-list"><div style="text-align:center;padding:14px;color:var(--ink-4);font-size:0.8rem;border:1.5px dashed var(--border);border-radius:var(--r-sm);margin-bottom:8px;">Belum ada lokasi - tambah minimal 1 lokasi</div></div>
       <div class="wz-inline">
         <div class="wz-input-wrap"><i class="fas fa-map-pin"></i><input class="wz-input" id="wz-loc-name" placeholder="Nama lokasi (Gazebo A, VIP Room…)"/></div>
         <div class="wz-input-wrap sm"><i class="fas fa-users"></i><input class="wz-input" id="wz-loc-cap" type="number" min="1" placeholder="Kapasitas"/></div>
@@ -1716,6 +1716,18 @@ button:disabled { opacity: 0.45; cursor: not-allowed !important; }
       <input type="hidden" id="res-edit-id"/>
       <div class="form-row">
         <div class="form-group">
+          <label class="form-label">Tanggal <span class="req">*</span></label>
+          <div style="display:flex;gap:6px;align-items:flex-end;">
+            <div class="input-wrap" style="flex:1;"><i class="fas fa-calendar-alt"></i><input class="form-input" id="res-date" type="date" onchange="onResFieldChange()"/></div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="val('res-date',todayStr());onResFieldChange();" style="flex-shrink:0;white-space:nowrap;" title="Set ke hari ini">Hari Ini</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="val('res-date',tomorrowStr());onResFieldChange();" style="flex-shrink:0;white-space:nowrap;" title="Set ke besok">Besok</button>
+          </div>
+          <div class="form-error" id="err-date"></div>
+        </div>
+        <div class="form-group"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label class="form-label">Nama Tamu <span class="req">*</span></label>
           <div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div>
           <div class="form-error" id="err-nama"></div>
@@ -1998,7 +2010,9 @@ function loadState() {
   S.res   = DB.get(K.RES,   {});
   S.ops   = Object.assign({openTime:'09:00',closeTime:'21:00',slotInterval:30,defaultDuration:120,bufferTime:15,minAdvance:2}, DB.get(K.OPS, {}));
   S.appear= Object.assign({theme:'dark',accent:'orange',font:'font-elegant',density:'normal',logo:'🍽️'}, DB.get(K.APPEAR, {}));
-  S.msgs  = Object.assign({confirm:'',thanks:''}, DB.get(K.MSGS, {}));
+  var defaultConfirm = 'Halo Kak *{nama}* 👋\n\nKonfirmasi reservasi Anda di *{bisnis}*:\n\n🗓 *Tanggal:* {tanggal}\n⏰ *Jam:* {jam}\n📍 *Tempat:* {tempat}\n👥 *Jumlah:* {jumlah} orang\n\n🍽 *Pesanan:* {menu}\n\n💰 *DP:* {dp}\n\nMohon konfirmasi kehadiran ya! 😊\n\nSalam,\n*Tim {bisnis}*';
+  var defaultThanks = 'Halo Kak *{nama}* 👋\n\nTerima kasih sudah berkunjung ke *{bisnis}*! 🙏\n\nSemoga pengalaman bersama kami menyenangkan. Kami selalu menantikan kedatangan Kakak kembali! ✨\n\nSalam hangat,\n*Tim {bisnis}* ❤️';
+  S.msgs  = Object.assign({confirm:defaultConfirm, thanks:defaultThanks}, DB.get(K.MSGS, {}));
 }
 function saveBiz()   { DB.set(K.BIZ, S.biz); }
 function saveMenus() { DB.set(K.MENUS, S.menus); }
@@ -2244,7 +2258,10 @@ function initApp() {
   setText('sb-biz-name', biz);
   // Sidebar logo
   var logoEl = document.getElementById('sb-logo-icon');
-  if (logoEl) logoEl.innerHTML = S.appear.logo || S.biz.logo || '<i class="fas fa-calendar-check"></i>';
+  if (logoEl) {
+    var logoVal = S.appear.logo || S.biz.logo || '';
+    logoEl.innerHTML = logoVal ? '<span style="font-size:18px;line-height:1;">'+logoVal+'</span>' : '<i class="fas fa-calendar-check"></i>';
+  }
   renderCalendar();
   NOTIF.start();
   document.removeEventListener('click', closeNotifH);
@@ -2382,7 +2399,10 @@ function saveBranding() {
   saveBiz();
   // Update sidebar logo
   var logoEl = document.getElementById('sb-logo-icon');
-  if (logoEl) logoEl.innerHTML = S.biz.logo;
+  if (logoEl) {
+    var logoVal = S.biz.logo || '';
+    logoEl.innerHTML = logoVal ? '<span style="font-size:18px;line-height:1;">'+logoVal+'</span>' : '<i class="fas fa-calendar-check"></i>';
+  }
   setText('sb-biz-name', S.biz.name);
   setText('cal-title', 'Dashboard - '+S.biz.name);
   showToast('Branding berhasil disimpan!', 'success');
@@ -2426,6 +2446,11 @@ function renderWzList(id, arr, onRemove, labelFn) {
   }).join('');
 }
 function renderWzLocList() {
+  var el=document.getElementById('wz-loc-list');
+  if(!S.wizData.locs.length){
+    if(el) el.innerHTML='<div style="text-align:center;padding:14px;color:var(--ink-4);font-size:0.8rem;border:1.5px dashed var(--border);border-radius:var(--r-sm);margin-bottom:8px;">Belum ada lokasi - tambah minimal 1 lokasi</div>';
+    return;
+  }
   renderWzList('wz-loc-list', S.wizData.locs, null, function(l){ return '<strong>'+esc(l.name)+'</strong> - '+l.capacity+' orang'; });
 }
 function renderWzMenuList() {
@@ -2620,6 +2645,9 @@ function buildResCard(r) {
       (chips?'<div style="margin-top:10px;">'+chips+'</div>':'')+
     '</div>'+
     '<div class="rc-footer">'+
+      '<select class="form-select-sm" onchange="quickStatus(\''+r.id+'\',this.value)" style="font-size:0.75rem;padding:5px 8px;">'+
+        ['pending','confirmed','selesai','batal'].map(function(st){var labels={pending:'⏳ Pending',confirmed:'✅ Confirmed',selesai:'🎉 Selesai',batal:'❌ Batal'};return '<option value="'+st+'"'+(st===(r.status||'pending')?' selected':'')+'>'+labels[st]+'</option>';}).join('')+
+      '</select>'+
       (r.nomorHp?'<button class="btn btn-wa btn-sm" onclick="contactWA(\''+r.id+'\')"><i class="fab fa-whatsapp"></i> Hubungi</button>':'')+
       thankBtn+
       '<button class="btn btn-info btn-sm" onclick="openEditRes(\''+r.id+'\')"><i class="fas fa-edit"></i> Edit</button>'+
@@ -2636,6 +2664,7 @@ function openAddRes() {
   val('res-edit-id','');
   setText('res-modal-title','<i class="fas fa-calendar-plus"></i> Tambah Reservasi');
   ['res-nama','res-hp','res-tambahan'].forEach(function(id){val(id,'');});
+  val('res-date', S.date||todayStr());
   val('res-jam',''); val('res-jumlah',''); val('res-dp','0'); val('res-duration','');
   selVal('res-tipe-dp',''); selVal('res-status','pending');
   setText('res-cap-hint',''); setText('res-dur-hint','');
@@ -2651,6 +2680,7 @@ function openEditRes(id) {
   val('res-edit-id',id);
   setText('res-modal-title','<i class="fas fa-edit"></i> Edit Reservasi');
   val('res-nama',r.nama||''); val('res-hp',r.nomorHp||'');
+  val('res-date',r.date||todayStr());
   val('res-jam',r.jam||''); val('res-jumlah',r.jumlah||'');
   val('res-dp',r.dp||0); val('res-duration',r.duration||'');
   val('res-tambahan',r.tambahan||'');
@@ -2680,7 +2710,7 @@ function onResFieldChange() {
 
   if(!loc||!jam) { clearConflictUI(); return; }
 
-  var date=S.date||todayStr();
+  var date=gval('res-date')||S.date||todayStr();
   var result=checkConflict(date,loc,jam,pax,dur||null,editId||null);
   showConflictUI(result, date, loc, jam, pax, editId);
 }
@@ -2757,18 +2787,19 @@ function saveRes() {
   var tambahan=gval('res-tambahan').trim(), status=gval('res-status')||'pending';
   var duration=gval('res-duration');
   var editId=gval('res-edit-id');
+  var resDate=gval('res-date')||S.date||todayStr();
   var valid=true;
 
   if(!nama){showErr('err-nama','Nama wajib diisi');valid=false;}
   if(hp&&!validPhone(hp)){showErr('err-hp','Nomor HP tidak valid');valid=false;}
+  if(!resDate){showErr('err-date','Tanggal wajib diisi');valid=false;}
   if(!jam){showErr('err-jam','Jam wajib diisi');valid=false;}
   if(!jumlah||jumlah<1){showErr('err-jumlah','Jumlah tamu minimal 1');valid=false;}
   if(!tempat){showErr('err-tempat','Lokasi wajib dipilih');valid=false;}
 
   // Conflict hard block check
   if(tempat&&jam&&jumlah&&valid){
-    var date=S.date||todayStr();
-    var cr=checkConflict(date,tempat,jam,jumlah,duration||null,editId||null);
+    var cr=checkConflict(resDate,tempat,jam,jumlah,duration||null,editId||null);
     if(!cr.ok&&cr.type!=='soft_capacity'){
       showErr('err-jam','Konflik jadwal - pilih jam atau lokasi lain');
       valid=false;
@@ -2787,7 +2818,7 @@ function saveRes() {
   if(!menuOk) valid=false;
   if(!valid) return;
 
-  var dateStr=S.date||todayStr();
+  var dateStr=resDate;
   if(editId){
     var ex=findRes(editId); if(!ex){showToast('Tidak ditemukan!','error');return;}
     var upd=Object.assign({},ex,{nama:nama,nomorHp:normPhone(hp),jam:jam,jumlah:jumlah,dp:dp,tipeDp:tipeDp,tempat:tempat,tambahan:tambahan,menus:menus,status:status,duration:duration?parseInt(duration):null});
@@ -2797,10 +2828,19 @@ function saveRes() {
     addRes(newR); showToast('Reservasi berhasil disimpan! 🎉','success');
   }
   closeModal('modal-res');
-  if(S.date){renderDetail(getResDate(S.date));renderAvailBar(S.date);}
+  if(S.date && S.date===dateStr){renderDetail(getResDate(S.date));renderAvailBar(S.date);}
+  else if(dateStr){ selectDate(dateStr); }
   renderCalendar();
 }
 
+function quickStatus(id, newStatus) {
+  var r=findRes(id); if(!r) return;
+  var upd=Object.assign({},r,{status:newStatus});
+  updateRes(upd);
+  showToast('Status diubah ke '+newStatus,'success',1800);
+  if(S.date){renderDetail(getResDate(S.date));}
+  renderCalendar();
+}
 function delRes(id) {
   var r=findRes(id); if(!confirm('Hapus reservasi untuk '+(r?r.nama:'ini')+'?')) return;
   deleteRes(id); showToast('Reservasi dihapus','info');
@@ -2853,7 +2893,7 @@ function updateMrPrice(sel) {
 function renderMenusTable() {
   var tbody=document.getElementById('menus-tbody'); if(!tbody) return;
   var menus=getMenusSorted();
-  if(!menus.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--ink-4);">Belum ada menu.</td></tr>';return;}
+  if(!menus.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--ink-4);"><div style="font-size:1.8rem;margin-bottom:10px;">🍽️</div><div style="font-weight:600;margin-bottom:4px;">Belum ada menu</div><div style="font-size:0.8rem;">Tambah menu & paket untuk ditawarkan ke tamu.</div></td></tr>';return;}
   tbody.innerHTML=menus.map(function(m){
     return '<tr>'+
       '<td><strong>'+esc(m.name)+'</strong></td>'+
@@ -2903,7 +2943,7 @@ function doDeleteMenu(id) {
 function renderLocsTable() {
   var tbody=document.getElementById('locations-tbody'); if(!tbody) return;
   var locs=getLocsSorted();
-  if(!locs.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--ink-4);">Belum ada lokasi.</td></tr>';return;}
+  if(!locs.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--ink-4);"><div style="font-size:1.8rem;margin-bottom:10px;">📍</div><div style="font-weight:600;margin-bottom:4px;">Belum ada lokasi</div><div style="font-size:0.8rem;">Tambah lokasi terlebih dahulu sebelum membuat reservasi.</div></td></tr>';return;}
   tbody.innerHTML=locs.map(function(l){
     var dur=l.defaultDuration?l.defaultDuration+'m':'Global ('+S.ops.defaultDuration+'m)';
     var buf=l.bufferTime!==undefined&&l.bufferTime!==''?l.bufferTime+'m':'Global ('+S.ops.bufferTime+'m)';
@@ -3153,7 +3193,12 @@ var topMenu=Object.entries(menuMap).sort(function(a,b){return b[1]-a[1];})[0];
 var ins=['Periode: '+filtered.length+' reservasi, '+pax+' tamu total.'];
 if(topDow&&topDow[1]) ins.push('Hari tersibuk: <strong>'+topDow[0]+'</strong> ('+topDow[1]+' reservasi).');
 if(topMenu) ins.push('Menu favorit: <strong>'+esc(topMenu[0])+'</strong> ('+topMenu[1]+' porsi).');
-document.getElementById('anl-insight').innerHTML='<h5><i class="fas fa-robot"></i> Insight Otomatis</h5><ul>'+ins.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ul>';
+var insightEl = document.getElementById('anl-insight');
+if(!filtered.length){
+insightEl.innerHTML='<h5><i class="fas fa-robot"></i> Insight Otomatis</h5><p style="color:var(--ink-4);font-size:0.85rem;">Belum ada data reservasi untuk periode ini. Mulai tambah reservasi untuk melihat insight.</p>';
+} else {
+insightEl.innerHTML='<h5><i class="fas fa-robot"></i> Insight Otomatis</h5><ul>'+ins.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ul>';
+}
 // Top customers
 var custM={};filtered.forEach(function(r){if(r.nomorHp){if(!custM[r.nomorHp])custM[r.nomorHp]={name:r.nama,count:0};custM[r.nomorHp].count++;}});
 var topC=Object.values(custM).sort(function(a,b){return b.count-a.count;}).slice(0,5);
@@ -3251,6 +3296,7 @@ setTimeout(function(){div.style.opacity='0';div.style.transform='translateX(18px
 function esc(s){if(s===null||s===undefined)return '';return String(s).replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>').replace(/"/g,'"').replace(/'/g,''');}
 function pad2(n){return n<10?'0'+n:''+n;}
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
+function tomorrowStr(){var d=new Date(Date.now()+86400000);return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());}
 function buildDs(y,m,d){return y+'-'+pad2(m)+'-'+pad2(d);}
 function formatRp(n){return (parseInt(n)||0).toLocaleString('id-ID');}
 function formatRpK(n){n=parseInt(n)||0;if(n>=1000000)return (n/1000000).toFixed(1).replace('.0','')+' jt';if(n>=1000)return Math.round(n/1000)+'rb';return String(n);}
