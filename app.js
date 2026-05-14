@@ -10,7 +10,7 @@ BC_MSG:‘psv_bc_msg’, APPEAR:‘psv_appear’, OPS:‘psv_ops’, MSGS:‘psv
 };
 var _UID = ‘’;
 
-function _ckey(k) { return *UID ? k + ’*’ + _UID : k; }
+function _ckey(k) { return _UID ? k + '_' + _UID : k; }
 
 var DB = {
 get: function(k, fb) {
@@ -285,7 +285,7 @@ for (var i = 0; i < existing.length; i++) {
 var r = existing[i]; if (!r.jam) continue;
 var rDur = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
 var rStart = toMins(r.jam), rEnd = rStart + rDur + buffer;
-if (newStart < rEnd && newEnd > rStart) return { ok:false, type:‘hard_overlap’, msg:’✗ Konflik dengan <strong>’ + esc(r.nama) + ‘</strong> – ’ + r.jam + ’ s/d ’ + minsToTime(rStart + rDur) + ’ (+’ + buffer + ‘m buffer)’, conflictWith:r };
+if (newStart < rEnd && newEnd > rStart) return { ok:false, type:‘hard_overlap’, msg:’✗ Konflik dengan <strong>’ + esc(r.nama) + ‘</strong> -- ’ + r.jam + ’ s/d ’ + minsToTime(rStart + rDur) + ’ (+’ + buffer + ‘m buffer)’, conflictWith:r };
 }
 if (softWarn) return { ok:true, type:‘soft_capacity’, msg:’⚠ Kapasitas tersisa ’ + (capacity - pax) + ’ orang.’ };
 return { ok:true, type:‘none’, msg:’✓ Tersedia · Estimasi selesai ’ + minsToTime(newStart + duration) };
@@ -508,7 +508,7 @@ var MONTHS   = [‘Januari’,‘Februari’,‘Maret’,‘April’,‘Mei’,�
 var MONTHS_S = MONTHS.map(function(m) { return m.slice(0, 3); });
 var DAYS     = [‘Minggu’,‘Senin’,‘Selasa’,‘Rabu’,‘Kamis’,‘Jumat’,‘Sabtu’];
 
-function navMonth(d) { S.month += d; if (S.month < 0) { S.month = 11; S.year–; } if (S.month > 11) { S.month = 0; S.year++; } renderCalendar(); }
+function navMonth(d) { S.month += d; if (S.month < 0) { S.month = 11; S.year--; } if (S.month > 11) { S.month = 0; S.year++; } renderCalendar(); }
 function goToday()   { var n = new Date(); S.month = n.getMonth(); S.year = n.getFullYear(); renderCalendar(); }
 
 function renderCalendar() {
@@ -626,7 +626,7 @@ return ‘<option value=”’ + s + ‘”’ + (s===st?’ selected’:’’)
 return ‘<div class="res-card" id="rcard-' + r.id + '">’
 + ‘<div class="rc-stripe ' + STATUS_STRIPE[st] + '"></div>’
 + ‘<div class="rc-top"><div class="rc-name"><div class="rc-avatar" style="background:' + nameColor(r.nama||'?') + '">’ + initials(r.nama||’?’) + ‘</div><div class="rc-guest">’ + esc(r.nama||‘Tanpa Nama’) + ‘</div></div>’
-+ ‘<div class="rc-badges"><span class="badge badge-ac"><i class="far fa-clock"></i> ’ + esc(r.jam||’?’) + ‘–’ + endT + ‘</span><span class="badge badge-gray"><i class="fas fa-map-pin"></i> ’ + esc(r.tempat||’?’) + ‘</span><span class="badge badge-g"><i class="fas fa-users"></i> ’ + esc(r.jumlah||’?’) + ’ orang</span><span class="status-badge ' + STATUS_BADGE[st] + '">’ + STATUS_LABELS[st] + ‘</span></div></div>’
++ ‘<div class="rc-badges"><span class="badge badge-ac"><i class="far fa-clock"></i> ’ + esc(r.jam||’?’) + ‘--’ + endT + ‘</span><span class="badge badge-gray"><i class="fas fa-map-pin"></i> ’ + esc(r.tempat||’?’) + ‘</span><span class="badge badge-g"><i class="fas fa-users"></i> ’ + esc(r.jumlah||’?’) + ’ orang</span><span class="status-badge ' + STATUS_BADGE[st] + '">’ + STATUS_LABELS[st] + ‘</span></div></div>’
 + ‘<div class="rc-body"><div class="rc-section">Pesanan</div>’ + menuHtml + (chips ? ‘<div style="margin-top:10px">’ + chips + ‘</div>’ : ‘’) + ‘</div>’
 + ‘<div class="rc-footer"><select class="form-select-sm" onchange="quickStatus(\'' + r.id + '\',this.value)" style="font-size:.75rem;padding:5px 8px">’ + statusOpts + ‘</select>’
 + (r.nomorHp ? ‘<button class="btn btn-wa btn-sm" onclick="contactWA(\'' + r.id + '\')"><i class="fab fa-whatsapp"></i> Hubungi</button>’ : ‘’)
@@ -1027,7 +1027,7 @@ function setupAnlSelectors() {
 var ySel = document.getElementById(‘anl-year’), mSel = document.getElementById(‘anl-month’);
 if (!ySel||!mSel) return;
 var cy = new Date().getFullYear(); ySel.innerHTML = ‘’;
-for (var y = cy; y >= cy - 4; y–) ySel.insertAdjacentHTML(‘beforeend’,’<option value="'+y+'">’+y+’</option>’);
+for (var y = cy; y >= cy - 4; y--) ySel.insertAdjacentHTML(‘beforeend’,’<option value="'+y+'">’+y+’</option>’);
 mSel.innerHTML = ‘<option value="all">Satu Tahun Penuh</option>’;
 MONTHS.forEach(function(n,i) { mSel.insertAdjacentHTML(‘beforeend’,’<option value=”’+i+’”’+(i===new Date().getMonth()?’ selected’:’’)+’>’+n+’</option>’); });
 }
@@ -1065,7 +1065,7 @@ function anlCard(v,l,icon) { return ‘<div class="anl-card"><div style="font-si
 function renderAnlChart(labels, data, title) {
 var ctx = document.getElementById(‘anl-chart’); if (!ctx) return;
 if (anlChart) { anlChart.destroy(); anlChart = null; }
-var acColor = getComputedStyle(document.documentElement).getPropertyValue(’–ac’).trim() || ‘#e8630a’;
+var acColor = getComputedStyle(document.documentElement).getPropertyValue(’--ac’).trim() || ‘#e8630a’;
 anlChart = new Chart(ctx.getContext(‘2d’), {
 type:‘bar’,
 data:{ labels, datasets:[{ label:‘Reservasi’, data, backgroundColor:function(c){var ch=c.chart,ct=ch.ctx,a=ch.chartArea;if(!a)return acColor+‘b3’;var g=ct.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,acColor+‘d9’);g.addColorStop(1,acColor+‘33’);return g;}, borderRadius:7, borderSkipped:false, hoverBackgroundColor:acColor }] },
