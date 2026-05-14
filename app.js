@@ -508,8 +508,13 @@ var MONTHS   = [‘Januari’,‘Februari’,‘Maret’,‘April’,‘Mei’,�
 var MONTHS_S = MONTHS.map(function(m) { return m.slice(0, 3); });
 var DAYS     = [‘Minggu’,‘Senin’,‘Selasa’,‘Rabu’,‘Kamis’,‘Jumat’,‘Sabtu’];
 
-function navMonth(d) { S.month += d; if (S.month < 0) { S.month = 11; S.year--; } if (S.month > 11) { S.month = 0; S.year++; } renderCalendar(); }
-function goToday()   { var n = new Date(); S.month = n.getMonth(); S.year = n.getFullYear(); renderCalendar(); }
+function navMonth(d) {
+  S.month += d;
+  if (S.month < 0) { S.month = 11; S.year--; }
+  if (S.month > 11) { S.month = 0; S.year++; }
+  renderCalendar();
+}
+function goToday() { var n = new Date(); S.month = n.getMonth(); S.year = n.getFullYear(); renderCalendar(); }
 
 function renderCalendar() {
 var m = S.month, y = S.year;
