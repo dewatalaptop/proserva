@@ -227,12 +227,14 @@
       auth,
       db,
       provider,
-      /* Auth methods - semua dibutuhkan app.js */
-      signInWithPopup,      /* ← BARU: app.js doGoogleSignIn butuh ini */
-      signInWithRedirect,   /* ← pertahankan untuk fallback              */
-      getRedirectResult,    /* ← BARU: untuk kelengkapan & future use    */
+
+      /* Auth methods */
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
       onAuthStateChanged,
       signOut,
+
       /* Firestore methods */
       doc,
       getDoc,
@@ -240,7 +242,10 @@
       deleteDoc,
       collection,
       getDocs
-    };
+};
+
+/* Firebase bootstrap selesai */
+window._DONE_FS = true;
 
     /* ── Auth state listener ─────────────────── */
     onAuthStateChanged(auth, async (user) => {
