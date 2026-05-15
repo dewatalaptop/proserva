@@ -1720,7 +1720,11 @@ window.addEventListener('DOMContentLoaded', function () {
    * Tapi jika DOMContentLoaded terpanggil lebih dulu
    * dari bridge, handle di sini sebagai safety net.
    */
-  if (window._pendingAuthUser !== undefined && window._onAuthReady) {
+  if (
+  window._pendingAuthUser !== null &&
+  window._pendingAuthUser !== undefined &&
+  window._onAuthReady
+) {
     var pendingUser = window._pendingAuthUser;
     delete window._pendingAuthUser;
     window._onAuthReady(pendingUser);
