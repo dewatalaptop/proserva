@@ -1951,14 +1951,25 @@ function selVal(id, v)   { var el = document.getElementById(id); if (el) el.valu
 
 function clearErrors() { document.querySelectorAll('.form-error').forEach(function (e) { e.textContent = ''; e.classList.remove('show'); }); }
 function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.textContent = msg; el.classList.add('show'); } }
-document.readyState === 'loading'
-  ? document.addEventListener('DOMContentLoaded', boot)
-  : boot();
-
-
 /* ──────────────────────────────────────────────────────────
-   BOOT - dipanggil setelah SEMUA var declarations di atas
-   selesai dieksekusi, termasuk ACCENT_MAP, LOGO_EMOJIS, S.
-   Ini memastikan tidak ada TypeError saat boot() dijalankan.
+   FINAL BOOT
+   Jalankan hanya setelah seluruh file selesai dieksekusi.
    ────────────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', function () {
+
+  boot();
+
+  /*
+   * Jika ada auth user pending dari redirect login mobile,
+   * proses sekarang setelah seluruh app siap.
+   */
+  if (window._pendingAuthUser && window._onAuthReady) {
+
+    var pendingUser = window._pendingAuthUser;
+
+    window._pendingAuthUser = null;
+
+    window._onAuthReady(pendingUser);
+  }
+});
 
