@@ -246,15 +246,33 @@ window._onAuthReady = async function (user) {
    * Tunggu 1.2 detik lalu cek auth.currentUser.
    */
   if (!user) {
-    await new Promise(function (resolve) { setTimeout(resolve, 1200); });
-    if (window._FB && window._FB.auth && window._FB.auth.currentUser) {
+
+  var retry = 0;
+
+  while (retry < 30) {
+
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 300);
+    });
+
+    if (
+      window._FB &&
+      window._FB.auth &&
+      window._FB.auth.currentUser
+    ) {
       user = window._FB.auth.currentUser;
-    } else {
-      window._AUTH_PROCESSING = false;
-      showScreen('landing');
-      return;
+      break;
     }
+
+    retry++;
   }
+
+  if (!user) {
+    window._AUTH_PROCESSING = false;
+    showScreen('landing');
+    return;
+  }
+}
 
   /* Tunggu Firebase module selesai init (window._DONE_FS) */
   var waitCount = 0;
