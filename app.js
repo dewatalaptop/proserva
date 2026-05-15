@@ -310,11 +310,15 @@ window._onAuthReady = async function (user) {
    * dengan user = null sebelum currentUser siap.
    * Jangan langsung kembali ke landing.
    */
+    /* Reset flag setelah app.js mengambil alih */
+  window._AUTH_PROCESSING = false;
+
   if (!user) {
 
     await new Promise(function (resolve) {
       setTimeout(resolve, 1200);
     });
+
 
     if (
       window._FB &&
