@@ -244,36 +244,47 @@
 
     /* ── Auth state listener ─────────────────── */
     onAuthStateChanged(auth, async (user) => {
-      window._FB_READY = true;
+  window._FB_READY = true;
 
-      if (user) {
-        window._FBUSER = user;
-        try {
-          const snap = await getDoc(
-            doc(db, 'users', user.uid, 'config', 'biz')
-          );
-          window._DONE_FS = snap.exists();
-        } catch (e) {
-          console.warn('Config check error:', e);
-          window._DONE_FS = false;
+  if (user) {
+    window._FBUSER = user;
+    try {
+      const snap = await getDoc(
+        doc(db, 'users', user.uid, 'config', 'biz')
+      );
+      window._DONE_FS = snap.exists();
+    } catch (e) {
+      console.warn('Config check error:', e);
+      window._DONE_FS = false;
+    }
+    /* User ada — langsung panggil */
+    if (typeof window._onAuthReady === 'function') {
+      window._onAuthReady(user);
+    } else {
+      window._pendingAuthUser = user;
+    }
+  } else {
+    window._FBUSER  = null;
+    window._DONE_FS = false;
+    /*
+     * User null — JANGAN langsung panggil _onAuthReady(null).
+     * Setelah redirect login, Firebase selalu fire null dulu
+     * sebelum fire user yang sesungguhnya (~1-3 detik kemudian).
+     * Tunggu sebentar, jika tidak ada user yang datang barulah ke landing.
+     */
+    setTimeout(function () {
+      /* Hanya ke landing jika masih null (belum ada user yang login) */
+      if (!window._FBUSER) {
+        if (typeof window._onAuthReady === 'function') {
+          window._onAuthReady(null);
+        } else {
+          window._pendingAuthUser = null;
         }
-      } else {
-        window._FBUSER   = null;
-        window._DONE_FS  = false;
       }
+    }, 3000);
+  }
+});
 
-      /*
-       * Panggil _onAuthReady.
-       * Jika app.js belum siap (defer belum selesai),
-       * simpan di queue dan panggil saat app-js-ready event.
-       */
-      if (typeof window._onAuthReady === 'function') {
-        window._onAuthReady(user);
-      } else {
-        /* app.js belum load - simpan dan tunggu */
-        window._pendingAuthUser = user;
-      }
-    });
 
   } /* end isConfigured */
 
@@ -1535,24 +1546,24 @@
       }, 300);
     }
 
-    /* Fallback: jika setelah 1.5 detik tidak ada screen yang aktif, tampilkan landing */
-    setTimeout(function () {
-      var shell   = document.getElementById('app-shell');
-      var wizard  = document.getElementById('screen-wizard');
-      var auth    = document.getElementById('screen-auth');
+    /* Fallback: naikkan ke 10 detik agar redirect login punya waktu cukup restore session */
+setTimeout(function () {
+  var shell   = document.getElementById('app-shell');
+  var wizard  = document.getElementById('screen-wizard');
+  var auth    = document.getElementById('screen-auth');
 
-      var appVisible    = shell   && shell.style.display   !== 'none' && shell.style.display !== '';
-      var wizardActive  = wizard  && wizard.classList.contains('active');
-      var authActive    = auth    && auth.classList.contains('active');
+  var appVisible    = shell   && shell.style.display   !== 'none' && shell.style.display !== '';
+  var wizardActive  = wizard  && wizard.classList.contains('active');
+  var authActive    = auth    && auth.classList.contains('active');
 
-      if (!appVisible && !wizardActive && !authActive) {
-        /* Tidak ada screen aktif - tampilkan landing sebagai fallback */
-        if (typeof window._FB_READY === 'undefined' && typeof window._FB_UNCONFIGURED === 'undefined') {
-          window.showScreen('landing');
-        }
-      }
-    }, 1500);
-  });
+  if (!appVisible && !wizardActive && !authActive) {
+    /* Hanya tampilkan landing jika memang tidak ada user yang login */
+    if (!window._FBUSER && typeof window._FB_UNCONFIGURED === 'undefined') {
+      window.showScreen('landing');
+    }
+  }
+}, 10000);
+
 
   /* Toast fallback minimal sebelum app.js load */
   window.toast = window.toast || function (msg, type) {
