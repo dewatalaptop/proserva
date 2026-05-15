@@ -1507,9 +1507,10 @@ console.log('Firebase module loaded successfully');
      dan panggil _onAuthReady saat app-js-ready.
      ────────────────────────────────────────── */
   window._onAuthReady = function (user) {
-    window._pendingAuthUser = user;
-    window._AUTH_PROCESSING = true;
-  };
+  window._pendingAuthUser = user;
+  window._AUTH_PROCESSING = true;  // tetap true sampai app.js selesai
+};
+
 
 
   /* ──────────────────────────────────────────
@@ -1542,23 +1543,24 @@ setTimeout(function () {
 
     /* Fallback: naikkan ke 10 detik agar redirect login punya waktu cukup restore session */
 setTimeout(function () {
-  var shell   = document.getElementById('app-shell');
-  var wizard  = document.getElementById('screen-wizard');
-  var auth    = document.getElementById('screen-auth');
+  // Jika masih ada proses auth berjalan, jangan intervensi
+  if (window._AUTH_PROCESSING) return;
 
-  var appVisible    = shell   && shell.style.display   !== 'none' && shell.style.display !== '';
-  var wizardActive  = wizard  && wizard.classList.contains('active');
-  var authActive    = auth    && auth.classList.contains('active');
+  var shell  = document.getElementById('app-shell');
+  var wizard = document.getElementById('screen-wizard');
+  var auth   = document.getElementById('screen-auth');
+
+  var appVisible   = shell  && shell.style.display !== 'none' && shell.style.display !== '';
+  var wizardActive = wizard && wizard.classList.contains('active');
+  var authActive   = auth   && auth.classList.contains('active');
 
   if (!appVisible && !wizardActive && !authActive) {
-    /* Hanya tampilkan landing jika memang tidak ada user yang login */
-    if (!window._FBUSER && !window._AUTH_PROCESSING && typeof window._FB_UNCONFIGURED === 'undefined') {
-  window.showScreen('landing');
-}
-
-
+    if (!window._FBUSER && typeof window._FB_UNCONFIGURED === 'undefined') {
+      window.showScreen('landing');
+    }
   }
-}, 10000);
+}, 15000); // naikkan ke 15 detik untuk redirect mobile
+
 
 });
 
