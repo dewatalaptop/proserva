@@ -197,7 +197,9 @@
             msg = 'Popup diblokir browser. Mengalihkan...';
             /* Fallback ke redirect jika popup diblokir */
             setTimeout(async () => {
-              try { await signInWithRedirect(auth, provider); }
+              try { window._AUTH_PROCESSING = true;
+await signInWithRedirect(auth, provider);
+ }
               catch (e2) { console.error('Redirect fallback error:', e2); }
             }, 800);
             break;
@@ -1505,11 +1507,10 @@ console.log('Firebase module loaded successfully');
      dan panggil _onAuthReady saat app-js-ready.
      ────────────────────────────────────────── */
   window._onAuthReady = function (user) {
-    /* Cek apakah app.js sudah mendefinisikan ulang _onAuthReady */
-    /* Jika belum (kita masih di versi ini), queue */
     window._pendingAuthUser = user;
-    /* app.js akan mengambil _pendingAuthUser saat boot */
+    window._AUTH_PROCESSING = true;
   };
+
 
   /* ──────────────────────────────────────────
      FIX #7: Konsolidasi - SATU DOMContentLoaded
@@ -1551,9 +1552,11 @@ setTimeout(function () {
 
   if (!appVisible && !wizardActive && !authActive) {
     /* Hanya tampilkan landing jika memang tidak ada user yang login */
-    if (!window._FBUSER && typeof window._FB_UNCONFIGURED === 'undefined') {
-      window.showScreen('landing');
-    }
+    if (!window._FBUSER && !window._AUTH_PROCESSING && typeof window._FB_UNCONFIGURED === 'undefined') {
+  window.showScreen('landing');
+}
+
+
   }
 }, 10000);
 
@@ -1603,11 +1606,13 @@ setTimeout(function () {
      * app.js mendefinisikan ulang window._onAuthReady.
      * Panggil versi app.js (bukan versi boot guard di atas).
      */
-    if (typeof window._onAuthReady === 'function') {
-      if (window.__AUTH_READY_CALLED) return;
-window.__AUTH_READY_CALLED = true;
+        if (typeof window._onAuthReady === 'function') {
+      if (window.__AUTH_READY_CALLED && window.__AUTH_READY_FROM_APPJS) return;
+      window.__AUTH_READY_CALLED = true;
+      window.__AUTH_READY_FROM_APPJS = true;
       window._onAuthReady(user);
     }
+
   }
 
   /* Tandai app sebagai siap - untuk guard onclick wizard */
