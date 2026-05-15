@@ -257,7 +257,7 @@
       console.warn('Config check error:', e);
       window._DONE_FS = false;
     }
-    /* User ada — langsung panggil */
+    /* User ada - langsung panggil */
     if (typeof window._onAuthReady === 'function') {
       window._onAuthReady(user);
     } else {
@@ -267,7 +267,7 @@
     window._FBUSER  = null;
     window._DONE_FS = false;
     /*
-     * User null — JANGAN langsung panggil _onAuthReady(null).
+     * User null - JANGAN langsung panggil _onAuthReady(null).
      * Setelah redirect login, Firebase selalu fire null dulu
      * sebelum fire user yang sesungguhnya (~1-3 detik kemudian).
      * Tunggu sebentar, jika tidak ada user yang datang barulah ke landing.
