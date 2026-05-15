@@ -1,10 +1,8 @@
 <!DOCTYPE html>
-
 <html lang="id" data-theme="dark" data-font="font-elegant" data-density="normal" data-accent="orange">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-
+<meta charset="UTF-8" />>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="mobile-web-app-capable" content="yes"/>
@@ -14,145 +12,228 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=Geist:wght@300;400;500;600;700&family=Satoshi:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-<link rel="stylesheet" href="style.css"/>
+<link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 
-<!-- 🔧 FIREBASE CONFIG -->
-
+<!-- ─────────────────────────────────────────
+     FIREBASE MODULE
+     FIX #1 : Unifikasi ke signInWithPopup
+              dengan fallback redirect untuk mobile
+     FIX #2 : window._FB sekarang export semua
+              yang dibutuhkan app.js
+     FIX #3 : getRedirectResult ditambahkan kembali
+              sebagai fallback handler redirect
+     FIX #4 : Hapus setTimeout 8000 dari sini -
+              app.js boot() yang bertanggung jawab
+     FIX #5 : Global error handler dipertahankan
+     ───────────────────────────────────────── -->
 <script type="module">
 
-console.log('Firebase module loading...');
+  /* ── Global error handler ────────────────── */
+  window.addEventListener('error', e => {
+    if (window.__ERR_LOCK) return;
+    window.__ERR_LOCK = true;
+    setTimeout(() => { window.__ERR_LOCK = false; }, 3000);
 
-document.documentElement.classList.add('js-ready');
-window.addEventListener('error', e => {
-  if(window.__ERR_LOCK) return;
-  window.__ERR_LOCK = true;
+    console.error('Global Error:', e?.error || e?.message || e);
 
-  setTimeout(()=>{
-    window.__ERR_LOCK = false;
-  },3000);
-  console.error('Global Error:', e?.error || e?.message || e);
+    if (document.getElementById('__global_err_box')) return;
+    const errBox = document.createElement('div');
+    errBox.id = '__global_err_box';
+    errBox.style.cssText = [
+      'position:fixed;bottom:12px;left:12px;right:12px',
+      'padding:12px 14px;background:#ef4444;color:#fff',
+      'font-size:12px;border-radius:14px;z-index:999999',
+      'font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)'
+    ].join(';');
+    errBox.textContent = 'JS Error: ' + (e.message || 'Unknown error');
+    (document.body || document.documentElement).appendChild(errBox);
+    setTimeout(() => errBox.parentNode?.removeChild(errBox), 7000);
+  });
 
-  if(document.getElementById('__global_err_box')) return;
+  window.addEventListener('unhandledrejection', e => {
+    console.error('Promise Error:', e?.reason || e);
+  });
 
-  const errBox = document.createElement('div');
-  errBox.id='__global_err_box';
-  errBox.style.cssText='position:fixed;bottom:12px;left:12px;right:12px;padding:12px 14px;background:#ef4444;color:#fff;font-size:12px;border-radius:14px;z-index:999999;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
-  errBox.textContent='JS Error: ' + (e.message || 'Unknown error');
+  /* ── Firebase imports ────────────────────── */
+  import { initializeApp }
+    from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 
-  
-const root = document.body || document.documentElement;
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,       /* FIX #1a: gunakan popup sebagai strategi utama */
+    signInWithRedirect,    /* FIX #1b: tetap ada sebagai fallback mobile      */
+    getRedirectResult,     /* FIX #3 : DIKEMBALIKAN untuk tangkap hasil redirect */
+    onAuthStateChanged,
+    signOut,
+    browserLocalPersistence,
+    setPersistence
+  } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
 
-  if(root){
-    root.appendChild(errBox);
-  }
-  setTimeout(() => {
-    if(errBox.parentNode){
-    errBox.parentNode.removeChild(errBox);
-  }
-  }, 7000);
-});
-window.addEventListener('unhandledrejection', e => {
-  console.error('Promise Error:', e?.reason || e);
-});  
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';  
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  /* getRedirectResult removed */
-  onAuthStateChanged,
-  signOut,
-  browserLocalPersistence,
-  setPersistence
-} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';  
-import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  collection,
-  getDocs
-} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    deleteDoc,
+    collection,
+    getDocs
+  } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+  /* ── Config ──────────────────────────────── */
   const firebaseConfig = {
-  apiKey: "AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw",
-  authDomain: "proserva-bisnisku.firebaseapp.com",
-  projectId: "proserva-bisnisku",
-  
-storageBucket: "proserva-bisnisku.firebasestorage.app",
-  messagingSenderId: "995357200209",
-  appId: "1:995357200209:web:5cdba2db9975fcc35f4d70"
-};
+    apiKey:            "AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw",
+    authDomain:        "proserva-bisnisku.firebaseapp.com",
+    projectId:         "proserva-bisnisku",
+    storageBucket:     "proserva-bisnisku.firebasestorage.app",
+    messagingSenderId: "995357200209",
+    appId:             "1:995357200209:web:5cdba2db9975fcc35f4d70"
+  };
 
-  
-const isConfigured = Object.values(firebaseConfig).every(
-  v => typeof v === 'string' && !v.startsWith('GANTI_')
-);
-  if (isConfigured) {
-    
-const app = initializeApp(firebaseConfig);
+  const isConfigured = Object.values(firebaseConfig)
+    .every(v => typeof v === 'string' && !v.startsWith('GANTI_'));
 
-    const auth = getAuth(app);
+  if (!isConfigured) {
+    window._FB_UNCONFIGURED = true;
+    /* Tunggu app.js siap sebelum panggil _onAuthReady */
+    window._pendingAuthCall = () => {
+      if (typeof window._onAuthReady === 'function') window._onAuthReady(null);
+    };
+    document.addEventListener('app-js-ready', window._pendingAuthCall, { once: true });
+    /* Safety timeout */
+    setTimeout(() => {
+      if (typeof window._onAuthReady === 'function') window._onAuthReady(null);
+    }, 500);
 
-    
-try {
-  await setPersistence(auth, browserLocalPersistence);
-} catch(e) {
-  console.warn('Persistence warning:', e);
-}
-    const db = getFirestore(app);
+  } else {
 
+    /* ── Init ──────────────────────────────── */
+    const app      = initializeApp(firebaseConfig);
+    const auth     = getAuth(app);
+    const db       = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    provider.setCustomParameters({
-      prompt: 'select_account'
-    });
+    provider.setCustomParameters({ prompt: 'select_account' });
 
-    
-window.doGoogleSignIn = async function () {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+    } catch (e) {
+      console.warn('Persistence warning:', e);
+    }
 
+    /* ── FIX #3: Tangkap hasil redirect (mobile fallback) ── */
+    try {
+      const redirectResult = await getRedirectResult(auth);
+      if (redirectResult?.user) {
+        /*
+         * Redirect flow berhasil.
+         * onAuthStateChanged di bawah akan otomatis terpanggil,
+         * jadi tidak perlu panggil _onAuthReady manual di sini.
+         */
+        console.log('Redirect login success:', redirectResult.user.email);
+      }
+    } catch (redirectErr) {
+      /* Bukan error kritis - popup-based flow tidak memerlukan ini */
+      if (redirectErr.code !== 'auth/no-auth-event') {
+        console.warn('getRedirectResult warning:', redirectErr.code, redirectErr.message);
+      }
+    }
+
+    /* ──────────────────────────────────────────
+       FIX #1 + #2: window.doGoogleSignIn
+       Strategi: popup utama, redirect fallback mobile.
+       Sebelumnya: index.html -> redirect (tanpa getRedirectResult),
+                   app.js -> popup (signInWithPopup tidak ada di _FB).
+       Sekarang: SATU definisi, popup + redirect fallback.
+       ────────────────────────────────────────── */
+    window.doGoogleSignIn = async function () {
       const btn = document.getElementById('btn-google-signin');
+      const setLoading = (on) => {
+        if (!btn) return;
+        btn.disabled = on;
+        btn.innerHTML = on
+          ? '<i class="fas fa-spinner fa-spin"></i> Membuka Google...'
+          : `<svg viewBox="0 0 24 24" width="20" height="20">
+               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+             </svg>
+             Lanjutkan dengan Google`;
+      };
+
+      setLoading(true);
 
       try {
+        /*
+         * Deteksi mobile browser yang blokir popup.
+         * Kriteria: user agent mengandung Mobile/Android/iOS
+         * dan bukan browser desktop yang dibuka di mobile UA.
+         */
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        if (btn) {
-          btn.disabled = true;
-          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Membuka Google...';
+        if (isMobile) {
+          /* Pada mobile: redirect lebih reliable */
+          await signInWithRedirect(auth, provider);
+          /* Setelah redirect, getRedirectResult di atas yang akan handle */
+        } else {
+          /* Desktop: popup lebih smooth */
+          await signInWithPopup(auth, provider);
+          /* onAuthStateChanged otomatis terpanggil setelah popup berhasil */
         }
-
-        await signInWithRedirect(auth, provider);
 
       } catch (err) {
+        console.error('Login Error:', err);
+        setLoading(false);
 
-        console.error('Google Login Error:', err);
-
-        window.toast ? window.toast(err?.message || 'Login Google gagal','error') : console.error(err?.message || 'Login Google gagal');
-
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = `
-          <svg viewBox="0 0 24 24" width="20" height="20">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          Lanjutkan dengan Google`;
+        let msg = 'Login gagal. Coba lagi.';
+        switch (err.code) {
+          case 'auth/popup-closed-by-user':
+          case 'auth/cancelled-popup-request':
+            msg = 'Login dibatalkan.'; break;
+          case 'auth/popup-blocked':
+            msg = 'Popup diblokir browser. Mengalihkan...';
+            /* Fallback ke redirect jika popup diblokir */
+            setTimeout(async () => {
+              try { await signInWithRedirect(auth, provider); }
+              catch (e2) { console.error('Redirect fallback error:', e2); }
+            }, 800);
+            break;
+          case 'auth/network-request-failed':
+            msg = 'Tidak ada koneksi internet.'; break;
+          case 'auth/too-many-requests':
+            msg = 'Terlalu banyak percobaan. Tunggu sebentar.'; break;
+          default:
+            msg = err.message || msg;
         }
 
+        if (typeof window.showToast === 'function') {
+          window.showToast(msg, 'error');
+        } else if (typeof window.toast === 'function') {
+          window.toast(msg, 'error');
+        } else {
+          alert(msg);
+        }
       }
     };
-    // Redirect result handling dihapus.
-// onAuthStateChanged sudah cukup untuk menangani login redirect Firebase.
+
+    /* ──────────────────────────────────────────
+       FIX #2: window._FB - export LENGKAP
+       Sebelumnya signInWithPopup & getRedirectResult
+       tidak di-export -> app.js crash saat manggil.
+       ────────────────────────────────────────── */
     window._FB = {
       auth,
       db,
       provider,
-      signInWithRedirect,
-      /* getRedirectResult removed */
+      /* Auth methods - semua dibutuhkan app.js */
+      signInWithPopup,      /* ← BARU: app.js doGoogleSignIn butuh ini */
+      signInWithRedirect,   /* ← pertahankan untuk fallback              */
+      getRedirectResult,    /* ← BARU: untuk kelengkapan & future use    */
       onAuthStateChanged,
       signOut,
+      /* Firestore methods */
       doc,
       getDoc,
       setDoc,
@@ -161,80 +242,76 @@ window.doGoogleSignIn = async function () {
       getDocs
     };
 
+    /* ── Auth state listener ─────────────────── */
     onAuthStateChanged(auth, async (user) => {
       window._FB_READY = true;
 
       if (user) {
         window._FBUSER = user;
         try {
-          const snap = await getDoc(doc(db, 'users', user.uid, 'config', 'biz'));
+          const snap = await getDoc(
+            doc(db, 'users', user.uid, 'config', 'biz')
+          );
           window._DONE_FS = snap.exists();
-        } catch(e) { window._DONE_FS = false; }
-        if (window._onAuthReady) window._onAuthReady(user);
-      } else {
-        
-window._FBUSER = null;
-        window._DONE_FS = false;
-
-        if (window._onAuthReady){
-          window._onAuthReady(null);
+        } catch (e) {
+          console.warn('Config check error:', e);
+          window._DONE_FS = false;
         }
+      } else {
+        window._FBUSER   = null;
+        window._DONE_FS  = false;
+      }
+
+      /*
+       * Panggil _onAuthReady.
+       * Jika app.js belum siap (defer belum selesai),
+       * simpan di queue dan panggil saat app-js-ready event.
+       */
+      if (typeof window._onAuthReady === 'function') {
+        window._onAuthReady(user);
+      } else {
+        /* app.js belum load - simpan dan tunggu */
+        window._pendingAuthUser = user;
       }
     });
-  } else {
-    window._FB_UNCONFIGURED = true;
-    setTimeout(() => { if (window._onAuthReady) window._onAuthReady(null); }, 300);
-  }
 
+  } /* end isConfigured */
 
-console.log('Firebase module loaded successfully');
+  console.log('Firebase module loaded successfully');
 
-// window._FB_READY hanya boleh diset di onAuthStateChanged
+</script>
+<!-- END FIREBASE MODULE -->
 
-setTimeout(()=>{
-  if(window._FB_READY !== true && !window._FB_UNCONFIGURED){
-    console.error('Firebase timeout');
-
-    const loading=document.getElementById('screen-loading');
-
-    if(loading){
-      loading.classList.remove('active');
-      loading.style.pointerEvents='none';
-      loading.style.opacity='0';
-    }
-
-    if(window.showScreen){
-      window.showScreen('landing');
-    }
-  }
-},8000);</script>
-
-</head><body>
+</head>
+<body>
 
 <!-- ══════════════════════════════
      SCREEN: LOADING
      ══════════════════════════════ -->
-
-
-<div id="screen-loading" class="screen active" aria-hidden="false" data-screen="loading">  <div class="loading-logo">
-    <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva"
-      onerror="this.parentNode.style.background='var(--ac)';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:28px;\'>P</span>'"/>
+<div id="screen-loading" class="screen active" aria-hidden="false" data-screen="loading">
+  <div class="loading-logo">
+    <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+      alt="Proserva"
+      onerror="this.parentNode.style.background='var(--ac)';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:28px\'>P</span>'"/>
   </div>
   <div class="loading-spinner"></div>
-  <div class="loading-text">Menginisialisasi…</div>
+  <div class="loading-text">Menginisialisasi...</div>
 </div>
 
 <!-- ══════════════════════════════
      SCREEN: LANDING
      ══════════════════════════════ -->
-
-
-<div id="screen-landing" class="screen" aria-hidden="true" data-screen="landing">  <nav class="land-nav">
+<div id="screen-landing" class="screen" aria-hidden="true" data-screen="landing">
+  <nav class="land-nav">
     <div class="land-nav-logo">
-      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva" onerror="this.style.display='none'"/>
+      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+        alt="Proserva" onerror="this.style.display='none'"/>
       <span class="land-nav-brand">Proserva</span>
     </div>
-    <button type="button" class="land-nav-btn" onclick="window.showScreen && window.showScreen('auth')"><i class="fas fa-sign-in-alt"></i> Masuk / Daftar</button>
+    <button type="button" class="land-nav-btn"
+      onclick="window._appReady ? window.showScreen('auth') : window.doGoogleSignIn?.()">
+      <i class="fas fa-sign-in-alt"></i> Masuk / Daftar
+    </button>
   </nav>
 
   <section class="land-hero-section">
@@ -248,11 +325,17 @@ setTimeout(()=>{
       <h1 class="land-h1">Kelola Reservasi<br/>dengan <span class="grad">Cerdas &amp; Mudah</span></h1>
       <p class="land-sub">Sistem manajemen reservasi berbasis cloud untuk restoran, café, dan tempat wisata. Tersimpan aman, bisa diakses dari mana saja.</p>
       <div class="land-cta-row">
-        
-<button type="button" class="land-btn-primary" onclick="window.doGoogleSignIn ? window.doGoogleSignIn() : window.showScreen('auth')">          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        <button type="button" class="land-btn-primary" onclick="window.doGoogleSignIn?.()">
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
           Daftar Gratis dengan Google
         </button>
-        <button type="button" class="land-btn-ghost" onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">
+        <button type="button" class="land-btn-ghost"
+          onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">
           <i class="fas fa-chevron-down"></i> Lihat Fitur
         </button>
       </div>
@@ -303,7 +386,7 @@ setTimeout(()=>{
       <div class="land-feat-card" style="--card-ac:var(--ac)">
         <div class="land-feat-icon" style="background:var(--ac-dim);color:var(--ac)"><i class="fas fa-cloud"></i></div>
         <div class="land-feat-title">Tersimpan di Cloud</div>
-        <div class="land-feat-desc">Data tersinkron real-time via Firebase. Buka di HP, laptop, atau tablet — selalu up-to-date.</div>
+        <div class="land-feat-desc">Data tersinkron real-time via Firebase. Buka di HP, laptop, atau tablet - selalu up-to-date.</div>
       </div>
     </div>
   </section>
@@ -341,14 +424,15 @@ setTimeout(()=>{
   <section class="land-cta-section">
     <h2 class="land-cta-title">Siap tingkatkan<br/>pengalaman reservasi?</h2>
     <p class="land-cta-sub">Gratis selamanya. Tidak perlu kartu kredit.</p>
-    
-<button type="button" class="land-btn-primary" onclick="window.doGoogleSignIn ? window.doGoogleSignIn() : window.showScreen('auth')" style="margin:0 auto">      <i class="fas fa-rocket"></i> Mulai Sekarang — Gratis
+    <button type="button" class="land-btn-primary" onclick="window.doGoogleSignIn?.()" style="margin:0 auto">
+      <i class="fas fa-rocket"></i> Mulai Sekarang - Gratis
     </button>
   </section>
 
   <footer class="land-footer">
     <div class="land-footer-logo">
-      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva" onerror="this.style.display='none'"/>
+      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+        alt="Proserva" onerror="this.style.display='none'"/>
       <span class="land-footer-brand">Proserva</span>
     </div>
     <div class="land-footer-tag">&copy; 2025 Proserva &middot; Reservation Engine v4.0 &middot; Firebase</div>
@@ -358,36 +442,50 @@ setTimeout(()=>{
 <!-- ══════════════════════════════
      SCREEN: AUTH
      ══════════════════════════════ -->
-
-
-<div id="screen-auth" class="screen" aria-hidden="true" data-screen="auth">  <div class="auth-card">
+<div id="screen-auth" class="screen" aria-hidden="true" data-screen="auth">
+  <div class="auth-card">
     <div class="auth-logo">
-      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva"
+      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+        alt="Proserva"
         onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
     </div>
     <div class="auth-title">Masuk ke Proserva</div>
     <div class="auth-sub">Gunakan akun Google kamu untuk masuk. Data tersimpan aman di cloud dan bisa diakses dari perangkat mana saja.</div>
-    
-<button type="button" class="btn-google" id="btn-google-signin" onclick="window.doGoogleSignIn && window.doGoogleSignIn()" autocomplete="off">      <svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+    <button type="button" class="btn-google" id="btn-google-signin"
+      onclick="window.doGoogleSignIn?.()" autocomplete="off">
+      <svg viewBox="0 0 24 24" width="20" height="20">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
       Lanjutkan dengan Google
     </button>
     <div class="auth-privacy">Dengan masuk, kamu menyetujui penggunaan data akun Google hanya untuk keperluan autentikasi Proserva.</div>
-    <button type="button" class="auth-back" onclick="window.showScreen && window.showScreen('landing')"><i class="fas fa-arrow-left"></i> Kembali ke Beranda</button>
+    <button type="button" class="auth-back"
+      onclick="window.showScreen?.('landing')">
+      <i class="fas fa-arrow-left"></i> Kembali ke Beranda
+    </button>
   </div>
 </div>
 
 <!-- ══════════════════════════════
      SCREEN: WIZARD
      ══════════════════════════════ -->
-
-
-<div id="screen-wizard" class="screen" aria-hidden="true" data-screen="wizard">  <div class="wz-bg"><div class="wz-orb wz-orb-1"></div><div class="wz-orb wz-orb-2"></div><div class="wz-orb wz-orb-3"></div></div>
+<div id="screen-wizard" class="screen" aria-hidden="true" data-screen="wizard">
+  <div class="wz-bg">
+    <div class="wz-orb wz-orb-1"></div>
+    <div class="wz-orb wz-orb-2"></div>
+    <div class="wz-orb wz-orb-3"></div>
+  </div>
 
   <!-- Step 1 -->
-
   <div class="wizard-step active" id="wz-1">
     <div class="wizard-card">
-      <div class="wz-logo"><img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/></div>
+      <div class="wz-logo">
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+          alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
+      </div>
       <div class="wz-steps">
         <div class="wz-step-dot active">1</div><div class="wz-step-line"></div>
         <div class="wz-step-dot">2</div><div class="wz-step-line"></div>
@@ -398,11 +496,15 @@ setTimeout(()=>{
       <p class="wz-sub">Setup bisnis kamu hanya dalam 2 menit. Data tersimpan aman di cloud.</p>
       <div class="wz-field">
         <label>Nama Usaha <span class="req">*</span></label>
-        <div class="wz-input-wrap"><i class="fas fa-store"></i><input class="wz-input" id="wz-biz-name" placeholder="Contoh: Warung Sawah Indah"/></div>
+        <div class="wz-input-wrap">
+          <i class="fas fa-store"></i>
+          <input class="wz-input" id="wz-biz-name" placeholder="Contoh: Warung Sawah Indah"/>
+        </div>
       </div>
       <div class="wz-field">
         <label>Tipe Usaha</label>
-        <div class="wz-input-wrap"><i class="fas fa-tag"></i>
+        <div class="wz-input-wrap">
+          <i class="fas fa-tag"></i>
           <select class="wz-input wz-select" id="wz-biz-type">
             <option value="restoran">🍽️ Restoran / Warung</option>
             <option value="cafe">☕ Café / Coffee Shop</option>
@@ -413,15 +515,20 @@ setTimeout(()=>{
         </div>
       </div>
       <div class="wz-err" id="wz-err-1"></div>
-      <button type="button" class="wz-btn" onclick="wzNext(2)">Lanjutkan <i class="fas fa-arrow-right"></i></button>
+      <!-- FIX #5: guard onclick dengan window.wzNext?.() agar tidak crash sebelum app.js load -->
+      <button type="button" class="wz-btn" onclick="window.wzNext?.(2)">
+        Lanjutkan <i class="fas fa-arrow-right"></i>
+      </button>
     </div>
   </div>
 
   <!-- Step 2 -->
-
   <div class="wizard-step" id="wz-2">
     <div class="wizard-card wizard-card-wide">
-      <div class="wz-logo"><img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/></div>
+      <div class="wz-logo">
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+          alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
+      </div>
       <div class="wz-steps">
         <div class="wz-step-dot done"><i class="fas fa-check"></i></div><div class="wz-step-line done"></div>
         <div class="wz-step-dot active">2</div><div class="wz-step-line"></div>
@@ -431,26 +538,40 @@ setTimeout(()=>{
       <h2 class="wz-title" style="font-size:1.8rem">Tambah Lokasi <em>&amp; Area</em></h2>
       <p class="wz-sub">Gazebo, meja, atau area yang bisa dipesan tamu. Minimal 1 lokasi wajib diisi.</p>
       <div class="wz-list" id="wz-loc-list">
-        <div class="wz-empty-hint">Belum ada lokasi — tambah minimal 1</div>
+        <div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>
       </div>
       <div class="wz-inline">
-        <div class="wz-input-wrap"><i class="fas fa-map-pin"></i><input class="wz-input" id="wz-loc-name" placeholder="Nama lokasi (Gazebo A, VIP Room…)"/></div>
-        <div class="wz-input-wrap sm"><i class="fas fa-users"></i><input class="wz-input" id="wz-loc-cap" type="number" min="1" placeholder="Kapasitas"/></div>
-        <button type="button" class="wz-btn-add" onclick="wzAddLoc()"><i class="fas fa-plus"></i></button>
+        <div class="wz-input-wrap">
+          <i class="fas fa-map-pin"></i>
+          <input class="wz-input" id="wz-loc-name" placeholder="Nama lokasi (Gazebo A, VIP Room...)"/>
+        </div>
+        <div class="wz-input-wrap sm">
+          <i class="fas fa-users"></i>
+          <input class="wz-input" id="wz-loc-cap" type="number" min="1" placeholder="Kapasitas"/>
+        </div>
+        <button type="button" class="wz-btn-add" onclick="window.wzAddLoc?.()">
+          <i class="fas fa-plus"></i>
+        </button>
       </div>
       <div class="wz-err" id="wz-err-2"></div>
       <div class="wz-nav">
-        <button type="button" class="wz-btn-ghost" onclick="wzNext(1)"><i class="fas fa-arrow-left"></i> Kembali</button>
-        <button type="button" class="wz-btn" style="width:auto" onclick="wzNext(3)">Lanjutkan <i class="fas fa-arrow-right"></i></button>
+        <button type="button" class="wz-btn-ghost" onclick="window.wzNext?.(1)">
+          <i class="fas fa-arrow-left"></i> Kembali
+        </button>
+        <button type="button" class="wz-btn" style="width:auto" onclick="window.wzNext?.(3)">
+          Lanjutkan <i class="fas fa-arrow-right"></i>
+        </button>
       </div>
     </div>
   </div>
 
   <!-- Step 3 -->
-
   <div class="wizard-step" id="wz-3">
     <div class="wizard-card wizard-card-wide">
-      <div class="wz-logo"><img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/></div>
+      <div class="wz-logo">
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+          alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
+      </div>
       <div class="wz-steps">
         <div class="wz-step-dot done"><i class="fas fa-check"></i></div><div class="wz-step-line done"></div>
         <div class="wz-step-dot done"><i class="fas fa-check"></i></div><div class="wz-step-line done"></div>
@@ -458,18 +579,35 @@ setTimeout(()=>{
       </div>
       <div class="wz-eyebrow">Langkah 3 dari 3</div>
       <h2 class="wz-title" style="font-size:1.8rem">Tambah Menu <em>&amp; Paket</em></h2>
-      <p class="wz-sub">Opsional — bisa ditambah kapan saja dari menu pengaturan.</p>
+      <p class="wz-sub">Opsional - bisa ditambah kapan saja dari menu pengaturan.</p>
       <div class="wz-list" id="wz-menu-list"></div>
-      <div class="wz-field"><div class="wz-input-wrap"><i class="fas fa-bowl-food"></i><input class="wz-input" id="wz-menu-name" placeholder="Nama paket (Paket Keluarga…)"/></div></div>
-      <div class="wz-form-row2">
-        <div class="wz-input-wrap"><span class="wz-rp">Rp</span><input class="wz-input" id="wz-menu-price" type="number" min="0" placeholder="Harga" style="padding-left:36px"/></div>
-        <div class="wz-input-wrap"><i class="fas fa-list"></i><input class="wz-input" id="wz-menu-detail" placeholder="Detail (pisahkan koma)"/></div>
+      <div class="wz-field">
+        <div class="wz-input-wrap">
+          <i class="fas fa-bowl-food"></i>
+          <input class="wz-input" id="wz-menu-name" placeholder="Nama paket (Paket Keluarga...)"/>
+        </div>
       </div>
-      <button type="button" class="wz-btn-add-full" onclick="wzAddMenu()" style="margin:10px 0 16px"><i class="fas fa-plus"></i> Tambah Menu</button>
+      <div class="wz-form-row2">
+        <div class="wz-input-wrap">
+          <span class="wz-rp">Rp</span>
+          <input class="wz-input" id="wz-menu-price" type="number" min="0" placeholder="Harga" style="padding-left:36px"/>
+        </div>
+        <div class="wz-input-wrap">
+          <i class="fas fa-list"></i>
+          <input class="wz-input" id="wz-menu-detail" placeholder="Detail (pisahkan koma)"/>
+        </div>
+      </div>
+      <button type="button" class="wz-btn-add-full" onclick="window.wzAddMenu?.()" style="margin:10px 0 16px">
+        <i class="fas fa-plus"></i> Tambah Menu
+      </button>
       <div class="wz-err" id="wz-err-3"></div>
       <div class="wz-nav">
-        <button type="button" class="wz-btn-ghost" id="wz-back-3" onclick="wzNext(2)"><i class="fas fa-arrow-left"></i> Kembali</button>
-        <button type="button" class="wz-finish" id="wz-finish-btn" onclick="wzFinish()"><i class="fas fa-rocket"></i> Mulai Gunakan Proserva!</button>
+        <button type="button" class="wz-btn-ghost" id="wz-back-3" onclick="window.wzNext?.(2)">
+          <i class="fas fa-arrow-left"></i> Kembali
+        </button>
+        <button type="button" class="wz-finish" id="wz-finish-btn" onclick="window.wzFinish?.()">
+          <i class="fas fa-rocket"></i> Mulai Gunakan Proserva!
+        </button>
       </div>
     </div>
   </div>
@@ -478,12 +616,12 @@ setTimeout(()=>{
 <!-- ══════════════════════════════
      APP SHELL
      ══════════════════════════════ -->
-
-
-<div id="app-shell" style="display:none" aria-hidden="true">  <aside id="sidebar">
+<div id="app-shell" style="display:none" aria-hidden="true">
+  <aside id="sidebar">
     <div class="brand">
       <div class="brand-icon">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva"
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
+          alt="Proserva"
           onerror="this.parentNode.style.background='var(--ac)';this.style.display='none';this.parentNode.innerHTML='<i class=\'fas fa-calendar-check\' style=\'color:#fff;font-size:15px\'></i>'"/>
       </div>
       <div>
@@ -491,7 +629,7 @@ setTimeout(()=>{
         <div class="brand-sub">Reservation Engine</div>
       </div>
     </div>
-    <!-- User Info -->
+
     <div class="sidebar-user">
       <div class="sidebar-user-avatar-fallback" id="sb-avatar-fallback">?</div>
       <div class="sidebar-user-info">
@@ -500,26 +638,55 @@ setTimeout(()=>{
       </div>
     </div>
     <div class="sidebar-biz" id="sb-biz-name">-</div>
+
     <nav class="sidebar-nav">
       <div class="nav-group">Utama</div>
-      <div class="nav-item active" data-view="calendar" onclick="showView('calendar')"><span class="nav-icon"><i class="fas fa-calendar-alt"></i></span><span class="nav-label">Kalender</span></div>
-      <div class="nav-item" data-view="customers" onclick="showView('customers')"><span class="nav-icon"><i class="fas fa-users"></i></span><span class="nav-label">Pelanggan</span></div>
-      <div class="nav-item" data-view="analysis" onclick="showView('analysis')"><span class="nav-icon"><i class="fas fa-chart-line"></i></span><span class="nav-label">Analisis</span></div>
-      <div class="nav-item" data-view="broadcast" onclick="showView('broadcast')"><span class="nav-icon"><i class="fas fa-bullhorn"></i></span><span class="nav-label">Broadcast</span></div>
+      <div class="nav-item active" data-view="calendar" onclick="showView('calendar')">
+        <span class="nav-icon"><i class="fas fa-calendar-alt"></i></span>
+        <span class="nav-label">Kalender</span>
+      </div>
+      <div class="nav-item" data-view="customers" onclick="showView('customers')">
+        <span class="nav-icon"><i class="fas fa-users"></i></span>
+        <span class="nav-label">Pelanggan</span>
+      </div>
+      <div class="nav-item" data-view="analysis" onclick="showView('analysis')">
+        <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+        <span class="nav-label">Analisis</span>
+      </div>
+      <div class="nav-item" data-view="broadcast" onclick="showView('broadcast')">
+        <span class="nav-icon"><i class="fas fa-bullhorn"></i></span>
+        <span class="nav-label">Broadcast</span>
+      </div>
       <div class="nav-group" style="margin-top:12px">Pengaturan</div>
-      <div class="nav-item" data-view="menus" onclick="showView('menus')"><span class="nav-icon"><i class="fas fa-book-open"></i></span><span class="nav-label">Menu &amp; Paket</span></div>
-      <div class="nav-item" data-view="locations" onclick="showView('locations')"><span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span><span class="nav-label">Lokasi</span></div>
-      <div class="nav-item" data-view="settings" onclick="showView('settings')"><span class="nav-icon"><i class="fas fa-sliders"></i></span><span class="nav-label">Pengaturan</span></div>
+      <div class="nav-item" data-view="menus" onclick="showView('menus')">
+        <span class="nav-icon"><i class="fas fa-book-open"></i></span>
+        <span class="nav-label">Menu &amp; Paket</span>
+      </div>
+      <div class="nav-item" data-view="locations" onclick="showView('locations')">
+        <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span>
+        <span class="nav-label">Lokasi</span>
+      </div>
+      <div class="nav-item" data-view="settings" onclick="showView('settings')">
+        <span class="nav-icon"><i class="fas fa-sliders"></i></span>
+        <span class="nav-label">Pengaturan</span>
+      </div>
     </nav>
+
     <div class="sidebar-footer">
-      <button type="button" class="btn-signout" onclick="doSignOut()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+      <button type="button" class="btn-signout" onclick="doSignOut()">
+        <i class="fas fa-sign-out-alt"></i> Keluar
+      </button>
       <div class="sidebar-ver">Proserva v4.0 &middot; Firebase</div>
     </div>
   </aside>
 
   <header id="topbar">
-    <button type="button" class="topbar-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-    <div class="topbar-center"><span class="topbar-page" id="topbar-page">Kalender</span></div>
+    <button type="button" class="topbar-toggle" onclick="toggleSidebar()">
+      <i class="fas fa-bars"></i>
+    </button>
+    <div class="topbar-center">
+      <span class="topbar-page" id="topbar-page">Kalender</span>
+    </div>
     <div class="topbar-actions">
       <div class="tb-btn icon-only" id="notif-btn" onclick="toggleNotif(event)" style="position:relative">
         <i class="fas fa-bell"></i>
@@ -529,8 +696,12 @@ setTimeout(()=>{
           <div id="notif-list"><div class="nd-empty">Semua sudah beres!</div></div>
         </div>
       </div>
-      <button type="button" class="tb-btn" onclick="handleExport()"><i class="fas fa-upload"></i><span class="btn-label">Export</span></button>
-      <button type="button" class="tb-btn tb-btn-accent" onclick="openAddRes()" id="btn-add-res"><i class="fas fa-plus"></i><span class="btn-label">Reservasi Baru</span></button>
+      <button type="button" class="tb-btn" onclick="handleExport()">
+        <i class="fas fa-upload"></i><span class="btn-label">Export</span>
+      </button>
+      <button type="button" class="tb-btn tb-btn-accent" onclick="openAddRes()" id="btn-add-res">
+        <i class="fas fa-plus"></i><span class="btn-label">Reservasi Baru</span>
+      </button>
     </div>
   </header>
 
@@ -538,7 +709,10 @@ setTimeout(()=>{
     <!-- Kalender -->
     <section id="view-calendar" class="view active-view">
       <div class="view-header">
-        <div><h1 class="view-title" id="cal-title">Dashboard Reservasi</h1><p class="view-sub" id="cal-sub">Kelola semua reservasi dengan mudah</p></div>
+        <div>
+          <h1 class="view-title" id="cal-title">Dashboard Reservasi</h1>
+          <p class="view-sub" id="cal-sub">Kelola semua reservasi dengan mudah</p>
+        </div>
         <div class="cal-nav">
           <button type="button" class="cal-arrow" onclick="navMonth(-1)"><i class="fas fa-chevron-left"></i></button>
           <span class="cal-month" id="cal-month-label">-</span>
@@ -547,191 +721,411 @@ setTimeout(()=>{
         </div>
       </div>
       <div class="stats-row">
-        <div class="stat-card"><div class="stat-icon si-ac"><i class="fas fa-calendar-check"></i></div><div class="stat-val" id="st-total">0</div><div class="stat-lbl">Reservasi Bulan Ini</div></div>
-        <div class="stat-card"><div class="stat-icon si-g"><i class="fas fa-users"></i></div><div class="stat-val" id="st-pax">0</div><div class="stat-lbl">Total Tamu</div></div>
-        <div class="stat-card"><div class="stat-icon si-b"><i class="fas fa-money-bill-wave"></i></div><div class="stat-val" id="st-dp">Rp0</div><div class="stat-lbl">Omzet DP</div></div>
-        <div class="stat-card"><div class="stat-icon si-y"><i class="fas fa-fire"></i></div><div class="stat-val" id="st-busy">-</div><div class="stat-lbl">Hari Tersibuk</div></div>
+        <div class="stat-card">
+          <div class="stat-icon si-ac"><i class="fas fa-calendar-check"></i></div>
+          <div class="stat-val" id="st-total">0</div>
+          <div class="stat-lbl">Reservasi Bulan Ini</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon si-g"><i class="fas fa-users"></i></div>
+          <div class="stat-val" id="st-pax">0</div>
+          <div class="stat-lbl">Total Tamu</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon si-b"><i class="fas fa-money-bill-wave"></i></div>
+          <div class="stat-val" id="st-dp">Rp0</div>
+          <div class="stat-lbl">Omzet DP</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon si-y"><i class="fas fa-fire"></i></div>
+          <div class="stat-val" id="st-busy">-</div>
+          <div class="stat-lbl">Hari Tersibuk</div>
+        </div>
       </div>
       <div class="cal-card">
-        <div class="cal-weekdays"><div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div></div>
+        <div class="cal-weekdays">
+          <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div>
+          <div>Kam</div><div>Jum</div><div>Sab</div>
+        </div>
         <div class="cal-grid" id="cal-days"></div>
       </div>
     </section>
 
-
-<!-- Detail -->
-<div id="view-detail" class="view">
-  <div class="detail-header">
-    <button type="button" class="back-btn" onclick="backToCal()"><i class="fas fa-arrow-left"></i> Kalender</button>
-    <div class="detail-title-wrap"><h2 class="view-title" id="detail-title"></h2></div>
-    <div class="detail-actions">
-      <div class="search-wrap"><i class="fas fa-search"></i><input class="search-input" id="detail-search" placeholder="Cari reservasi…" oninput="filterDetail(this.value)" style="min-width:170px"/></div>
-      <button type="button" class="icon-btn" onclick="shareWA('day')" title="Share WhatsApp"><i class="fab fa-whatsapp"></i></button>
-      <button type="button" class="icon-btn" onclick="showPrintOpts()" title="Cetak"><i class="fas fa-print"></i></button>
-      <button type="button" class="btn btn-accent btn-sm" onclick="openAddRes()"><i class="fas fa-plus"></i> Tambah</button>
-    </div>
-  </div>
-  <div id="avail-bar" class="avail-bar"></div>
-  <div id="detail-list" class="res-grid"></div>
-</div>
-
-<!-- Menu & Paket -->
-<div id="view-menus" class="view">
-  <div class="view-header">
-    <div><h1 class="view-title">Menu &amp; Paket</h1><p class="view-sub">Kelola semua paket yang tersedia</p></div>
-    <button type="button" class="btn btn-accent" onclick="openMenuModal()"><i class="fas fa-plus"></i> Tambah Menu</button>
-  </div>
-  <div class="data-card"><div class="table-scroll"><table class="data-table"><thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead><tbody id="menus-tbody"></tbody></table></div></div>
-</div>
-
-<!-- Lokasi -->
-<div id="view-locations" class="view">
-  <div class="view-header">
-    <div><h1 class="view-title">Manajemen Lokasi</h1><p class="view-sub">Atur tempat duduk, gazebo, atau area reservasi</p></div>
-    <button type="button" class="btn btn-accent" onclick="openLocModal()"><i class="fas fa-plus"></i> Tambah Lokasi</button>
-  </div>
-  <div class="data-card"><div class="table-scroll"><table class="data-table"><thead><tr><th>Nama</th><th>Kapasitas</th><th>Min. Tamu</th><th>Durasi Default</th><th>Buffer</th><th>Jam Operasional</th><th>Aksi</th></tr></thead><tbody id="locations-tbody"></tbody></table></div></div>
-</div>
-
-<!-- Pelanggan -->
-<div id="view-customers" class="view">
-  <div class="view-header">
-    <div><h1 class="view-title">Data Pelanggan</h1><p class="view-sub">Semua tamu yang pernah melakukan reservasi</p></div>
-    <div class="search-wrap"><i class="fas fa-search"></i><input class="search-input" id="cust-search" placeholder="Cari nama atau HP…" oninput="filterCustomers(this.value)"/></div>
-  </div>
-  <div class="data-card"><div class="table-scroll"><table class="data-table"><thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Kunjungan</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead><tbody id="customers-tbody"></tbody></table></div></div>
-</div>
-
-<!-- Analisis -->
-<div id="view-analysis" class="view">
-  <div class="view-header">
-    <div><h1 class="view-title">Analisis Bisnis</h1><p class="view-sub">Wawasan mendalam performa reservasi Anda</p></div>
-    <div style="display:flex;gap:7px">
-      <select class="form-select-sm" id="anl-year" onchange="runAnalysis()"></select>
-      <select class="form-select-sm" id="anl-month" style="width:155px" onchange="runAnalysis()"></select>
-    </div>
-  </div>
-  <div class="anl-stats" id="anl-stats"></div>
-  <div class="chart-card"><canvas id="anl-chart"></canvas></div>
-  <div class="insight-card" id="anl-insight"></div>
-  <div class="anl-bottom">
-    <div class="data-card"><div class="data-card-head"><i class="fas fa-crown"></i> Pelanggan Setia</div><ul class="rank-list" id="anl-frequent"></ul></div>
-    <div class="data-card"><div class="data-card-head"><i class="fas fa-fire"></i> Menu Terlaris</div><ul class="rank-list" id="anl-menus-rank"></ul></div>
-  </div>
-</div>
-
-<!-- Broadcast -->
-<div id="view-broadcast" class="view">
-  <div class="view-header"><div><h1 class="view-title">Broadcast Promo</h1><p class="view-sub">Kirim pesan promosi ke pelanggan via WhatsApp</p></div></div>
-  <div class="bc-layout">
-    <div class="data-card" style="margin-bottom:0">
-      <div class="data-card-head"><i class="fas fa-pen-nib"></i> Tulis Pesan</div>
-      <div class="bc-body">
-        <div class="form-group"><label class="form-label">Template Pesan</label><textarea class="form-textarea" id="bc-msg" placeholder="Halo Kak! Ada promo spesial…" style="min-height:130px"></textarea><p class="form-hint">Kata "kak" akan diganti otomatis dengan nama pelanggan.</p></div>
-        <button type="button" class="btn btn-accent" style="width:100%" onclick="saveBcMsg()"><i class="fas fa-save"></i> Simpan Pesan</button>
-      </div>
-    </div>
-    <div class="data-card" style="margin-bottom:0">
-      <div class="data-card-head" style="justify-content:space-between">
-        <span><i class="fas fa-users"></i> Daftar Penerima</span>
-        <div class="search-wrap" style="width:160px"><i class="fas fa-search"></i><input class="search-input" id="bc-search" placeholder="Cari…" oninput="filterBc(this.value)" style="min-width:0"/></div>
-      </div>
-      <div class="bc-list-body" id="bc-list"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Pengaturan -->
-<div id="view-settings" class="view">
-  <div class="view-header"><div><h1 class="view-title">Pengaturan</h1><p class="view-sub">Kustomisasi tampilan dan operasional bisnis Anda</p></div></div>
-  <div class="settings-layout">
-    <div class="settings-nav">
-      <div class="settings-nav-item active" onclick="showSettingsSection('branding',this)"><i class="fas fa-palette"></i> Branding</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('appearance',this)"><i class="fas fa-wand-magic-sparkles"></i> Tampilan</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('operational',this)"><i class="fas fa-clock"></i> Operasional</div>
-      <div class="settings-nav-item" onclick="showSettingsSection('messages',this)"><i class="fab fa-whatsapp"></i> Pesan WA</div>
-    </div>
-    <div>
-      <!-- Branding -->
-      <div class="settings-section active" id="sec-branding">
-        <div class="settings-card">
-          <div class="settings-card-title"><i class="fas fa-store"></i> Identitas Bisnis</div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Nama Usaha</label><div class="input-wrap"><i class="fas fa-store"></i><input class="form-input" id="set-biz-name" placeholder="Nama bisnis Anda"/></div></div>
-            <div class="form-group"><label class="form-label">Tipe Usaha</label><div class="input-wrap"><i class="fas fa-tag"></i><select class="form-select" id="set-biz-type"><option value="restoran">🍽️ Restoran / Warung</option><option value="cafe">☕ Café / Coffee Shop</option><option value="wisata">🏞️ Tempat Wisata</option><option value="villa">🏡 Villa / Resort</option><option value="lainnya">✨ Lainnya</option></select></div></div>
+    <!-- Detail -->
+    <div id="view-detail" class="view">
+      <div class="detail-header">
+        <button type="button" class="back-btn" onclick="backToCal()">
+          <i class="fas fa-arrow-left"></i> Kalender
+        </button>
+        <div class="detail-title-wrap">
+          <h2 class="view-title" id="detail-title"></h2>
+        </div>
+        <div class="detail-actions">
+          <div class="search-wrap">
+            <i class="fas fa-search"></i>
+            <input class="search-input" id="detail-search" placeholder="Cari reservasi..."
+              oninput="filterDetail(this.value)" style="min-width:170px"/>
           </div>
-          <div class="form-group"><label class="form-label">Tagline / Slogan</label><div class="input-wrap"><i class="fas fa-quote-left"></i><input class="form-input" id="set-tagline" placeholder="Tempat makan terbaik di kota…"/></div></div>
-          <div class="form-group"><label class="form-label" style="margin-bottom:10px">Ikon Logo</label><div class="emoji-grid" id="emoji-grid"></div></div>
-          <button type="button" class="btn btn-accent" onclick="saveBranding()"><i class="fas fa-save"></i> Simpan Branding</button>
+          <button type="button" class="icon-btn" onclick="shareWA('day')" title="Share WhatsApp">
+            <i class="fab fa-whatsapp"></i>
+          </button>
+          <button type="button" class="icon-btn" onclick="showPrintOpts()" title="Cetak">
+            <i class="fas fa-print"></i>
+          </button>
+          <button type="button" class="btn btn-accent btn-sm" onclick="openAddRes()">
+            <i class="fas fa-plus"></i> Tambah
+          </button>
         </div>
       </div>
-      <!-- Tampilan -->
-      <div class="settings-section" id="sec-appearance">
-        <div class="settings-card">
-          <div class="settings-card-title"><i class="fas fa-moon"></i> Tema</div>
-          <div class="theme-grid">
-            <div class="theme-opt active" data-theme="dark" onclick="applyTheme('dark')"><div class="theme-preview tp-dark"><div class="tp-sidebar"></div><div class="tp-content"></div></div><div class="theme-label">Dark</div></div>
-            <div class="theme-opt" data-theme="light" onclick="applyTheme('light')"><div class="theme-preview tp-light"><div class="tp-sidebar"></div><div class="tp-content"></div></div><div class="theme-label">Light</div></div>
-            <div class="theme-opt" data-theme="relaxing" onclick="applyTheme('relaxing')"><div class="theme-preview tp-relax"><div class="tp-sidebar"></div><div class="tp-content"></div></div><div class="theme-label">Relaxing</div></div>
-          </div>
+      <div id="avail-bar" class="avail-bar"></div>
+      <div id="detail-list" class="res-grid"></div>
+    </div>
+
+    <!-- Menu & Paket -->
+    <div id="view-menus" class="view">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Menu &amp; Paket</h1>
+          <p class="view-sub">Kelola semua paket yang tersedia</p>
         </div>
-        <div class="settings-card"><div class="settings-card-title"><i class="fas fa-droplet"></i> Warna Aksen</div><div class="accent-grid" id="accent-grid"></div></div>
-        <div class="settings-card">
-          <div class="settings-card-title"><i class="fas fa-font"></i> Pasangan Font</div>
-          <div class="font-grid">
-            <div class="font-opt fo-elegant active" data-font="font-elegant" onclick="applyFont('font-elegant')"><div class="font-sample">Proserva</div><div class="font-name">Elegan · Fraunces + Geist</div></div>
-            <div class="font-opt fo-modern" data-font="font-modern" onclick="applyFont('font-modern')"><div class="font-sample">Proserva</div><div class="font-name">Modern · Satoshi + DM Sans</div></div>
-            <div class="font-opt fo-classic" data-font="font-classic" onclick="applyFont('font-classic')"><div class="font-sample">Proserva</div><div class="font-name">Klasik · Playfair + Lato</div></div>
-            <div class="font-opt fo-minimal" data-font="font-minimal" onclick="applyFont('font-minimal')"><div class="font-sample">Proserva</div><div class="font-name">Minimalis · Plus Jakarta Sans</div></div>
-          </div>
-        </div>
-        <div class="settings-card">
-          <div class="settings-card-title"><i class="fas fa-expand"></i> Kepadatan Tampilan</div>
-          <div class="density-grid">
-            <div class="density-opt" data-density="compact" onclick="applyDensity('compact')"><div class="density-icon">▪️</div><div class="density-label">Compact</div></div>
-            <div class="density-opt active" data-density="normal" onclick="applyDensity('normal')"><div class="density-icon">⬛</div><div class="density-label">Normal</div></div>
-            <div class="density-opt" data-density="spacious" onclick="applyDensity('spacious')"><div class="density-icon">🟦</div><div class="density-label">Spacious</div></div>
-          </div>
-        </div>
+        <button type="button" class="btn btn-accent" onclick="openMenuModal()">
+          <i class="fas fa-plus"></i> Tambah Menu
+        </button>
       </div>
-      <!-- Operasional -->
-      <div class="settings-section" id="sec-operational">
-        <div class="settings-card">
-          <div class="settings-card-title"><i class="fas fa-clock"></i> Jam &amp; Slot Operasional</div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Jam Buka Default</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="set-open" type="time" value="09:00"/></div></div>
-            <div class="form-group"><label class="form-label">Jam Tutup Default</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="set-close" type="time" value="21:00"/></div></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Interval Slot (menit)</label><div class="input-wrap"><i class="fas fa-stopwatch"></i><select class="form-select" id="set-slot-interval"><option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">60 menit</option></select></div></div>
-            <div class="form-group"><label class="form-label">Durasi Default Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half"></i><input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/></div></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause"></i><input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/></div><p class="form-hint">Jeda bersih-bersih antar tamu di lokasi yang sama.</p></div>
-            <div class="form-group"><label class="form-label">Minimal Booking Sebelum (jam)</label><div class="input-wrap"><i class="fas fa-bell"></i><input class="form-input" id="set-min-advance" type="number" min="0" value="2"/></div></div>
-          </div>
-          <button type="button" class="btn btn-accent" onclick="saveOperational()"><i class="fas fa-save"></i> Simpan Pengaturan</button>
-        </div>
-      </div>
-      <!-- Pesan WA -->
-      <div class="settings-section" id="sec-messages">
-        <div class="settings-card">
-          <div class="settings-card-title"><i class="fab fa-whatsapp"></i> Template Pesan WhatsApp</div>
-          <div class="form-group"><label class="form-label">Pesan Konfirmasi Reservasi</label><textarea class="form-textarea" id="set-wa-confirm" style="min-height:120px"></textarea><p class="form-hint">Variabel: {nama}, {tanggal}, {jam}, {tempat}, {jumlah}, {menu}, {dp}</p></div>
-          <div class="form-group"><label class="form-label">Pesan Terima Kasih (setelah kunjungan)</label><textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"></textarea></div>
-          <button type="button" class="btn btn-accent" onclick="saveMessages()"><i class="fas fa-save"></i> Simpan Template</button>
+      <div class="data-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
+            <tbody id="menus-tbody"></tbody>
+          </table>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
+    <!-- Lokasi -->
+    <div id="view-locations" class="view">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Manajemen Lokasi</h1>
+          <p class="view-sub">Atur tempat duduk, gazebo, atau area reservasi</p>
+        </div>
+        <button type="button" class="btn btn-accent" onclick="openLocModal()">
+          <i class="fas fa-plus"></i> Tambah Lokasi
+        </button>
+      </div>
+      <div class="data-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama</th><th>Kapasitas</th><th>Min. Tamu</th>
+                <th>Durasi Default</th><th>Buffer</th><th>Jam Operasional</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="locations-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
+    <!-- Pelanggan -->
+    <div id="view-customers" class="view">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Data Pelanggan</h1>
+          <p class="view-sub">Semua tamu yang pernah melakukan reservasi</p>
+        </div>
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input class="search-input" id="cust-search" placeholder="Cari nama atau HP..."
+            oninput="filterCustomers(this.value)"/>
+        </div>
+      </div>
+      <div class="data-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nama</th><th>Nomor HP</th><th>Total Kunjungan</th>
+                <th>Terakhir Visit</th><th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="customers-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analisis -->
+    <div id="view-analysis" class="view">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Analisis Bisnis</h1>
+          <p class="view-sub">Wawasan mendalam performa reservasi Anda</p>
+        </div>
+        <div style="display:flex;gap:7px">
+          <select class="form-select-sm" id="anl-year" onchange="runAnalysis()"></select>
+          <select class="form-select-sm" id="anl-month" style="width:155px" onchange="runAnalysis()"></select>
+        </div>
+      </div>
+      <div class="anl-stats" id="anl-stats"></div>
+      <div class="chart-card"><canvas id="anl-chart"></canvas></div>
+      <div class="insight-card" id="anl-insight"></div>
+      <div class="anl-bottom">
+        <div class="data-card">
+          <div class="data-card-head"><i class="fas fa-crown"></i> Pelanggan Setia</div>
+          <ul class="rank-list" id="anl-frequent"></ul>
+        </div>
+        <div class="data-card">
+          <div class="data-card-head"><i class="fas fa-fire"></i> Menu Terlaris</div>
+          <ul class="rank-list" id="anl-menus-rank"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Broadcast -->
+    <div id="view-broadcast" class="view">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Broadcast Promo</h1>
+          <p class="view-sub">Kirim pesan promosi ke pelanggan via WhatsApp</p>
+        </div>
+      </div>
+      <div class="bc-layout">
+        <div class="data-card" style="margin-bottom:0">
+          <div class="data-card-head"><i class="fas fa-pen-nib"></i> Tulis Pesan</div>
+          <div class="bc-body">
+            <div class="form-group">
+              <label class="form-label">Template Pesan</label>
+              <textarea class="form-textarea" id="bc-msg"
+                placeholder="Halo Kak! Ada promo spesial..." style="min-height:130px"></textarea>
+              <p class="form-hint">Kata "kak" akan diganti otomatis dengan nama pelanggan.</p>
+            </div>
+            <button type="button" class="btn btn-accent" style="width:100%" onclick="saveBcMsg()">
+              <i class="fas fa-save"></i> Simpan Pesan
+            </button>
+          </div>
+        </div>
+        <div class="data-card" style="margin-bottom:0">
+          <div class="data-card-head" style="justify-content:space-between">
+            <span><i class="fas fa-users"></i> Daftar Penerima</span>
+            <div class="search-wrap" style="width:160px">
+              <i class="fas fa-search"></i>
+              <input class="search-input" id="bc-search" placeholder="Cari..."
+                oninput="filterBc(this.value)" style="min-width:0"/>
+            </div>
+          </div>
+          <div class="bc-list-body" id="bc-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pengaturan -->
+    <div id="view-settings" class="view">
+      <div class="view-header">
+        <div>
+          <h1 class="view-title">Pengaturan</h1>
+          <p class="view-sub">Kustomisasi tampilan dan operasional bisnis Anda</p>
+        </div>
+      </div>
+      <div class="settings-layout">
+        <div class="settings-nav">
+          <div class="settings-nav-item active" onclick="showSettingsSection('branding',this)">
+            <i class="fas fa-palette"></i> Branding
+          </div>
+          <div class="settings-nav-item" onclick="showSettingsSection('appearance',this)">
+            <i class="fas fa-wand-magic-sparkles"></i> Tampilan
+          </div>
+          <div class="settings-nav-item" onclick="showSettingsSection('operational',this)">
+            <i class="fas fa-clock"></i> Operasional
+          </div>
+          <div class="settings-nav-item" onclick="showSettingsSection('messages',this)">
+            <i class="fab fa-whatsapp"></i> Pesan WA
+          </div>
+        </div>
+        <div>
+          <!-- Branding -->
+          <div class="settings-section active" id="sec-branding">
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-store"></i> Identitas Bisnis</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Nama Usaha</label>
+                  <div class="input-wrap"><i class="fas fa-store"></i>
+                    <input class="form-input" id="set-biz-name" placeholder="Nama bisnis Anda"/>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tipe Usaha</label>
+                  <div class="input-wrap"><i class="fas fa-tag"></i>
+                    <select class="form-select" id="set-biz-type">
+                      <option value="restoran">🍽️ Restoran / Warung</option>
+                      <option value="cafe">☕ Café / Coffee Shop</option>
+                      <option value="wisata">🏞️ Tempat Wisata</option>
+                      <option value="villa">🏡 Villa / Resort</option>
+                      <option value="lainnya">✨ Lainnya</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tagline / Slogan</label>
+                <div class="input-wrap"><i class="fas fa-quote-left"></i>
+                  <input class="form-input" id="set-tagline" placeholder="Tempat makan terbaik di kota..."/>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" style="margin-bottom:10px">Ikon Logo</label>
+                <div class="emoji-grid" id="emoji-grid"></div>
+              </div>
+              <button type="button" class="btn btn-accent" onclick="saveBranding()">
+                <i class="fas fa-save"></i> Simpan Branding
+              </button>
+            </div>
+          </div>
+
+          <!-- Tampilan -->
+          <div class="settings-section" id="sec-appearance">
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-moon"></i> Tema</div>
+              <div class="theme-grid">
+                <div class="theme-opt active" data-theme="dark" onclick="applyTheme('dark')">
+                  <div class="theme-preview tp-dark"><div class="tp-sidebar"></div><div class="tp-content"></div></div>
+                  <div class="theme-label">Dark</div>
+                </div>
+                <div class="theme-opt" data-theme="light" onclick="applyTheme('light')">
+                  <div class="theme-preview tp-light"><div class="tp-sidebar"></div><div class="tp-content"></div></div>
+                  <div class="theme-label">Light</div>
+                </div>
+                <div class="theme-opt" data-theme="relaxing" onclick="applyTheme('relaxing')">
+                  <div class="theme-preview tp-relax"><div class="tp-sidebar"></div><div class="tp-content"></div></div>
+                  <div class="theme-label">Relaxing</div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-droplet"></i> Warna Aksen</div>
+              <div class="accent-grid" id="accent-grid"></div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-font"></i> Pasangan Font</div>
+              <div class="font-grid">
+                <div class="font-opt fo-elegant active" data-font="font-elegant" onclick="applyFont('font-elegant')">
+                  <div class="font-sample">Proserva</div>
+                  <div class="font-name">Elegan · Fraunces + Geist</div>
+                </div>
+                <div class="font-opt fo-modern" data-font="font-modern" onclick="applyFont('font-modern')">
+                  <div class="font-sample">Proserva</div>
+                  <div class="font-name">Modern · Satoshi + DM Sans</div>
+                </div>
+                <div class="font-opt fo-classic" data-font="font-classic" onclick="applyFont('font-classic')">
+                  <div class="font-sample">Proserva</div>
+                  <div class="font-name">Klasik · Playfair + Lato</div>
+                </div>
+                <div class="font-opt fo-minimal" data-font="font-minimal" onclick="applyFont('font-minimal')">
+                  <div class="font-sample">Proserva</div>
+                  <div class="font-name">Minimalis · Plus Jakarta Sans</div>
+                </div>
+              </div>
+            </div>
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-expand"></i> Kepadatan Tampilan</div>
+              <div class="density-grid">
+                <div class="density-opt" data-density="compact" onclick="applyDensity('compact')">
+                  <div class="density-icon">▪️</div><div class="density-label">Compact</div>
+                </div>
+                <div class="density-opt active" data-density="normal" onclick="applyDensity('normal')">
+                  <div class="density-icon">⬛</div><div class="density-label">Normal</div>
+                </div>
+                <div class="density-opt" data-density="spacious" onclick="applyDensity('spacious')">
+                  <div class="density-icon">🟦</div><div class="density-label">Spacious</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Operasional -->
+          <div class="settings-section" id="sec-operational">
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-clock"></i> Jam &amp; Slot Operasional</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Jam Buka Default</label>
+                  <div class="input-wrap"><i class="far fa-clock"></i>
+                    <input class="form-input" id="set-open" type="time" value="09:00"/>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Jam Tutup Default</label>
+                  <div class="input-wrap"><i class="far fa-clock"></i>
+                    <input class="form-input" id="set-close" type="time" value="21:00"/>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Interval Slot (menit)</label>
+                  <div class="input-wrap"><i class="fas fa-stopwatch"></i>
+                    <select class="form-select" id="set-slot-interval">
+                      <option value="15">15 menit</option>
+                      <option value="30" selected>30 menit</option>
+                      <option value="60">60 menit</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Durasi Default Reservasi (menit)</label>
+                  <div class="input-wrap"><i class="fas fa-hourglass-half"></i>
+                    <input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Buffer Antar Reservasi (menit)</label>
+                  <div class="input-wrap"><i class="fas fa-pause"></i>
+                    <input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/>
+                  </div>
+                  <p class="form-hint">Jeda bersih-bersih antar tamu di lokasi yang sama.</p>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Minimal Booking Sebelum (jam)</label>
+                  <div class="input-wrap"><i class="fas fa-bell"></i>
+                    <input class="form-input" id="set-min-advance" type="number" min="0" value="2"/>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-accent" onclick="saveOperational()">
+                <i class="fas fa-save"></i> Simpan Pengaturan
+              </button>
+            </div>
+          </div>
+
+          <!-- Pesan WA -->
+          <div class="settings-section" id="sec-messages">
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fab fa-whatsapp"></i> Template Pesan WhatsApp</div>
+              <div class="form-group">
+                <label class="form-label">Pesan Konfirmasi Reservasi</label>
+                <textarea class="form-textarea" id="set-wa-confirm" style="min-height:120px"></textarea>
+                <p class="form-hint">Variabel: {nama}, {tanggal}, {jam}, {tempat}, {jumlah}, {menu}, {dp}</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pesan Terima Kasih (setelah kunjungan)</label>
+                <textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"></textarea>
+              </div>
+              <button type="button" class="btn btn-accent" onclick="saveMessages()">
+                <i class="fas fa-save"></i> Simpan Template
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
 <!-- SYNC INDICATOR -->
-
 <div id="sync-indicator"><i class="fas fa-cloud-upload-alt"></i> Tersimpan</div>
 
 <!-- ══════════════════════════════
@@ -739,411 +1133,482 @@ setTimeout(()=>{
      ══════════════════════════════ -->
 
 <!-- Modal Reservasi -->
-
 <div class="modal-overlay" id="modal-res">
   <div class="modal modal-lg">
-    <div class="modal-head"><h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3><button type="button" class="modal-close" onclick="closeModal('modal-res')"><i class="fas fa-times"></i></button></div>
+    <div class="modal-head">
+      <h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-res')"><i class="fas fa-times"></i></button>
+    </div>
     <div class="modal-body">
       <input type="hidden" id="res-edit-id"/>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Tanggal <span class="req">*</span></label>
           <div style="display:flex;gap:6px;align-items:flex-end">
-            <div class="input-wrap" style="flex:1"><i class="fas fa-calendar-alt"></i><input class="form-input" id="res-date" type="date" onchange="onResFieldChange()"/></div>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="val('res-date',todayStr());onResFieldChange()">Hari Ini</button>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="val('res-date',tomorrowStr());onResFieldChange()">Besok</button>
+            <div class="input-wrap" style="flex:1">
+              <i class="fas fa-calendar-alt"></i>
+              <input class="form-input" id="res-date" type="date" onchange="onResFieldChange()"/>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm"
+              onclick="val('res-date',todayStr());onResFieldChange()">Hari Ini</button>
+            <button type="button" class="btn btn-ghost btn-sm"
+              onclick="val('res-date',tomorrowStr());onResFieldChange()">Besok</button>
           </div>
           <div class="form-error" id="err-date"></div>
         </div>
         <div class="form-group"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Nama Tamu <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div><div class="form-error" id="err-nama"></div></div>
-        <div class="form-group"><label class="form-label">Nomor HP</label><div class="input-wrap"><i class="fas fa-phone"></i><input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/></div><div class="form-error" id="err-hp"></div></div>
+        <div class="form-group">
+          <label class="form-label">Nama Tamu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-user"></i>
+            <input class="form-input" id="res-nama" placeholder="Nama lengkap"/>
+          </div>
+          <div class="form-error" id="err-nama"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nomor HP</label>
+          <div class="input-wrap"><i class="fas fa-phone"></i>
+            <input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/>
+          </div>
+          <div class="form-error" id="err-hp"></div>
+        </div>
       </div>
       <div class="form-row form-row-3">
-        <div class="form-group"><label class="form-label">Jam <span class="req">*</span></label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="res-jam" type="time" oninput="onResFieldChange()"/></div><div class="form-error" id="err-jam"></div></div>
-        <div class="form-group"><label class="form-label">Jumlah Tamu <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10" oninput="onResFieldChange()"/></div><div class="form-error" id="err-jumlah"></div></div>
-        <div class="form-group"><label class="form-label">Lokasi <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-map-pin"></i><select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select></div><div class="form-error" id="err-tempat"></div><div class="form-hint" id="res-cap-hint"></div></div>
+        <div class="form-group">
+          <label class="form-label">Jam <span class="req">*</span></label>
+          <div class="input-wrap"><i class="far fa-clock"></i>
+            <input class="form-input" id="res-jam" type="time" oninput="onResFieldChange()"/>
+          </div>
+          <div class="form-error" id="err-jam"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jumlah Tamu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-users"></i>
+            <input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10"
+              oninput="onResFieldChange()"/>
+          </div>
+          <div class="form-error" id="err-jumlah"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lokasi <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-map-pin"></i>
+            <select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select>
+          </div>
+          <div class="form-error" id="err-tempat"></div>
+          <div class="form-hint" id="res-cap-hint"></div>
+        </div>
       </div>
       <div class="conflict-alert" id="conflict-alert"></div>
-      <div class="slot-suggester" id="slot-suggester"><div class="slot-title"><i class="fas fa-lightbulb" style="color:var(--ac);margin-right:5px"></i> Slot &amp; Lokasi Tersedia</div><div id="slot-content"></div></div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Durasi Reservasi (menit)</label><div class="dur-wrap"><div class="input-wrap dur-input"><i class="fas fa-hourglass-half"></i><input class="form-input" id="res-duration" type="number" min="30" step="15" placeholder="Default lokasi"/></div><span class="dur-unit">menit</span></div><p class="form-hint" id="res-dur-hint"></p></div>
-        <div class="form-group"><label class="form-label">Status Reservasi</label><div class="input-wrap"><i class="fas fa-circle-dot"></i><select class="form-select" id="res-status"><option value="pending">⏳ Pending</option><option value="confirmed">✅ Confirmed</option><option value="selesai">🎉 Selesai</option><option value="batal">❌ Batal</option></select></div></div>
+      <div class="slot-suggester" id="slot-suggester">
+        <div class="slot-title"><i class="fas fa-lightbulb" style="color:var(--ac);margin-right:5px"></i> Slot &amp; Lokasi Tersedia</div>
+        <div id="slot-content"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">DP (Rp)</label><div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div></div>
-        <div class="form-group"><label class="form-label">Metode Pembayaran DP</label><div class="input-wrap"><i class="fas fa-credit-card"></i><select class="form-select" id="res-tipe-dp"><option value="">- Tanpa DP -</option><option>Cash</option><option>QRIS</option><option>Transfer BCA</option><option>Transfer Mandiri</option><option>Transfer BRI</option><option>Transfer BNI</option></select></div></div>
+        <div class="form-group">
+          <label class="form-label">Durasi Reservasi (menit)</label>
+          <div class="dur-wrap">
+            <div class="input-wrap dur-input"><i class="fas fa-hourglass-half"></i>
+              <input class="form-input" id="res-duration" type="number" min="30" step="15" placeholder="Default lokasi"/>
+            </div>
+            <span class="dur-unit">menit</span>
+          </div>
+          <p class="form-hint" id="res-dur-hint"></p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status Reservasi</label>
+          <div class="input-wrap"><i class="fas fa-circle-dot"></i>
+            <select class="form-select" id="res-status">
+              <option value="pending">⏳ Pending</option>
+              <option value="confirmed">✅ Confirmed</option>
+              <option value="selesai">🎉 Selesai</option>
+              <option value="batal">❌ Batal</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="form-group"><label class="form-label">Menu &amp; Paket Dipesan</label><div class="form-error" id="err-menus"></div><div id="res-menus-container" class="menus-container"></div><button type="button" class="add-menu-btn" onclick="addMenuRow('res-menus-container')"><i class="fas fa-plus"></i> Tambah Paket</button></div>
-      <div class="form-group"><label class="form-label">Catatan / Request Tambahan</label><textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan…"></textarea></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">DP (Rp)</label>
+          <div class="input-wrap"><span class="ip">Rp</span>
+            <input class="form-input" id="res-dp" type="number" min="0" value="0"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Metode Pembayaran DP</label>
+          <div class="input-wrap"><i class="fas fa-credit-card"></i>
+            <select class="form-select" id="res-tipe-dp">
+              <option value="">- Tanpa DP -</option>
+              <option>Cash</option>
+              <option>QRIS</option>
+              <option>Transfer BCA</option>
+              <option>Transfer Mandiri</option>
+              <option>Transfer BRI</option>
+              <option>Transfer BNI</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Menu &amp; Paket Dipesan</label>
+        <div class="form-error" id="err-menus"></div>
+        <div id="res-menus-container" class="menus-container"></div>
+        <button type="button" class="add-menu-btn" onclick="addMenuRow('res-menus-container')">
+          <i class="fas fa-plus"></i> Tambah Paket
+        </button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catatan / Request Tambahan</label>
+        <textarea class="form-textarea" id="res-tambahan"
+          placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan..."></textarea>
+      </div>
     </div>
-    <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-res')">Batal</button><button type="button" class="btn btn-accent" id="btn-save-res" onclick="saveRes()"><i class="fas fa-save"></i> Simpan</button></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-res')">Batal</button>
+      <button type="button" class="btn btn-accent" id="btn-save-res" onclick="saveRes()">
+        <i class="fas fa-save"></i> Simpan
+      </button>
+    </div>
   </div>
 </div>
 
 <!-- Modal Menu -->
-
 <div class="modal-overlay" id="modal-menu">
-  <div class="modal"><div class="modal-head"><h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3><button type="button" class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button></div>
-  <div class="modal-body"><input type="hidden" id="menu-edit-id"/>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Nama Menu <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-bowl-food"></i><input class="form-input" id="menu-name" placeholder="Paket Keluarga"/></div></div>
-      <div class="form-group"><label class="form-label">Harga (Rp)</label><div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div></div>
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button>
     </div>
-    <div class="form-group"><label class="form-label">Detail Menu</label><textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea><p class="form-hint">Pisahkan dengan koma.</p></div>
+    <div class="modal-body">
+      <input type="hidden" id="menu-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Menu <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-bowl-food"></i>
+            <input class="form-input" id="menu-name" placeholder="Paket Keluarga"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Harga (Rp)</label>
+          <div class="input-wrap"><span class="ip">Rp</span>
+            <input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Detail Menu</label>
+        <textarea class="form-textarea" id="menu-details"
+          placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
+        <p class="form-hint">Pisahkan dengan koma.</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-menu')">Batal</button>
+      <button type="button" class="btn btn-accent" onclick="saveMenu()">
+        <i class="fas fa-save"></i> Simpan
+      </button>
+    </div>
   </div>
-  <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-menu')">Batal</button><button type="button" class="btn btn-accent" onclick="saveMenu()"><i class="fas fa-save"></i> Simpan</button></div></div>
 </div>
 
 <!-- Modal Lokasi -->
-
 <div class="modal-overlay" id="modal-loc">
-  <div class="modal modal-lg"><div class="modal-head"><h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3><button type="button" class="modal-close" onclick="closeModal('modal-loc')"><i class="fas fa-times"></i></button></div>
-  <div class="modal-body"><input type="hidden" id="loc-edit-id"/>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Nama Lokasi <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-map-pin"></i><input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room…"/></div></div>
-      <div class="form-group"><label class="form-label">Kapasitas Maksimum <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div></div>
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-loc')"><i class="fas fa-times"></i></button>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Minimum Tamu</label><div class="input-wrap"><i class="fas fa-user-check"></i><input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/></div></div>
-      <div class="form-group"><label class="form-label">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half"></i><input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/></div><p class="form-hint">Kosongkan untuk menggunakan pengaturan global.</p></div>
+    <div class="modal-body">
+      <input type="hidden" id="loc-edit-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nama Lokasi <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-map-pin"></i>
+            <input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room..."/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kapasitas Maksimum <span class="req">*</span></label>
+          <div class="input-wrap"><i class="fas fa-users"></i>
+            <input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Minimum Tamu</label>
+          <div class="input-wrap"><i class="fas fa-user-check"></i>
+            <input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Durasi Default (menit)</label>
+          <div class="input-wrap"><i class="fas fa-hourglass-half"></i>
+            <input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/>
+          </div>
+          <p class="form-hint">Kosongkan untuk menggunakan pengaturan global.</p>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Buffer Antar Reservasi (menit)</label>
+          <div class="input-wrap"><i class="fas fa-pause"></i>
+            <input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jam Buka Lokasi Ini</label>
+          <div class="input-wrap"><i class="far fa-clock"></i>
+            <input class="form-input" id="loc-open" type="time"/>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Jam Tutup Lokasi Ini</label>
+          <div class="input-wrap"><i class="far fa-clock"></i>
+            <input class="form-input" id="loc-close" type="time"/>
+          </div>
+        </div>
+        <div></div>
+      </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause"></i><input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/></div></div>
-      <div class="form-group"><label class="form-label">Jam Buka Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="loc-open" type="time"/></div></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Jam Tutup Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="loc-close" type="time"/></div></div>
-      <div></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-loc')">Batal</button>
+      <button type="button" class="btn btn-accent" onclick="saveLoc()">
+        <i class="fas fa-save"></i> Simpan
+      </button>
     </div>
   </div>
-  <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-loc')">Batal</button><button type="button" class="btn btn-accent" onclick="saveLoc()"><i class="fas fa-save"></i> Simpan</button></div></div>
 </div>
 
 <!-- Modal Print -->
-
 <div class="modal-overlay" id="modal-print">
-  <div class="modal"><div class="modal-head"><h3><i class="fas fa-print"></i> Opsi Cetak</h3><button type="button" class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button></div>
-  <div class="modal-body"><p class="form-hint" style="margin-bottom:13px">Pilih kolom yang ingin ditampilkan:</p>
-    <div class="print-opts">
-      <label class="print-opt"><input type="checkbox" id="po-menu" checked/> <i class="fas fa-utensils"></i> Detail Menu</label>
-      <label class="print-opt"><input type="checkbox" id="po-hp" checked/> <i class="fas fa-phone"></i> Nomor HP</label>
-      <label class="print-opt"><input type="checkbox" id="po-dp" checked/> <i class="fas fa-money-bill"></i> Info DP</label>
-      <label class="print-opt"><input type="checkbox" id="po-note" checked/> <i class="fas fa-comment-dots"></i> Catatan</label>
+  <div class="modal">
+    <div class="modal-head">
+      <h3><i class="fas fa-print"></i> Opsi Cetak</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="form-hint" style="margin-bottom:13px">Pilih kolom yang ingin ditampilkan:</p>
+      <div class="print-opts">
+        <label class="print-opt"><input type="checkbox" id="po-menu" checked/> <i class="fas fa-utensils"></i> Detail Menu</label>
+        <label class="print-opt"><input type="checkbox" id="po-hp" checked/> <i class="fas fa-phone"></i> Nomor HP</label>
+        <label class="print-opt"><input type="checkbox" id="po-dp" checked/> <i class="fas fa-money-bill"></i> Info DP</label>
+        <label class="print-opt"><input type="checkbox" id="po-note" checked/> <i class="fas fa-comment-dots"></i> Catatan</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-print')">Batal</button>
+      <button type="button" class="btn btn-accent" onclick="doPrint()">
+        <i class="fas fa-print"></i> Cetak
+      </button>
     </div>
   </div>
-  <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-print')">Batal</button><button type="button" class="btn btn-accent" onclick="doPrint()"><i class="fas fa-print"></i> Cetak</button></div></div>
 </div>
 
 <!-- Modal Export -->
-
 <div class="modal-overlay" id="modal-export">
-  <div class="modal"><div class="modal-head"><h3><i class="fas fa-upload"></i> Export &amp; Backup</h3><button type="button" class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button></div>
-  <div class="modal-body">
-    <div class="form-group"><label class="form-label">Kode Backup</label><textarea class="form-textarea code-area" id="export-out" readonly placeholder="Klik Export untuk generate kode…"></textarea><p class="form-hint">Salin kode ini untuk backup atau pindah device.</p></div>
-    <div class="modal-divider"><span>atau import data</span></div>
-    <div class="form-group"><label class="form-label">Import dari Backup</label><textarea class="form-textarea code-area" id="import-in" placeholder="Tempel kode backup di sini…"></textarea></div>
+  <div class="modal">
+    <div class="modal-head">
+      <h3><i class="fas fa-upload"></i> Export &amp; Backup</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Kode Backup</label>
+        <textarea class="form-textarea code-area" id="export-out" readonly
+          placeholder="Klik Export untuk generate kode..."></textarea>
+        <p class="form-hint">Salin kode ini untuk backup atau pindah device.</p>
+      </div>
+      <div class="modal-divider"><span>atau import data</span></div>
+      <div class="form-group">
+        <label class="form-label">Import dari Backup</label>
+        <textarea class="form-textarea code-area" id="import-in"
+          placeholder="Tempel kode backup di sini..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
+      <button type="button" class="btn btn-secondary" onclick="doImport()">
+        <i class="fas fa-download"></i> Import
+      </button>
+      <button type="button" class="btn btn-accent" onclick="copyExport()">
+        <i class="fas fa-copy"></i> Salin Kode
+      </button>
+    </div>
   </div>
-  <div class="modal-footer">
-    <button type="button" class="btn btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
-    <button type="button" class="btn btn-secondary" onclick="doImport()"><i class="fas fa-download"></i> Import</button>
-    <button type="button" class="btn btn-accent" onclick="copyExport()"><i class="fas fa-copy"></i> Salin Kode</button>
-  </div></div>
 </div>
 
-
+<!-- UI utilities -->
 <div id="toast-container" aria-live="polite"></div>
 <div id="global-loader" style="display:none"></div>
 <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 
+<!-- ─────────────────────────────────────────
+     BOOT GUARD (inline, before app.js)
+     FIX #6 : showScreen pakai classList agar
+              konsisten dengan CSS .screen.active
+     FIX #7 : Konsolidasi menjadi 1x DOMContentLoaded
+     FIX #8 : Update aria-hidden di showScreen
+     FIX #5 : Queue untuk _onAuthReady jika app.js
+              belum selesai saat Firebase callback
+     ───────────────────────────────────────── -->
 <script>
-
-// BOM guard
-
-window.addEventListener('DOMContentLoaded',()=>{
-
-  const loading =
-    document.getElementById('screen-loading');
-
-  if(loading){
-
-    setTimeout(()=>{
-      loading.classList.remove('active');
-      loading.style.pointerEvents='none';
-      loading.style.opacity='0';
-    },300);
-
-  }
-
-});
-
-</script>
-
-<script>
-window.addEventListener('DOMContentLoaded',()=>{
-  document.documentElement.classList.add('dom-ready');
-});
-</script>
-<script>
-
-/* ═══════════════════════════════════════
-   PROSERVA SAFE BOOT GUARD
-   Tidak menghapus fungsi existing
-   Hanya menambah fallback protection
-   ═══════════════════════════════════════ */
-
-(function(){
-
+(function () {
   'use strict';
 
-  /* ─────────────────────────────────────
-     SAFE GLOBALS
-     ───────────────────────────────────── */
-
-  window.ACCENTS = window.ACCENTS || {
-    orange : {label:'Orange'},
-    blue   : {label:'Blue'},
-    emerald: {label:'Emerald'},
-    violet : {label:'Violet'}
-  };
-
-  window.safeEntries = function(obj){
-    try{
-      return Object.entries(obj || {});
-    }catch(e){
-      console.error('safeEntries error:', e);
-      return [];
-    }
-  };
-
-  /* ─────────────────────────────────────
-     SAFE SCREEN HANDLER
-     ───────────────────────────────────── */
-
-  if(typeof window.showScreen !== 'function'){
-
-    window.showScreen = function(name){
-
-      try{
-
-        document
-          .querySelectorAll('.screen')
-          .forEach(el=>{
-            el.classList.remove('active');
-            el.setAttribute('aria-hidden','true');
-          });
-
-        const target =
-          document.getElementById('screen-' + name);
-
-        if(target){
-          target.classList.add('active');
-          target.setAttribute('aria-hidden','false');
-        }
-
-      }catch(err){
-        console.error('showScreen error:', err);
-      }
-    };
-
-  }
-
-  /* ─────────────────────────────────────
-     SAFE TOAST
-     ───────────────────────────────────── */
-
-  if(typeof window.toast !== 'function'){
-
-    window.toast = function(msg,type){
-
-      console.log('[TOAST]',type || 'info',msg);
-
-      try{
-
-        const box =
-          document.getElementById('toast-container');
-
-        if(!box) return;
-
-        const el =
-          document.createElement('div');
-
-        el.className='toast toast-' + (type || 'info');
-
-        el.style.cssText =
-          'background:#111827;color:#fff;padding:12px 14px;border-radius:12px;margin-top:10px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.2)';
-
-        el.textContent = msg;
-
-        box.appendChild(el);
-
-        setTimeout(()=>{
-          if(el.parentNode){
-            el.parentNode.removeChild(el);
-          }
-        },3500);
-
-      }catch(e){
-        console.error(e);
-      }
-    };
-
-  }
-
-  /* ─────────────────────────────────────
-     SAFE BUILD ACCENT GRID
-     Fix error:
-     Cannot convert undefined or null to object
-     ───────────────────────────────────── */
-
-  const __oldBuildAccentGrid =
-    window.buildAccentGrid;
-
-  window.buildAccentGrid = function(){
-
-    try{
-
-      const ACC =
-        window.ACCENTS || {};
-
-      if(
-        !ACC ||
-        typeof ACC !== 'object'
-      ){
-        console.warn('ACCENTS invalid');
-        return;
-      }
-
-      const grid =
-        document.getElementById('accent-grid');
-
-      if(!grid){
-        console.warn('accent-grid missing');
-        return;
-      }
-
-      if(typeof __oldBuildAccentGrid === 'function'){
-
-        return __oldBuildAccentGrid();
-
-      }
-
-      grid.innerHTML='';
-
-      safeEntries(ACC).forEach(([k,v])=>{
-
-        const div =
-          document.createElement('div');
-
-        div.className='accent-opt';
-
-        div.dataset.accent=k;
-
-        div.innerHTML=
-          '<span>'+k+'</span>';
-
-        grid.appendChild(div);
-
+  /* ──────────────────────────────────────────
+     FIX #6 + #8: showScreen berbasis classList
+     Konsisten dengan CSS: .screen.active { display:flex }
+     Sebelumnya app.js pakai style.display inline
+     yang bypass CSS class system.
+     ────────────────────────────────────────── */
+  window.showScreen = function (name) {
+    try {
+      document.querySelectorAll('.screen').forEach(function (el) {
+        el.classList.remove('active');
+        el.setAttribute('aria-hidden', 'true');  /* FIX #8: update aria */
       });
 
-    }catch(err){
+      var target = document.getElementById('screen-' + name);
+      if (target) {
+        target.classList.add('active');
+        target.setAttribute('aria-hidden', 'false'); /* FIX #8 */
+      }
 
-      console.error(
-        'buildAccentGrid fatal:',
-        err
-      );
-
+      /* app-shell ditangani terpisah via style.display (tetap) */
+      var shell = document.getElementById('app-shell');
+      if (name === 'app') {
+        if (shell) {
+          shell.style.display = 'block';
+          shell.setAttribute('aria-hidden', 'false');
+        }
+        document.body.style.overflow = '';
+      } else {
+        if (shell) {
+          shell.style.display = 'none';
+          shell.setAttribute('aria-hidden', 'true');
+        }
+        document.body.style.overflow = (name === 'landing' || name === 'wizard') ? 'auto' : 'hidden';
+      }
+    } catch (err) {
+      console.error('showScreen error:', err);
     }
-
   };
 
-  /* ─────────────────────────────────────
-     SAFE APP READY
-     ───────────────────────────────────── */
+  /* ──────────────────────────────────────────
+     FIX #5: Queue _onAuthReady
+     Jika Firebase onAuthStateChanged terpanggil
+     sebelum app.js selesai load, simpan user
+     dan panggil _onAuthReady saat app-js-ready.
+     ────────────────────────────────────────── */
+  window._onAuthReady = function (user) {
+    /* Cek apakah app.js sudah mendefinisikan ulang _onAuthReady */
+    /* Jika belum (kita masih di versi ini), queue */
+    window._pendingAuthUser = user;
+    /* app.js akan mengambil _pendingAuthUser saat boot */
+  };
 
-  window.addEventListener('DOMContentLoaded',()=>{
+  /* ──────────────────────────────────────────
+     FIX #7: Konsolidasi - SATU DOMContentLoaded
+     Sebelumnya ada 3 handler terpisah:
+     1. hide loading (inline <script>)
+     2. add dom-ready class
+     3. safe boot guard fallback landing
+     Sekarang digabung menjadi satu.
+     ────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', function () {
+    document.documentElement.classList.add('dom-ready', 'js-ready');
 
-    try{
-
-      const loading =
-        document.getElementById('screen-loading');
-
-      setTimeout(()=>{
-
-        if(loading){
-
-          loading.classList.remove('active');
-
-          loading.style.pointerEvents='none';
-          loading.style.opacity='0';
-
-        }
-
-      },600);
-
-      /* fallback landing */
-
-      setTimeout(()=>{
-
-        const appShell =
-          document.getElementById('app-shell');
-
-        const landing =
-          document.getElementById('screen-landing');
-
-        const wizard =
-          document.getElementById('screen-wizard');
-
-        const auth =
-          document.getElementById('screen-auth');
-
-        const isVisible =
-          (appShell && appShell.style.display !== 'none') ||
-          (wizard && wizard.classList.contains('active')) ||
-          (auth && auth.classList.contains('active'));
-
-        if(!isVisible && landing){
-
-          showScreen('landing');
-
-        }
-
-      },1200);
-
-    }catch(e){
-
-      console.error(
-        'DOMContentLoaded guard error:',
-        e
-      );
-
+    /* Sembunyikan loading screen setelah DOM siap */
+    /* app.js boot() juga punya fallback 8000ms - biarkan yang handle detail */
+    var loading = document.getElementById('screen-loading');
+    if (loading) {
+      /* Beri sedikit delay agar Firebase module punya waktu init */
+      setTimeout(function () {
+        loading.classList.remove('active');
+        loading.setAttribute('aria-hidden', 'true');
+        loading.style.pointerEvents = 'none';
+        loading.style.opacity = '0';
+      }, 300);
     }
 
+    /* Fallback: jika setelah 1.5 detik tidak ada screen yang aktif, tampilkan landing */
+    setTimeout(function () {
+      var shell   = document.getElementById('app-shell');
+      var wizard  = document.getElementById('screen-wizard');
+      var auth    = document.getElementById('screen-auth');
+
+      var appVisible    = shell   && shell.style.display   !== 'none' && shell.style.display !== '';
+      var wizardActive  = wizard  && wizard.classList.contains('active');
+      var authActive    = auth    && auth.classList.contains('active');
+
+      if (!appVisible && !wizardActive && !authActive) {
+        /* Tidak ada screen aktif - tampilkan landing sebagai fallback */
+        if (typeof window._FB_READY === 'undefined' && typeof window._FB_UNCONFIGURED === 'undefined') {
+          window.showScreen('landing');
+        }
+      }
+    }, 1500);
   });
 
-  /* ─────────────────────────────────────
-     SAFE APP.JS LOAD CHECK
-     ───────────────────────────────────── */
-
-  setTimeout(()=>{
-
-    if(
-      typeof window.buildAccentGrid !== 'function'
-    ){
-      console.warn(
-        'app.js not fully loaded'
-      );
-    }
-
-  },3000);
+  /* Toast fallback minimal sebelum app.js load */
+  window.toast = window.toast || function (msg, type) {
+    console.log('[TOAST]', type || 'info', msg);
+    var box = document.getElementById('toast-container');
+    if (!box) return;
+    var el = document.createElement('div');
+    el.className = 'toast toast-' + (type || 'info');
+    el.style.cssText = 'background:#111827;color:#fff;padding:12px 14px;border-radius:12px;margin-top:10px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.2)';
+    el.textContent = msg;
+    box.appendChild(el);
+    setTimeout(function () { el.parentNode && el.parentNode.removeChild(el); }, 3500);
+  };
 
 })();
 </script>
-<script defer src="./app.js?v=5.2" charset="utf-8"></script>
 
+<!-- app.js - defer: load setelah HTML selesai diparse -->
+<script defer src="./app.js?v=5.3" charset="utf-8"></script>
+
+<!-- ─────────────────────────────────────────
+     APP.JS READY BRIDGE
+     FIX #5 (lanjutan): Setelah app.js selesai
+     load dan mendefinisikan _onAuthReady yang
+     sesungguhnya, panggil dengan user yang
+     sudah dipending dari Firebase callback.
+     Script ini dieksekusi setelah app.js
+     karena <script defer> dieksekusi berurutan.
+     ───────────────────────────────────────── -->
+<script defer>
+(function () {
+  /*
+   * Saat script ini dieksekusi, app.js sudah selesai load
+   * (karena defer scripts dieksekusi secara berurutan).
+   * Cek apakah ada pending auth user yang menunggu.
+   */
+  if (typeof window._pendingAuthUser !== 'undefined') {
+    var user = window._pendingAuthUser;
+    delete window._pendingAuthUser;
+
+    /*
+     * app.js mendefinisikan ulang window._onAuthReady.
+     * Panggil versi app.js (bukan versi boot guard di atas).
+     */
+    if (typeof window._onAuthReady === 'function') {
+      window._onAuthReady(user);
+    }
+  }
+
+  /* Tandai app sebagai siap - untuk guard onclick wizard */
+  window._appReady = true;
+
+  /* Dispatch event untuk komponen lain yang mungkin menunggu */
+  document.dispatchEvent(new Event('app-js-ready'));
+})();
+</script>
 
 </body>
 </html>
