@@ -280,7 +280,12 @@ async function doSignOut() {
     try { await window._FB.signOut(window._FB.auth); } catch (e) { console.warn(e); }
   }
   _UID = '';
-  S.res = {}; S.menus = {}; S.locs = {};
+
+window._pendingAuthUser = null;
+
+S.res = {};
+S.menus = {};
+S.locs = {};
   showScreen('landing');
   showToast('Berhasil keluar. Sampai jumpa! 👋', 'info');
 }
@@ -364,20 +369,24 @@ window._onAuthReady = async function (user) {
    */
   if (avatarEl) {
 
-    if (user.photoURL) {
+  if (user.photoURL) {
 
-      avatarEl.innerHTML =
-        '<img ' +
-        'src="' + esc(user.photoURL) + '" ' +
-        'class="sidebar-user-avatar" ' +
-        'alt="Avatar">';
+    avatarEl.innerHTML = '';
 
-    } else {
+    var img = document.createElement('img');
 
-      avatarEl.textContent =
-        initials(user.displayName || '?');
-    }
+    img.src = user.photoURL;
+    img.className = 'sidebar-user-avatar';
+    img.alt = 'Avatar';
+
+    avatarEl.appendChild(img);
+
+  } else {
+
+    avatarEl.textContent =
+      initials(user.displayName || '?');
   }
+}
 
   /* Load semua data */
   await loadStateFS();
