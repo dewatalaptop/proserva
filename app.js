@@ -293,44 +293,142 @@ async function doSignOut() {
    Bridge script memanggil _onAuthReady setelah app.js ready.
    ────────────────────────────────────────────────────────── */
 window._onAuthReady = async function (user) {
-  if (window._FB_UNCONFIGURED) { showScreen('landing'); return; }
-  if (!user) { showScreen('landing'); return; }
 
-  _UID = user.uid;
+  /* Firebase belum dikonfigurasi */
+  if (window._FB_UNCONFIGURED) {
+    showScreen('landing');
+    return;
+  }
 
-  /* Update UI sidebar */
-  var nameEl    = document.getElementById('sb-user-name');
-  var emailEl   = document.getElementById('sb-user-email');
-  var avatarEl  = document.getElementById('sb-avatar-fallback');
-  if (nameEl)  nameEl.textContent  = user.displayName || 'Pengguna';
-  if (emailEl) emailEl.textContent = user.email || '';
-  if (avatarEl) {
-    if (user.photoURL) {
-      var img = document.createElement('img');
-      img.src = user.photoURL;
-      img.className = 'sidebar-user-avatar';
-      img.alt = 'Avatar';
-      avatarEl.parentNode.replaceChild(img, avatarEl);
+  /*
+   * Mobile redirect login kadang memanggil callback
+   * dengan user = null sebelum currentUser siap.
+   * Jangan langsung kembali ke landing.
+   */
+  if (!user) {
+
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 1200);
+    });
+
+    if (
+      window._FB &&
+      window._FB.auth &&
+      window._FB.auth.currentUser
+    ) {
+
+      user = window._FB.auth.currentUser;
+
     } else {
-      avatarEl.textContent = initials(user.displayName || '?');
+
+      showScreen('landing');
+      return;
     }
   }
 
-  if (window._DONE_FS) {
-    await loadStateFS();
-    applyAllAppearance(false);
-    var biz = S.biz.name || 'Usaha Saya';
-    setText('cal-title', 'Dashboard - ' + biz);
-    setText('cal-sub', 'Selamat datang kembali! Kelola reservasi dengan mudah.');
-    setText('sb-biz-name', biz);
-    renderCalendar();
-    NOTIF.start();
-    document.removeEventListener('click', closeNotifH);
-    document.addEventListener('click', closeNotifH);
-    loadSettingsForm();
-    showScreen('app');
-  } else {
+  /*
+   * Tunggu Firebase bootstrap selesai.
+   * Penting untuk mobile redirect login.
+   */
+  var waitCount = 0;
+
+  while (!window._DONE_FS && waitCount < 100) {
+
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 100);
+    });
+
+    waitCount++;
+  }
+
+  _UID = user.uid;
+
+  /* Update sidebar */
+  var nameEl   = document.getElementById('sb-user-name');
+  var emailEl  = document.getElementById('sb-user-email');
+  var avatarEl = document.getElementById('sb-avatar-fallback');
+
+  if (nameEl) {
+    nameEl.textContent =
+      user.displayName || 'Pengguna';
+  }
+
+  if (emailEl) {
+    emailEl.textContent =
+      user.email || '';
+  }
+
+  /*
+   * Hindari replaceChild berulang
+   * yang bisa error di mobile redirect.
+   */
+  if (avatarEl) {
+
+    if (user.photoURL) {
+
+      avatarEl.innerHTML =
+        '<img ' +
+        'src="' + esc(user.photoURL) + '" ' +
+        'class="sidebar-user-avatar" ' +
+        'alt="Avatar">';
+
+    } else {
+
+      avatarEl.textContent =
+        initials(user.displayName || '?');
+    }
+  }
+
+  /* Load semua data */
+  await loadStateFS();
+
+  /* Apply appearance */
+  applyAllAppearance(false);
+
+  var biz = S.biz.name || 'Usaha Saya';
+
+  setText(
+    'cal-title',
+    'Dashboard - ' + biz
+  );
+
+  setText(
+    'cal-sub',
+    'Selamat datang kembali! Kelola reservasi dengan mudah.'
+  );
+
+  setText(
+    'sb-biz-name',
+    biz
+  );
+
+  renderCalendar();
+
+  NOTIF.start();
+
+  document.removeEventListener(
+    'click',
+    closeNotifH
+  );
+
+  document.addEventListener(
+    'click',
+    closeNotifH
+  );
+
+  loadSettingsForm();
+
+  /*
+   * Jika user baru dan belum punya lokasi,
+   * masuk wizard setup.
+   */
+  if (!Object.keys(S.locs || {}).length) {
+
     showScreen('wizard');
+
+  } else {
+
+    showScreen('app');
   }
 };
 
