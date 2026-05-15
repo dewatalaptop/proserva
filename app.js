@@ -1,28 +1,7 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════
-   PROSERVA app.js v5.3
-   Kompatibel dengan index.html v4 (fixed)
-
-   PERBAIKAN dari versi sebelumnya:
-   [FIX-1] showScreen() - gabungkan style.display + classList.add/remove
-           + aria-hidden update agar konsisten dengan CSS & index.html
-   [FIX-2] doGoogleSignIn() - DIHAPUS dari app.js. Login sepenuhnya
-           didelegasikan ke window.doGoogleSignIn di index.html yang
-           sudah punya: mobile detection, popup-blocked fallback,
-           error handling lengkap. app.js tidak lagi menimpa versi itu.
-   [FIX-3] window._onAuthReady - menangani _pendingAuthUser dari bridge
-           script index.html agar tidak ada auth event yang hilang
-   [FIX-4] boot() - hapus setTimeout 8000ms fallback ke landing
-           karena index.html sudah handle via 1500ms fallback.
-           Koordinasi bersih, tidak ada double-trigger.
-   [FIX-5] normPhone() - handle semua format: 0xxx, 62xxx, 8xxx, +62xxx
-   [FIX-6] openWA() - normalisasi nomor konsisten dengan normPhone
-   [FIX-7] quickStatus() - tambah renderCalendar() setelah ganti status
-   [FIX-8] wzNext() - render list saat navigasi, clear error saat kembali
-   [FIX-9] doImport() - sync semua data (menus/locs/res) ke Firestore
-           + refresh detail view jika sedang terbuka
-   [FIX-10] S - hapus dead variable anlChart dari state object
+   PROSERVA app.js v5.4 - CLEAN REWRITE
    ═══════════════════════════════════════════════════════════ */
 
 /* ──────────────────────────────────────────────────────────
@@ -69,7 +48,7 @@ function _showSync() {
 }
 
 /* ──────────────────────────────────────────────────────────
-   FIRESTORE SAVE / DELETE HELPERS
+   FIRESTORE HELPERS
    ────────────────────────────────────────────────────────── */
 async function saveBizFS() {
   DB.set(K.BIZ, S.biz); _showSync();
@@ -144,17 +123,17 @@ async function saveMsgsFS() {
 }
 
 /* ──────────────────────────────────────────────────────────
-   LOAD STATE FROM FIRESTORE (with localStorage fallback)
+   LOAD STATE FROM FIRESTORE
    ────────────────────────────────────────────────────────── */
 async function loadStateFS() {
   if (!_UID || !window._FB) { loadState(); return; }
   var fb = window._FB;
   try {
-    var bizS  = await fb.getDoc(fb.doc(fb.db, 'users', _UID, 'config', 'biz'));
+    var bizS = await fb.getDoc(fb.doc(fb.db, 'users', _UID, 'config', 'biz'));
     S.biz = bizS.exists() ? Object.assign({}, S.biz, bizS.data()) : DB.get(K.BIZ, S.biz);
 
-    var opsS  = await fb.getDoc(fb.doc(fb.db, 'users', _UID, 'config', 'ops'));
-    var opsDef = { openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:2 };
+    var opsDef = { openTime: '09:00', closeTime: '21:00', slotInterval: 30, defaultDuration: 120, bufferTime: 15, minAdvance: 2 };
+    var opsS = await fb.getDoc(fb.doc(fb.db, 'users', _UID, 'config', 'ops'));
     S.ops = opsS.exists() ? Object.assign(opsDef, opsS.data()) : Object.assign(opsDef, DB.get(K.OPS, {}));
 
     var msgsS = await fb.getDoc(fb.doc(fb.db, 'users', _UID, 'config', 'msgs'));
@@ -163,44 +142,32 @@ async function loadStateFS() {
       : Object.assign({ confirm: DEFAULT_CONF, thanks: DEFAULT_THANKS }, DB.get(K.MSGS, {}));
 
     var menuSnap = await fb.getDocs(fb.collection(fb.db, 'users', _UID, 'menus'));
-    if (!menuSnap.empty) {
-      S.menus = {};
-      menuSnap.forEach(function (d) { S.menus[d.id] = d.data(); });
-    } else { S.menus = DB.get(K.MENUS, {}); }
+    if (!menuSnap.empty) { S.menus = {}; menuSnap.forEach(function (d) { S.menus[d.id] = d.data(); }); }
+    else { S.menus = DB.get(K.MENUS, {}); }
 
     var locSnap = await fb.getDocs(fb.collection(fb.db, 'users', _UID, 'locations'));
-    if (!locSnap.empty) {
-      S.locs = {};
-      locSnap.forEach(function (d) { S.locs[d.id] = d.data(); });
-    } else { S.locs = DB.get(K.LOCS, {}); }
+    if (!locSnap.empty) { S.locs = {}; locSnap.forEach(function (d) { S.locs[d.id] = d.data(); }); }
+    else { S.locs = DB.get(K.LOCS, {}); }
 
     S.res = DB.get(K.RES, {});
 
-    DB.set(K.BIZ,   S.biz);
-    DB.set(K.OPS,   S.ops);
-    DB.set(K.MSGS,  S.msgs);
-    DB.set(K.MENUS, S.menus);
-    DB.set(K.LOCS,  S.locs);
+    DB.set(K.BIZ, S.biz); DB.set(K.OPS, S.ops); DB.set(K.MSGS, S.msgs);
+    DB.set(K.MENUS, S.menus); DB.set(K.LOCS, S.locs);
   } catch (e) {
     console.warn('loadStateFS fallback:', e);
     loadState();
   }
   S.appear = Object.assign(
-    { theme:'dark', accent:'orange', font:'font-elegant', density:'normal', logo:'🍽️' },
+    { theme: 'dark', accent: 'orange', font: 'font-elegant', density: 'normal', logo: '🍽️' },
     DB.get(K.APPEAR, {})
   );
 }
 
 /* ──────────────────────────────────────────────────────────
-   [FIX-1] showScreen()
-   Versi lengkap: style.display + classList + aria-hidden.
-   Menggabungkan pendekatan index.html (classList, aria) dan
-   app.js lama (style.display untuk app-shell).
+   showScreen()
    ────────────────────────────────────────────────────────── */
 function showScreen(name) {
-  /* Sembunyikan semua screen */
-  var screenIds = ['screen-loading', 'screen-landing', 'screen-auth', 'screen-wizard'];
-  screenIds.forEach(function (id) {
+  ['screen-loading', 'screen-landing', 'screen-auth', 'screen-wizard'].forEach(function (id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.style.display = 'none';
@@ -208,29 +175,15 @@ function showScreen(name) {
     el.setAttribute('aria-hidden', 'true');
   });
 
-  /* App shell */
   var shell = document.getElementById('app-shell');
   if (name === 'app') {
-    if (shell) {
-      shell.style.display = 'block';
-      shell.setAttribute('aria-hidden', 'false');
-    }
+    if (shell) { shell.style.display = 'block'; shell.setAttribute('aria-hidden', 'false'); }
     document.body.style.overflow = '';
   } else {
-    if (shell) {
-      shell.style.display = 'none';
-      shell.setAttribute('aria-hidden', 'true');
-    }
-    var map = {
-      loading : 'screen-loading',
-      landing : 'screen-landing',
-      auth    : 'screen-auth',
-      wizard  : 'screen-wizard'
-    };
-    var targetId = map[name];
-    var target   = targetId ? document.getElementById(targetId) : null;
+    if (shell) { shell.style.display = 'none'; shell.setAttribute('aria-hidden', 'true'); }
+    var map = { loading: 'screen-loading', landing: 'screen-landing', auth: 'screen-auth', wizard: 'screen-wizard' };
+    var target = map[name] ? document.getElementById(map[name]) : null;
     if (target) {
-      /* Gunakan flex agar konsisten dengan CSS .screen.active */
       target.style.display = 'flex';
       target.classList.add('active');
       target.setAttribute('aria-hidden', 'false');
@@ -240,257 +193,158 @@ function showScreen(name) {
 }
 
 /* ──────────────────────────────────────────────────────────
-   [FIX-2] doGoogleSignIn DIHAPUS dari app.js
-   Login didelegasikan ke window.doGoogleSignIn di index.html
-   yang sudah punya: mobile detection, popup-blocked handler,
-   redirect fallback, dan error handling lengkap.
-
-   Fungsi ini tidak lagi didefinisikan di app.js supaya tidak
-   menimpa (override) versi yang lebih lengkap dari index.html.
-
-   Untuk keamanan: jika index.html karena alasan tertentu tidak
-   mendefinisikan window.doGoogleSignIn, ada fallback minimal.
+   doGoogleSignIn fallback (utama ada di index.html)
    ────────────────────────────────────────────────────────── */
 if (typeof window.doGoogleSignIn !== 'function') {
-  /* Fallback - seharusnya tidak pernah dipakai jika index.html benar */
   window.doGoogleSignIn = async function () {
     if (!window._FB) { showToast('Firebase belum siap', 'error'); return; }
     var btn = document.getElementById('btn-google-signin');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses…'; }
     try {
       var fb = window._FB;
-      if (fb.signInWithPopup) {
-        await fb.signInWithPopup(fb.auth, fb.provider);
-      } else if (fb.signInWithRedirect) {
-        await fb.signInWithRedirect(fb.auth, fb.provider);
-      }
+      if (fb.signInWithPopup) await fb.signInWithPopup(fb.auth, fb.provider);
+      else if (fb.signInWithRedirect) await fb.signInWithRedirect(fb.auth, fb.provider);
     } catch (e) {
       showToast(e.code === 'auth/popup-closed-by-user' ? 'Login dibatalkan.' : 'Gagal login: ' + e.message, 'error');
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Lanjutkan dengan Google';
-      }
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Lanjutkan dengan Google'; }
     }
   };
 }
 
+/* ──────────────────────────────────────────────────────────
+   doSignOut
+   ────────────────────────────────────────────────────────── */
 async function doSignOut() {
   if (!confirm('Yakin ingin keluar dari Proserva?')) return;
   if (window._FB) {
     try { await window._FB.signOut(window._FB.auth); } catch (e) { console.warn(e); }
   }
   _UID = '';
-
-window._pendingAuthUser = null;
-
-S.res = {};
-S.menus = {};
-S.locs = {};
+  window._FBUSER = null;
+  window._AUTH_PROCESSING = false;
+  window._pendingAuthUser = null;
+  S.res = {}; S.menus = {}; S.locs = {};
   showScreen('landing');
   showToast('Berhasil keluar. Sampai jumpa! 👋', 'info');
 }
 
 /* ──────────────────────────────────────────────────────────
-   [FIX-3] window._onAuthReady
-   Menangani kasus _pendingAuthUser dari bridge script index.html.
-   Jika Firebase onAuthStateChanged terpanggil sebelum app.js
-   selesai load, user disimpan di _pendingAuthUser oleh boot guard.
-   Bridge script memanggil _onAuthReady setelah app.js ready.
+   _onAuthReady  ← SATU fungsi, bersih, tanpa nested
    ────────────────────────────────────────────────────────── */
 window._onAuthReady = async function (user) {
 
-  /* Firebase belum dikonfigurasi */
+  /* Firebase tidak dikonfigurasi */
   if (window._FB_UNCONFIGURED) {
+    window._AUTH_PROCESSING = false;
     showScreen('landing');
     return;
   }
 
   /*
-   * Mobile redirect login kadang memanggil callback
-   * dengan user = null sebelum currentUser siap.
-   * Jangan langsung kembali ke landing.
+   * Mobile redirect: onAuthStateChanged kadang
+   * dipanggil dengan user=null sebelum session siap.
+   * Tunggu 1.2 detik lalu cek auth.currentUser.
    */
-    /* Reset flag setelah app.js mengambil alih */
-  window._AUTH_PROCESSING = false;
-
   if (!user) {
-
-    await new Promise(function (resolve) {
-      setTimeout(resolve, 1200);
-    });
-
-
-    if (
-      window._FB &&
-      window._FB.auth &&
-      window._FB.auth.currentUser
-    ) {
-
+    await new Promise(function (resolve) { setTimeout(resolve, 1200); });
+    if (window._FB && window._FB.auth && window._FB.auth.currentUser) {
       user = window._FB.auth.currentUser;
-
     } else {
-
+      window._AUTH_PROCESSING = false;
       showScreen('landing');
       return;
     }
   }
 
-  /*
-   * Tunggu Firebase bootstrap selesai.
-   * Penting untuk mobile redirect login.
-   */
+  /* Tunggu Firebase module selesai init (window._DONE_FS) */
   var waitCount = 0;
-
   while (!window._DONE_FS && waitCount < 100) {
-
-    await new Promise(function (resolve) {
-      setTimeout(resolve, 100);
-    });
-
+    await new Promise(function (resolve) { setTimeout(resolve, 100); });
     waitCount++;
   }
 
   _UID = user.uid;
+  window._FBUSER = user;
 
-  /* Update sidebar */
+  /* Update sidebar user info */
   var nameEl   = document.getElementById('sb-user-name');
   var emailEl  = document.getElementById('sb-user-email');
   var avatarEl = document.getElementById('sb-avatar-fallback');
 
-  if (nameEl) {
-    nameEl.textContent =
-      user.displayName || 'Pengguna';
-  }
+  if (nameEl)  nameEl.textContent  = user.displayName || 'Pengguna';
+  if (emailEl) emailEl.textContent = user.email || '';
 
-  if (emailEl) {
-    emailEl.textContent =
-      user.email || '';
-  }
-
-  /*
-   * Hindari replaceChild berulang
-   * yang bisa error di mobile redirect.
-   */
   if (avatarEl) {
-
-  if (user.photoURL) {
-
-    avatarEl.innerHTML = '';
-
-    var img = document.createElement('img');
-
-    img.src = user.photoURL;
-    img.className = 'sidebar-user-avatar';
-    img.alt = 'Avatar';
-
-    avatarEl.appendChild(img);
-
-  } else {
-
-    avatarEl.textContent =
-      initials(user.displayName || '?');
+    if (user.photoURL) {
+      avatarEl.innerHTML = '';
+      var img = document.createElement('img');
+      img.src = user.photoURL;
+      img.className = 'sidebar-user-avatar';
+      img.alt = 'Avatar';
+      avatarEl.appendChild(img);
+    } else {
+      avatarEl.textContent = initials(user.displayName || '?');
+    }
   }
-}
 
-  /* Load semua data */
+  /* Load data dari Firestore */
   await loadStateFS();
 
-  /* Apply appearance */
+  /* Apply tampilan */
   applyAllAppearance(false);
 
   var biz = S.biz.name || 'Usaha Saya';
-
-  setText(
-    'cal-title',
-    'Dashboard - ' + biz
-  );
-
-  setText(
-    'cal-sub',
-    'Selamat datang kembali! Kelola reservasi dengan mudah.'
-  );
-
-  setText(
-    'sb-biz-name',
-    biz
-  );
+  setText('cal-title', 'Dashboard - ' + biz);
+  setText('cal-sub', 'Selamat datang kembali! Kelola reservasi dengan mudah.');
+  setText('sb-biz-name', biz);
 
   renderCalendar();
-
   NOTIF.start();
 
-  document.removeEventListener(
-    'click',
-    closeNotifH
-  );
-
-  document.addEventListener(
-    'click',
-    closeNotifH
-  );
+  document.removeEventListener('click', closeNotifH);
+  document.addEventListener('click', closeNotifH);
 
   loadSettingsForm();
 
-  /*
-   * Jika user baru dan belum punya lokasi,
-   * masuk wizard setup.
-   */
+  /* Reset flag TEPAT sebelum navigasi */
+  window._AUTH_PROCESSING = false;
+
   if (!Object.keys(S.locs || {}).length) {
-
     showScreen('wizard');
-
   } else {
-
     showScreen('app');
   }
 };
 
 /* ──────────────────────────────────────────────────────────
-   [FIX-4] boot()
-   Hapus setTimeout 8000ms fallback → sudah dihandle oleh
-   index.html (1500ms) dan Firebase timeout (8000ms di index.html).
-   Fungsi boot() fokus pada inisialisasi UI saja.
+   boot()
    ────────────────────────────────────────────────────────── */
 function boot() {
   initModalClose();
   initKbd();
-
-
   var sidebarOverlay = document.getElementById('sidebar-overlay');
   if (sidebarOverlay) sidebarOverlay.onclick = toggleSidebar;
-
-  /*
-   * _pendingAuthUser TIDAK di-handle di sini.
-   * Bridge script (defer kedua setelah app.js) yang bertanggung jawab
-   * memanggil _onAuthReady(pendingUser) setelah seluruh app.js selesai.
-   * Jika di-handle di sini: var S belum dieksekusi (ada di bawah boot() call)
-   * sehingga _onAuthReady → S.biz → TypeError: Cannot read properties of undefined.
-   */
 }
-
-/* Boot call dipindah ke bawah semua var declarations - lihat akhir file */
 
 /* ──────────────────────────────────────────────────────────
    STATE
-   [FIX-10] Hapus S.anlChart - gunakan var anlChart terpisah
    ────────────────────────────────────────────────────────── */
 var S = {
-  biz:  { name:'Usaha Saya', type:'restoran', tagline:'', logo:'🍽️' },
-  menus: {},
-  locs:  {},
-  res:   {},
-  month: new Date().getMonth(),
-  year:  new Date().getFullYear(),
-  date:  null,
-  /* anlChart dihapus dari sini - lihat var anlChart di bawah */
-  bcList: [],
-  ops: { openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:2 },
-  appear: { theme:'dark', accent:'orange', font:'font-elegant', density:'normal', logo:'🍽️' },
-  msgs: { confirm:'', thanks:'' },
-  wizData: { bizName:'', bizType:'restoran', locs:[], menus:[] }
+  biz:     { name: 'Usaha Saya', type: 'restoran', tagline: '', logo: '🍽️' },
+  menus:   {},
+  locs:    {},
+  res:     {},
+  month:   new Date().getMonth(),
+  year:    new Date().getFullYear(),
+  date:    null,
+  bcList:  [],
+  ops:     { openTime: '09:00', closeTime: '21:00', slotInterval: 30, defaultDuration: 120, bufferTime: 15, minAdvance: 2 },
+  appear:  { theme: 'dark', accent: 'orange', font: 'font-elegant', density: 'normal', logo: '🍽️' },
+  msgs:    { confirm: '', thanks: '' },
+  wizData: { bizName: '', bizType: 'restoran', locs: [], menus: [] }
 };
 
-var DEFAULT_CONF = 'Halo Kak *{nama}* 👋\n\nKonfirmasi reservasi di *{bisnis}*:\n\n🗓 *Tanggal:* {tanggal}\n⏰ *Jam:* {jam}\n📍 *Tempat:* {tempat}\n👥 *Jumlah:* {jumlah} orang\n\n🍽 *Pesanan:* {menu}\n💰 *DP:* {dp}\n\nMohon konfirmasi kehadiran ya! 😊';
+var DEFAULT_CONF  = 'Halo Kak *{nama}* 👋\n\nKonfirmasi reservasi di *{bisnis}*:\n\n🗓 *Tanggal:* {tanggal}\n⏰ *Jam:* {jam}\n📍 *Tempat:* {tempat}\n👥 *Jumlah:* {jumlah} orang\n\n🍽 *Pesanan:* {menu}\n💰 *DP:* {dp}\n\nMohon konfirmasi kehadiran ya! 😊';
 var DEFAULT_THANKS = 'Halo Kak *{nama}* 👋\n\nTerima kasih sudah berkunjung ke *{bisnis}*! 🙏\nKami selalu menantikan kedatangan Kakak kembali! ✨\n\nSalam hangat,\n*Tim {bisnis}* ❤️';
 
 function loadState() {
@@ -498,37 +352,28 @@ function loadState() {
   S.menus = DB.get(K.MENUS, {});
   S.locs  = DB.get(K.LOCS,  {});
   S.res   = DB.get(K.RES,   {});
-  S.ops   = Object.assign(
-    { openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:2 },
-    DB.get(K.OPS, {})
-  );
-  S.appear = Object.assign(
-    { theme:'dark', accent:'orange', font:'font-elegant', density:'normal', logo:'🍽️' },
-    DB.get(K.APPEAR, {})
-  );
-  S.msgs = Object.assign(
-    { confirm: DEFAULT_CONF, thanks: DEFAULT_THANKS },
-    DB.get(K.MSGS, {})
-  );
+  S.ops   = Object.assign({ openTime: '09:00', closeTime: '21:00', slotInterval: 30, defaultDuration: 120, bufferTime: 15, minAdvance: 2 }, DB.get(K.OPS, {}));
+  S.appear = Object.assign({ theme: 'dark', accent: 'orange', font: 'font-elegant', density: 'normal', logo: '🍽️' }, DB.get(K.APPEAR, {}));
+  S.msgs  = Object.assign({ confirm: DEFAULT_CONF, thanks: DEFAULT_THANKS }, DB.get(K.MSGS, {}));
 }
 
 /* ──────────────────────────────────────────────────────────
    DATA HELPERS
    ────────────────────────────────────────────────────────── */
-function mkKey(y, m) { return y + '-' + pad2(m + 1); }
-function getResMonth(y, m) { return S.res[mkKey(y, m)] || []; }
-function getResDate(ds) { var mk = ds.substring(0, 7); return (S.res[mk] || []).filter(function (r) { return r.date === ds; }); }
-function getAllRes() { return Object.values(S.res).reduce(function (a, b) { return a.concat(b); }, []); }
-function findRes(id) { for (var mk in S.res) { var r = S.res[mk].find(function (x) { return x.id === id; }); if (r) return r; } return null; }
-function getMenusSorted() { return Object.entries(S.menus).map(function (e) { return Object.assign({ id: e[0] }, e[1]); }).sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); }); }
-function getLocsSorted()  { return Object.entries(S.locs).map(function (e) { return Object.assign({ id: e[0] }, e[1]); }).sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); }); }
-function getMenuByName(n) { return Object.values(S.menus).find(function (m) { return m.name === n; }) || null; }
-function getLocByName(n)  { return Object.values(S.locs).find(function (l) { return l.name === n; }) || null; }
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
-function toMins(t) { if (!t) return 0; var p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); }
-function minsToTime(m) { return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60); }
+function mkKey(y, m)      { return y + '-' + pad2(m + 1); }
+function getResMonth(y, m){ return S.res[mkKey(y, m)] || []; }
+function getResDate(ds)   { var mk = ds.substring(0, 7); return (S.res[mk] || []).filter(function (r) { return r.date === ds; }); }
+function getAllRes()       { return Object.values(S.res).reduce(function (a, b) { return a.concat(b); }, []); }
+function findRes(id)       { for (var mk in S.res) { var r = S.res[mk].find(function (x) { return x.id === id; }); if (r) return r; } return null; }
+function getMenusSorted()  { return Object.entries(S.menus).map(function (e) { return Object.assign({ id: e[0] }, e[1]); }).sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); }); }
+function getLocsSorted()   { return Object.entries(S.locs).map(function (e) { return Object.assign({ id: e[0] }, e[1]); }).sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); }); }
+function getMenuByName(n)  { return Object.values(S.menus).find(function (m) { return m.name === n; }) || null; }
+function getLocByName(n)   { return Object.values(S.locs).find(function (l) { return l.name === n; }) || null; }
+function genId()           { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function toMins(t)         { if (!t) return 0; var p = t.split(':'); return parseInt(p[0]) * 60 + parseInt(p[1]); }
+function minsToTime(m)     { return pad2(Math.floor(m / 60)) + ':' + pad2(m % 60); }
 function getEffectiveDuration(loc) { return (loc && loc.defaultDuration ? parseInt(loc.defaultDuration) : 0) || S.ops.defaultDuration || 120; }
-function getEffectiveBuffer(loc) { var b = loc && loc.bufferTime !== undefined && loc.bufferTime !== '' ? parseInt(loc.bufferTime) : -1; return b >= 0 ? b : (S.ops.bufferTime || 15); }
+function getEffectiveBuffer(loc)   { var b = loc && loc.bufferTime !== undefined && loc.bufferTime !== '' ? parseInt(loc.bufferTime) : -1; return b >= 0 ? b : (S.ops.bufferTime || 15); }
 
 /* ──────────────────────────────────────────────────────────
    CONFLICT CHECK & SLOT FINDER
@@ -549,17 +394,13 @@ function checkConflict(date, locName, jam, jumlah, durationOverride, excludeId) 
 
   var existing = getResDate(date).filter(function (r) { return r.tempat === locName && r.id !== excludeId && r.status !== 'batal'; });
   for (var i = 0; i < existing.length; i++) {
-    var r    = existing[i];
+    var r = existing[i];
     if (!r.jam) continue;
-    var rDur  = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
+    var rDur   = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
     var rStart = toMins(r.jam);
     var rEnd   = rStart + rDur + buffer;
     if (newStart < rEnd && newEnd > rStart) {
-      return {
-        ok: false, type: 'hard_overlap',
-        msg: '✗ Konflik dengan <strong>' + esc(r.nama) + '</strong> - ' + r.jam + ' s/d ' + minsToTime(rStart + rDur) + ' (+' + buffer + 'm buffer)',
-        conflictWith: r
-      };
+      return { ok: false, type: 'hard_overlap', msg: '✗ Konflik dengan <strong>' + esc(r.nama) + '</strong> - ' + r.jam + ' s/d ' + minsToTime(rStart + rDur) + ' (+' + buffer + 'm buffer)', conflictWith: r };
     }
   }
 
@@ -616,46 +457,19 @@ function getDateAvailability(dateStr) {
    APPEARANCE
    ────────────────────────────────────────────────────────── */
 var ACCENT_MAP = {
-  amber:'#f59e0b', orange:'#e8630a', red:'#ef4444', rose:'#f43f5e',
-  sky:'#0ea5e9', teal:'#14b8a6', indigo:'#6366f1', violet:'#8b5cf6',
-  emerald:'#10b981', lime:'#84cc16', forest:'#16a34a', sage:'#84a98c',
-  slate:'#64748b', zinc:'#71717a', stone:'#78716c', sand:'#d4a96a'
+  amber: '#f59e0b', orange: '#e8630a', red: '#ef4444', rose: '#f43f5e',
+  sky: '#0ea5e9', teal: '#14b8a6', indigo: '#6366f1', violet: '#8b5cf6',
+  emerald: '#10b981', lime: '#84cc16', forest: '#16a34a', sage: '#84a98c',
+  slate: '#64748b', zinc: '#71717a', stone: '#78716c', sand: '#d4a96a'
 };
 
-var LOGO_EMOJIS = ['🍽️','☕','🏞️','🏡','🌿','🍃','🌾','🔥','⭐','🌸','🎋','🍜','🤘','🫕','🌊','⛰️','🎍','🌺'];
+var LOGO_EMOJIS = ['🍽️', '☕', '🏞️', '🏡', '🌿', '🍃', '🌾', '🔥', '⭐', '🌸', '🎋', '🍜', '🤘', '🫕', '🌊', '⛰️', '🎍', '🌺'];
 
-function applyTheme(t) {
-  S.appear.theme = t;
-  document.documentElement.setAttribute('data-theme', t);
-  document.querySelectorAll('.theme-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.theme === t); });
-  DB.set(K.APPEAR, S.appear);
-}
-
-function applyFont(f) {
-  S.appear.font = f;
-  document.documentElement.setAttribute('data-font', f);
-  document.querySelectorAll('.font-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.font === f); });
-  DB.set(K.APPEAR, S.appear);
-}
-
-function applyDensity(d) {
-  S.appear.density = d;
-  document.documentElement.setAttribute('data-density', d);
-  document.querySelectorAll('.density-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.density === d); });
-  DB.set(K.APPEAR, S.appear);
-}
-
-function applyAccent(a) {
-  S.appear.accent = a;
-  document.documentElement.setAttribute('data-accent', a);
-  document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.toggle('active', el.dataset.accent === a); });
-  DB.set(K.APPEAR, S.appear);
-}
-
-function pickEmoji(em) {
-  S.appear.logo = em;
-  document.querySelectorAll('.emoji-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.emoji === em); });
-}
+function applyTheme(t)   { S.appear.theme = t; document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('.theme-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.theme === t); }); DB.set(K.APPEAR, S.appear); }
+function applyFont(f)    { S.appear.font = f; document.documentElement.setAttribute('data-font', f); document.querySelectorAll('.font-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.font === f); }); DB.set(K.APPEAR, S.appear); }
+function applyDensity(d) { S.appear.density = d; document.documentElement.setAttribute('data-density', d); document.querySelectorAll('.density-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.density === d); }); DB.set(K.APPEAR, S.appear); }
+function applyAccent(a)  { S.appear.accent = a; document.documentElement.setAttribute('data-accent', a); document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.toggle('active', el.dataset.accent === a); }); DB.set(K.APPEAR, S.appear); }
+function pickEmoji(em)   { S.appear.logo = em; document.querySelectorAll('.emoji-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.emoji === em); }); }
 
 function applyAllAppearance(save) {
   var h = document.documentElement;
@@ -664,10 +478,10 @@ function applyAllAppearance(save) {
   h.setAttribute('data-density', S.appear.density || 'normal');
   h.setAttribute('data-accent',  S.appear.accent  || 'orange');
   if (save) DB.set(K.APPEAR, S.appear);
-  document.querySelectorAll('.theme-opt')  .forEach(function (el) { el.classList.toggle('active', el.dataset.theme   === S.appear.theme); });
-  document.querySelectorAll('.font-opt')   .forEach(function (el) { el.classList.toggle('active', el.dataset.font    === S.appear.font); });
-  document.querySelectorAll('.density-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.density === S.appear.density); });
-  document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.toggle('active', el.dataset.accent === S.appear.accent); });
+  document.querySelectorAll('.theme-opt')    .forEach(function (el) { el.classList.toggle('active', el.dataset.theme   === S.appear.theme); });
+  document.querySelectorAll('.font-opt')     .forEach(function (el) { el.classList.toggle('active', el.dataset.font    === S.appear.font); });
+  document.querySelectorAll('.density-opt') .forEach(function (el) { el.classList.toggle('active', el.dataset.density === S.appear.density); });
+  document.querySelectorAll('.accent-swatch').forEach(function (el) { el.classList.toggle('active', el.dataset.accent  === S.appear.accent); });
   var curLogo = S.appear.logo || S.biz.logo || '🍽️';
   document.querySelectorAll('.emoji-opt').forEach(function (el) { el.classList.toggle('active', el.dataset.emoji === curLogo); });
 }
@@ -698,10 +512,7 @@ var PAGE_NAMES = {
 };
 
 function showView(name) {
-  document.querySelectorAll('#content .view').forEach(function (v) {
-    v.style.display = 'none';
-    v.classList.remove('active-view');
-  });
+  document.querySelectorAll('#content .view').forEach(function (v) { v.style.display = 'none'; v.classList.remove('active-view'); });
   var t = document.getElementById('view-' + name);
   if (t) { t.style.display = 'block'; t.classList.add('active-view'); }
   document.querySelectorAll('.nav-item').forEach(function (n) { n.classList.toggle('active', n.dataset.view === name); });
@@ -731,14 +542,12 @@ function showSettingsSection(id, el) {
 }
 
 function loadSettingsForm() {
-  buildAccentGrid();
-  buildEmojiGrid();
+  buildAccentGrid(); buildEmojiGrid();
   val('set-biz-name',    S.biz.name    || '');
-
   val('set-tagline',     S.biz.tagline || '');
   selVal('set-biz-type', S.biz.type    || 'restoran');
-  val('set-open',         S.ops.openTime  || '09:00');
-  val('set-close',        S.ops.closeTime || '21:00');
+  val('set-open',        S.ops.openTime  || '09:00');
+  val('set-close',       S.ops.closeTime || '21:00');
   selVal('set-slot-interval', String(S.ops.slotInterval   || 30));
   val('set-duration',    S.ops.defaultDuration || 120);
   val('set-buffer',      S.ops.bufferTime      || 15);
@@ -761,10 +570,10 @@ async function saveBranding() {
 
 async function saveOperational() {
   S.ops = {
-    openTime:        gval('set-open')          || '09:00',
-    closeTime:       gval('set-close')         || '21:00',
-    slotInterval:    parseInt(gval('set-slot-interval'))  || 30,
-    defaultDuration: parseInt(gval('set-duration'))       || 120,
+    openTime:        gval('set-open')               || '09:00',
+    closeTime:       gval('set-close')              || '21:00',
+    slotInterval:    parseInt(gval('set-slot-interval')) || 30,
+    defaultDuration: parseInt(gval('set-duration'))      || 120,
     bufferTime:      parseInt(gval('set-buffer'))         || 15,
     minAdvance:      parseInt(gval('set-min-advance'))    || 2
   };
@@ -780,10 +589,9 @@ async function saveMessages() {
 }
 
 /* ──────────────────────────────────────────────────────────
-   [FIX-8] WIZARD - render list saat navigasi, clear errors
+   WIZARD
    ────────────────────────────────────────────────────────── */
 function wzNext(step) {
-  /* Validasi dan simpan data saat maju */
   if (step === 2) {
     var n = gval('wz-biz-name').trim();
     if (!n) { setText('wz-err-1', 'Nama usaha wajib diisi!'); return; }
@@ -795,21 +603,12 @@ function wzNext(step) {
     if (!S.wizData.locs.length) { setText('wz-err-2', 'Tambah minimal 1 lokasi terlebih dahulu!'); return; }
     setText('wz-err-2', '');
   }
-
-  /* [FIX-8a] Clear error saat kembali ke step sebelumnya */
   if (step === 1) { setText('wz-err-1', ''); setText('wz-err-2', ''); }
   if (step === 2) { setText('wz-err-2', ''); }
 
-  /* Sembunyikan semua step */
-  document.querySelectorAll('.wizard-step').forEach(function (s) {
-    s.style.display = 'none';
-    s.classList.remove('active');
-  });
-
+  document.querySelectorAll('.wizard-step').forEach(function (s) { s.style.display = 'none'; s.classList.remove('active'); });
   var next = document.getElementById('wz-' + step);
   if (next) { next.style.display = 'flex'; next.classList.add('active'); }
-
-  /* [FIX-8b] Render list saat masuk step - agar tidak kosong saat navigate back/forward */
   if (step === 2) renderWzLocList();
   if (step === 3) renderWzMenuList();
 }
@@ -817,13 +616,9 @@ function wzNext(step) {
 function renderWzLocList() {
   var el = document.getElementById('wz-loc-list');
   if (!el) return;
-  if (!S.wizData.locs.length) {
-    el.innerHTML = '<div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>';
-    return;
-  }
+  if (!S.wizData.locs.length) { el.innerHTML = '<div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>'; return; }
   el.innerHTML = S.wizData.locs.map(function (l, i) {
-    return '<div class="wz-list-item"><span><strong>' + esc(l.name) + '</strong> - ' + l.capacity + ' orang</span>'
-      + '<button class="item-remove" onclick="wzRemove(\'loc\',' + i + ')"><i class="fas fa-times"></i></button></div>';
+    return '<div class="wz-list-item"><span><strong>' + esc(l.name) + '</strong> - ' + l.capacity + ' orang</span><button class="item-remove" onclick="wzRemove(\'loc\',' + i + ')"><i class="fas fa-times"></i></button></div>';
   }).join('');
 }
 
@@ -831,14 +626,13 @@ function renderWzMenuList() {
   var el = document.getElementById('wz-menu-list');
   if (!el) return;
   el.innerHTML = S.wizData.menus.map(function (m, i) {
-    return '<div class="wz-list-item"><span><strong>' + esc(m.name) + '</strong> - Rp' + formatRp(m.price) + '</span>'
-      + '<button class="item-remove" onclick="wzRemove(\'menu\',' + i + ')"><i class="fas fa-times"></i></button></div>';
+    return '<div class="wz-list-item"><span><strong>' + esc(m.name) + '</strong> - Rp' + formatRp(m.price) + '</span><button class="item-remove" onclick="wzRemove(\'menu\',' + i + ')"><i class="fas fa-times"></i></button></div>';
   }).join('');
 }
 
 function wzRemove(type, idx) {
-  if (type === 'loc')  { S.wizData.locs.splice(idx, 1);  renderWzLocList(); }
-  else                 { S.wizData.menus.splice(idx, 1); renderWzMenuList(); }
+  if (type === 'loc') { S.wizData.locs.splice(idx, 1); renderWzLocList(); }
+  else { S.wizData.menus.splice(idx, 1); renderWzMenuList(); }
 }
 
 function wzAddLoc() {
@@ -872,7 +666,6 @@ async function wzFinish() {
   try {
     S.biz = { name: S.wizData.bizName, type: S.wizData.bizType, tagline: '', logo: '🍽️' };
     await saveBizFS();
-
     for (var i = 0; i < S.wizData.locs.length; i++) {
       var l = S.wizData.locs[i];
       await saveLocFS(genId(), { name: l.name, capacity: l.capacity, minGuests: 1, defaultDuration: '', bufferTime: '', openTime: '', closeTime: '' });
@@ -881,7 +674,6 @@ async function wzFinish() {
       var m = S.wizData.menus[j];
       await saveMenuFS(genId(), { name: m.name, price: m.price, details: m.details });
     }
-
     var biz = S.biz.name;
     setText('cal-title', 'Dashboard - ' + biz);
     setText('cal-sub', 'Selamat datang kembali!');
@@ -904,9 +696,9 @@ async function wzFinish() {
 /* ──────────────────────────────────────────────────────────
    CALENDAR
    ────────────────────────────────────────────────────────── */
-var MONTHS   = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var MONTHS   = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 var MONTHS_S = MONTHS.map(function (m) { return m.slice(0, 3); });
-var DAYS     = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+var DAYS     = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 function navMonth(d) {
   S.month += d;
@@ -1022,20 +814,19 @@ function filterDetail(q) {
   }));
 }
 
-var STATUS_LABELS = { pending:'⏳ Pending', confirmed:'✅ Confirmed', selesai:'🎉 Selesai', batal:'❌ Batal' };
-var STATUS_STRIPE = { pending:'stripe-pending', confirmed:'stripe-confirmed', selesai:'stripe-selesai', batal:'stripe-batal' };
-var STATUS_BADGE  = { pending:'sb-pending', confirmed:'sb-confirmed', selesai:'sb-selesai', batal:'sb-batal' };
+var STATUS_LABELS = { pending: '⏳ Pending', confirmed: '✅ Confirmed', selesai: '🎉 Selesai', batal: '❌ Batal' };
+var STATUS_STRIPE = { pending: 'stripe-pending', confirmed: 'stripe-confirmed', selesai: 'stripe-selesai', batal: 'stripe-batal' };
+var STATUS_BADGE  = { pending: 'sb-pending', confirmed: 'sb-confirmed', selesai: 'sb-selesai', batal: 'sb-batal' };
 
 function buildResCard(r) {
-  var st    = r.status || 'pending';
-  var loc   = getLocByName(r.tempat);
-  var dur   = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
-  var endT  = r.jam ? minsToTime(toMins(r.jam) + dur) : '?';
+  var st   = r.status || 'pending';
+  var loc  = getLocByName(r.tempat);
+  var dur  = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
+  var endT = r.jam ? minsToTime(toMins(r.jam) + dur) : '?';
   var menuHtml = Array.isArray(r.menus) && r.menus.length
     ? r.menus.map(function (item) {
         var md = getMenuByName(item.name), det = (md && md.details) || [];
-        return '<div class="rc-menu-item"><strong>' + item.quantity + 'x ' + esc(item.name) + '</strong>'
-          + (det.length ? '<div class="rc-menu-sub">' + det.map(esc).join(' · ') + '</div>' : '') + '</div>';
+        return '<div class="rc-menu-item"><strong>' + item.quantity + 'x ' + esc(item.name) + '</strong>' + (det.length ? '<div class="rc-menu-sub">' + det.map(esc).join(' · ') + '</div>' : '') + '</div>';
       }).join('')
     : '<div style="color:var(--ink-4);font-size:.8rem;font-style:italic">Tidak ada pesanan</div>';
   var chips = '';
@@ -1047,19 +838,14 @@ function buildResCard(r) {
       ? '<button class="btn btn-success btn-sm" disabled><i class="fas fa-check-circle"></i> Terima Kasih Terkirim</button>'
       : '<button class="btn btn-secondary btn-sm" onclick="sendThankYou(\'' + r.id + '\')"><i class="fas fa-gift"></i> Ucapan Terima Kasih</button>')
     : '';
-  var statusOpts = ['pending','confirmed','selesai','batal'].map(function (s) {
+  var statusOpts = ['pending', 'confirmed', 'selesai', 'batal'].map(function (s) {
     return '<option value="' + s + '"' + (s === st ? ' selected' : '') + '>' + STATUS_LABELS[s] + '</option>';
   }).join('');
   return '<div class="res-card" id="rcard-' + r.id + '">'
     + '<div class="rc-stripe ' + STATUS_STRIPE[st] + '"></div>'
-    + '<div class="rc-top"><div class="rc-name"><div class="rc-avatar" style="background:' + nameColor(r.nama || '?') + '">' + initials(r.nama || '?') + '</div>'
-    + '<div class="rc-guest">' + esc(r.nama || 'Tanpa Nama') + '</div></div>'
-    + '<div class="rc-badges"><span class="badge badge-ac"><i class="far fa-clock"></i> ' + esc(r.jam || '?') + '-' + endT + '</span>'
-    + '<span class="badge badge-gray"><i class="fas fa-map-pin"></i> ' + esc(r.tempat || '?') + '</span>'
-    + '<span class="badge badge-g"><i class="fas fa-users"></i> ' + esc(r.jumlah || '?') + ' orang</span>'
-    + '<span class="status-badge ' + STATUS_BADGE[st] + '">' + STATUS_LABELS[st] + '</span></div></div>'
-    + '<div class="rc-body"><div class="rc-section">Pesanan</div>' + menuHtml
-    + (chips ? '<div style="margin-top:10px">' + chips + '</div>' : '') + '</div>'
+    + '<div class="rc-top"><div class="rc-name"><div class="rc-avatar" style="background:' + nameColor(r.nama || '?') + '">' + initials(r.nama || '?') + '</div><div class="rc-guest">' + esc(r.nama || 'Tanpa Nama') + '</div></div>'
+    + '<div class="rc-badges"><span class="badge badge-ac"><i class="far fa-clock"></i> ' + esc(r.jam || '?') + '-' + endT + '</span><span class="badge badge-gray"><i class="fas fa-map-pin"></i> ' + esc(r.tempat || '?') + '</span><span class="badge badge-g"><i class="fas fa-users"></i> ' + esc(r.jumlah || '?') + ' orang</span><span class="status-badge ' + STATUS_BADGE[st] + '">' + STATUS_LABELS[st] + '</span></div></div>'
+    + '<div class="rc-body"><div class="rc-section">Pesanan</div>' + menuHtml + (chips ? '<div style="margin-top:10px">' + chips + '</div>' : '') + '</div>'
     + '<div class="rc-footer"><select class="form-select-sm" onchange="quickStatus(\'' + r.id + '\',this.value)" style="font-size:.75rem;padding:5px 8px">' + statusOpts + '</select>'
     + (r.nomorHp ? '<button class="btn btn-wa btn-sm" onclick="contactWA(\'' + r.id + '\')"><i class="fab fa-whatsapp"></i> Hubungi</button>' : '')
     + thankBtn
@@ -1075,7 +861,7 @@ function openAddRes() {
   clearErrors();
   val('res-edit-id', '');
   setHTML('res-modal-title', '<i class="fas fa-calendar-plus"></i> Tambah Reservasi');
-  ['res-nama','res-hp','res-tambahan'].forEach(function (id) { val(id, ''); });
+  ['res-nama', 'res-hp', 'res-tambahan'].forEach(function (id) { val(id, ''); });
   val('res-date', S.date || todayStr());
   val('res-jam', ''); val('res-jumlah', ''); val('res-dp', '0'); val('res-duration', '');
   selVal('res-tipe-dp', ''); selVal('res-status', 'pending');
@@ -1179,12 +965,12 @@ async function saveRes() {
   var resDate  = gval('res-date') || S.date || todayStr();
   var valid    = true;
 
-  if (!nama)              { showErr('err-nama',   'Nama wajib diisi'); valid = false; }
-  if (hp && !validPhone(hp)) { showErr('err-hp', 'Nomor HP tidak valid'); valid = false; }
-  if (!resDate)           { showErr('err-date',   'Tanggal wajib diisi'); valid = false; }
-  if (!jam)               { showErr('err-jam',    'Jam wajib diisi'); valid = false; }
+  if (!nama)                 { showErr('err-nama',   'Nama wajib diisi'); valid = false; }
+  if (hp && !validPhone(hp)) { showErr('err-hp',     'Nomor HP tidak valid'); valid = false; }
+  if (!resDate)              { showErr('err-date',   'Tanggal wajib diisi'); valid = false; }
+  if (!jam)                  { showErr('err-jam',    'Jam wajib diisi'); valid = false; }
   if (!jumlah || jumlah < 1) { showErr('err-jumlah', 'Jumlah tamu minimal 1'); valid = false; }
-  if (!tempat)            { showErr('err-tempat', 'Lokasi wajib dipilih'); valid = false; }
+  if (!tempat)               { showErr('err-tempat', 'Lokasi wajib dipilih'); valid = false; }
 
   if (tempat && jam && jumlah && valid) {
     var cr = checkConflict(resDate, tempat, jam, jumlah, duration || null, editId || null);
@@ -1211,19 +997,15 @@ async function saveRes() {
     if (editId) {
       var ex = findRes(editId);
       if (!ex) { showToast('Tidak ditemukan!', 'error'); return; }
-      resObj = Object.assign({}, ex, { nama, nomorHp: normPhone(hp), jam, jumlah, dp, tipeDp, tempat, tambahan, menus, status, duration: duration ? parseInt(duration) : null });
+      resObj = Object.assign({}, ex, { nama: nama, nomorHp: normPhone(hp), jam: jam, jumlah: jumlah, dp: dp, tipeDp: tipeDp, tempat: tempat, tambahan: tambahan, menus: menus, status: status, duration: duration ? parseInt(duration) : null });
     } else {
-      resObj = { id: genId(), date: resDate, nama, nomorHp: normPhone(hp), jam, jumlah, dp, tipeDp, tempat, tambahan, menus, status, duration: duration ? parseInt(duration) : null, createdAt: Date.now(), thankYouSent: false };
+      resObj = { id: genId(), date: resDate, nama: nama, nomorHp: normPhone(hp), jam: jam, jumlah: jumlah, dp: dp, tipeDp: tipeDp, tempat: tempat, tambahan: tambahan, menus: menus, status: status, duration: duration ? parseInt(duration) : null, createdAt: Date.now(), thankYouSent: false };
     }
     await saveResFS(resObj);
     showToast(editId ? 'Reservasi diperbarui!' : 'Reservasi berhasil disimpan! 🎉', 'success');
     closeModal('modal-res');
-    if (S.date && S.date === resDate) {
-      renderDetail(getResDate(S.date));
-      renderAvailBar(S.date);
-    } else if (resDate) {
-      selectDate(resDate);
-    }
+    if (S.date && S.date === resDate) { renderDetail(getResDate(S.date)); renderAvailBar(S.date); }
+    else if (resDate) { selectDate(resDate); }
     renderCalendar();
   } catch (e) {
     showToast('Gagal menyimpan: ' + e.message, 'error');
@@ -1232,20 +1014,19 @@ async function saveRes() {
   }
 }
 
-/* [FIX-7] quickStatus: tambah renderCalendar() */
 async function quickStatus(id, newStatus) {
   var r = findRes(id);
   if (!r) return;
   await saveResFS(Object.assign({}, r, { status: newStatus }));
   showToast('Status diubah ke ' + newStatus, 'success', 1800);
   if (S.date) renderDetail(getResDate(S.date));
-  renderCalendar(); /* FIX-7: refresh badge kalender */
+  renderCalendar();
 }
 
 async function delRes(id) {
   var r = findRes(id);
   if (!confirm('Hapus reservasi untuk ' + (r ? r.nama : 'ini') + '?')) return;
-  await deleteResFS(r || { id, date: S.date || todayStr() });
+  await deleteResFS(r || { id: id, date: S.date || todayStr() });
   showToast('Reservasi dihapus', 'info');
   if (S.date) { renderDetail(getResDate(S.date)); renderAvailBar(S.date); }
   renderCalendar();
@@ -1274,7 +1055,7 @@ function addMenuRow(cId, menuName, qty) {
     return;
   }
   var opts = menus.map(function (m) {
-    return '<option value="' + esc(m.name) + '"' + (m.name === menuName ? ' selected' : '') + '>' + esc(m.name) + (m.price ? ' - Rp' + formatRp(m.price) : '') + ' </option>';
+    return '<option value="' + esc(m.name) + '"' + (m.name === menuName ? ' selected' : '') + '>' + esc(m.name) + (m.price ? ' - Rp' + formatRp(m.price) : '') + '</option>';
   }).join('');
   var div = document.createElement('div');
   div.className = 'menu-row';
@@ -1300,10 +1081,7 @@ function renderMenusTable() {
   var tbody = document.getElementById('menus-tbody');
   if (!tbody) return;
   var menus = getMenusSorted();
-  if (!menus.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--ink-4)"><div style="font-size:1.8rem;margin-bottom:10px">🍽️</div><div style="font-weight:600">Belum ada menu</div></td></tr>';
-    return;
-  }
+  if (!menus.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--ink-4)"><div style="font-size:1.8rem;margin-bottom:10px">🍽️</div><div style="font-weight:600">Belum ada menu</div></td></tr>'; return; }
   tbody.innerHTML = menus.map(function (m) {
     return '<tr><td><strong>' + esc(m.name) + '</strong></td>'
       + '<td>' + (m.price ? '<span class="badge badge-ac">Rp ' + formatRp(m.price) + '</span>' : '<span class="badge badge-gray">Gratis</span>') + '</td>'
@@ -1334,17 +1112,15 @@ async function saveMenu() {
   var editId  = gval('menu-edit-id');
   if (!name) { showToast('Nama menu wajib!', 'error'); return; }
   if (Object.entries(S.menus).some(function (e) { return e[1].name.toLowerCase() === name.toLowerCase() && e[0] !== editId; })) { showToast('Nama sudah ada!', 'error'); return; }
-  await saveMenuFS(editId || genId(), { name, price, details });
-  renderMenusTable();
-  closeModal('modal-menu');
+  await saveMenuFS(editId || genId(), { name: name, price: price, details: details });
+  renderMenusTable(); closeModal('modal-menu');
   showToast('Menu "' + name + '" disimpan!', 'success');
 }
 
 async function doDeleteMenu(id) {
   var n = S.menus[id] ? S.menus[id].name : 'menu ini';
   if (!confirm('Hapus menu "' + n + '"?')) return;
-  await deleteMenuFS(id);
-  renderMenusTable();
+  await deleteMenuFS(id); renderMenusTable();
   showToast('Menu dihapus', 'info');
 }
 
@@ -1352,10 +1128,7 @@ function renderLocsTable() {
   var tbody = document.getElementById('locations-tbody');
   if (!tbody) return;
   var locs = getLocsSorted();
-  if (!locs.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--ink-4)"><div style="font-size:1.8rem;margin-bottom:10px">📍</div><div style="font-weight:600">Belum ada lokasi</div></td></tr>';
-    return;
-  }
+  if (!locs.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--ink-4)"><div style="font-size:1.8rem;margin-bottom:10px">📍</div><div style="font-weight:600">Belum ada lokasi</div></td></tr>'; return; }
   tbody.innerHTML = locs.map(function (l) {
     var dur = l.defaultDuration ? l.defaultDuration + 'm' : 'Global (' + S.ops.defaultDuration + 'm)';
     var buf = (l.bufferTime !== undefined && l.bufferTime !== '') ? l.bufferTime + 'm' : 'Global (' + S.ops.bufferTime + 'm)';
@@ -1383,34 +1156,32 @@ function openLocModal(editId) {
     val('loc-close',    l.closeTime || '');
   } else {
     setHTML('loc-modal-title', '<i class="fas fa-map-marker-alt"></i> Tambah Lokasi');
-    ['loc-name','loc-capacity','loc-min','loc-duration','loc-buffer','loc-open','loc-close'].forEach(function (id) { val(id, ''); });
+    ['loc-name', 'loc-capacity', 'loc-min', 'loc-duration', 'loc-buffer', 'loc-open', 'loc-close'].forEach(function (id) { val(id, ''); });
   }
   openModal('modal-loc');
 }
 
 async function saveLoc() {
-  var name   = gval('loc-name').trim(), cap = parseInt(gval('loc-capacity')), editId = gval('loc-edit-id');
+  var name = gval('loc-name').trim(), cap = parseInt(gval('loc-capacity')), editId = gval('loc-edit-id');
   if (!name) { showToast('Nama lokasi wajib!', 'error'); return; }
   if (!cap || cap < 1) { showToast('Kapasitas minimal 1!', 'error'); return; }
   if (Object.entries(S.locs).some(function (e) { return e[1].name.toLowerCase() === name.toLowerCase() && e[0] !== editId; })) { showToast('Nama sudah ada!', 'error'); return; }
   var data = {
-    name, capacity: cap,
-    minGuests:       parseInt(gval('loc-min'))      || 1,
+    name: name, capacity: cap,
+    minGuests:       parseInt(gval('loc-min'))  || 1,
     defaultDuration: gval('loc-duration') ? parseInt(gval('loc-duration')) : '',
-    bufferTime:      gval('loc-buffer')   !== '' ? parseInt(gval('loc-buffer')) : '',
+    bufferTime:      gval('loc-buffer') !== '' ? parseInt(gval('loc-buffer')) : '',
     openTime:        gval('loc-open'),
     closeTime:       gval('loc-close')
   };
   await saveLocFS(editId || genId(), data);
-  renderLocsTable();
-  closeModal('modal-loc');
+  renderLocsTable(); closeModal('modal-loc');
   showToast('Lokasi "' + name + '" disimpan!', 'success');
 }
 
 async function doDeleteLoc(id) {
   if (!confirm('Hapus lokasi "' + (S.locs[id] ? S.locs[id].name : 'ini') + '"?')) return;
-  await deleteLocFS(id);
-  renderLocsTable();
+  await deleteLocFS(id); renderLocsTable();
   showToast('Lokasi dihapus', 'info');
 }
 
@@ -1437,10 +1208,7 @@ function renderCustomers(filter) {
     var fl = filter.toLowerCase();
     list = list.filter(function (c) { return c.nama.toLowerCase().includes(fl) || (c.nomorHp && c.nomorHp.includes(filter)); });
   }
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-4)">' + (filter ? 'Tidak ada hasil.' : 'Belum ada pelanggan.') + '</td></tr>';
-    return;
-  }
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ink-4)">' + (filter ? 'Tidak ada hasil.' : 'Belum ada pelanggan.') + '</td></tr>'; return; }
   tbody.innerHTML = list.map(function (c) {
     return '<tr><td><div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:' + nameColor(c.nama) + ';color:#fff;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + initials(c.nama) + '</div><strong>' + esc(c.nama) + '</strong></div></td>'
       + '<td>' + (c.nomorHp ? '<span class="badge badge-gray">' + esc(c.nomorHp) + '</span>' : '-') + '</td>'
@@ -1453,7 +1221,6 @@ function renderCustomers(filter) {
 function filterCustomers(q) { renderCustomers(q); }
 function custWA(phone, name) { openWA(phone, 'Halo Kak *' + name + '* 👋\n\nKami dari *' + S.biz.name + '* ingin menyapa. Terima kasih sudah berkunjung! 😊'); }
 
-/* [FIX-5 & FIX-6] openWA + normPhone */
 function openWA(phone, msg) {
   if (!phone) return;
   window.open('https://wa.me/' + normPhone(phone) + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
@@ -1512,7 +1279,7 @@ function buildDailyMsg(dateStr, res) {
 var NOTIF = {
   handle: null,
   getPending: function () {
-    var now = Date.now();
+    var now   = Date.now();
     var seven = new Date(now - 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
     var today = todayStr();
     return getAllRes().filter(function (r) {
@@ -1522,7 +1289,7 @@ var NOTIF = {
     });
   },
   render: function () {
-    var p = this.getPending();
+    var p      = this.getPending();
     var dot    = document.getElementById('notif-dot');
     var listEl = document.getElementById('notif-list');
     if (!dot || !listEl) return;
@@ -1587,21 +1354,18 @@ function doPrint() {
   var html = '<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><title>Reservasi ' + formatDateDisp(S.date || '') + '</title><style>body{font-family:sans-serif;padding:20px;color:#18181b;max-width:900px;margin:0 auto}h1{font-size:1.3rem}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{border:1px solid #e4e4e7;border-radius:10px;padding:14px;break-inside:avoid}h3{margin:0 0 7px;font-size:.95rem}p{margin:3px 0;font-size:.85rem}ul{margin:4px 0;padding-left:16px;font-size:.8rem}@media print{@page{margin:12mm}}</style></head><body><h1>📋 Reservasi - ' + esc(S.biz.name) + '</h1><p style="color:#71717a;margin-bottom:16px">' + formatDateFull(S.date || '') + ' · ' + res.length + ' reservasi</p><div class="grid">' + items + '</div></body></html>';
   var w = window.open('', '_blank', 'noopener');
   if (!w) { showToast('Pop-up diblokir!', 'error'); return; }
-  w.document.write(html);
-  w.document.close();
+  w.document.write(html); w.document.close();
   setTimeout(function () { w.print(); }, 600);
 }
 
 /* ──────────────────────────────────────────────────────────
-   [FIX-9] EXPORT / IMPORT
-   doImport: sync semua data ke Firestore, refresh detail view
+   EXPORT / IMPORT
    ────────────────────────────────────────────────────────── */
 function handleExport() {
   var payload = { v: 4, exportedAt: new Date().toISOString(), biz: S.biz, menus: S.menus, locs: S.locs, res: S.res, ops: S.ops, appear: S.appear };
   var code = '';
   try { code = btoa(unescape(encodeURIComponent(JSON.stringify(payload)))); } catch (e) {}
-  val('export-out', code);
-  val('import-in', '');
+  val('export-out', code); val('import-in', '');
   openModal('modal-export');
 }
 
@@ -1631,30 +1395,16 @@ async function doImport() {
   if (payload.ops)    S.ops    = Object.assign(S.ops,    payload.ops);
   if (payload.appear) S.appear = Object.assign(S.appear, payload.appear);
 
-  /* Simpan ke localStorage */
-  DB.set(K.BIZ,   S.biz);
-  DB.set(K.MENUS, S.menus);
-  DB.set(K.LOCS,  S.locs);
-  DB.set(K.RES,   S.res);
-  DB.set(K.OPS,   S.ops);
-  DB.set(K.APPEAR, S.appear);
+  DB.set(K.BIZ, S.biz); DB.set(K.MENUS, S.menus); DB.set(K.LOCS, S.locs);
+  DB.set(K.RES, S.res); DB.set(K.OPS, S.ops); DB.set(K.APPEAR, S.appear);
 
-  /* [FIX-9a] Sync semua ke Firestore jika user logged in */
   if (_UID && window._FB) {
     var fb = window._FB;
     try {
       await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'config', 'biz'), S.biz);
       await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'config', 'ops'), S.ops);
-
-      /* Sync menus */
-      for (var mid in S.menus) {
-        await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'menus', mid), S.menus[mid]);
-      }
-      /* Sync locations */
-      for (var lid in S.locs) {
-        await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'locations', lid), S.locs[lid]);
-      }
-      /* Sync reservations */
+      for (var mid in S.menus) { await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'menus', mid), S.menus[mid]); }
+      for (var lid in S.locs)  { await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'locations', lid), S.locs[lid]); }
       for (var mk in S.res) {
         var monthArr = S.res[mk];
         if (!Array.isArray(monthArr)) continue;
@@ -1664,35 +1414,21 @@ async function doImport() {
         }
       }
       _showSync();
-    } catch (e) {
-      console.warn('Import Firestore sync partial error:', e);
-    }
+    } catch (e) { console.warn('Import Firestore sync error:', e); }
   }
 
   showToast('Data berhasil diimport! ✅', 'success');
   closeModal('modal-export');
-
-  var biz = S.biz.name || 'Usaha Saya';
-  setText('cal-title', 'Dashboard - ' + biz);
-  setText('sb-biz-name', biz);
-  applyAllAppearance(false);
-  renderCalendar();
-  renderMenusTable();
-  renderLocsTable();
-  loadSettingsForm();
-
-  /* [FIX-9b] Refresh detail view jika sedang terbuka */
-  if (S.date) {
-    renderDetail(getResDate(S.date));
-    renderAvailBar(S.date);
-  }
+  setText('cal-title', 'Dashboard - ' + (S.biz.name || 'Usaha Saya'));
+  setText('sb-biz-name', S.biz.name || 'Usaha Saya');
+  applyAllAppearance(false); renderCalendar(); renderMenusTable(); renderLocsTable(); loadSettingsForm();
+  if (S.date) { renderDetail(getResDate(S.date)); renderAvailBar(S.date); }
 }
 
 /* ──────────────────────────────────────────────────────────
    ANALYSIS
-   [FIX-10] var anlChart terpisah (tidak lagi di S.anlChart)
    ────────────────────────────────────────────────────────── */
-var anlChart = null; /* standalone - bukan bagian dari S */
+var anlChart = null;
 
 function setupAnlSelectors() {
   var ySel = document.getElementById('anl-year'), mSel = document.getElementById('anl-month');
@@ -1708,18 +1444,16 @@ function runAnalysis() {
   var y  = parseInt(document.getElementById('anl-year').value);
   var mv = document.getElementById('anl-month').value;
   var filtered, mode;
-  if (mv === 'all') {
-    filtered = getAllRes().filter(function (r) { return r.date && r.date.startsWith(String(y)); });
-    mode = 'month';
-  } else {
-    filtered = S.res[mkKey(y, parseInt(mv))] || [];
-    mode = 'day';
-  }
+  if (mv === 'all') { filtered = getAllRes().filter(function (r) { return r.date && r.date.startsWith(String(y)); }); mode = 'month'; }
+  else { filtered = S.res[mkKey(y, parseInt(mv))] || []; mode = 'day'; }
+
   var cnt = filtered.length;
   var pax = filtered.reduce(function (s, r) { return s + (parseInt(r.jumlah) || 0); }, 0);
   var dp  = filtered.reduce(function (s, r) { return s + (parseInt(r.dp)    || 0); }, 0);
+
   var statsEl = document.getElementById('anl-stats');
   if (statsEl) statsEl.innerHTML = anlCard(cnt, 'Total Reservasi', 'fas fa-calendar-check') + anlCard(pax, 'Total Tamu', 'fas fa-users') + anlCard('Rp' + formatRpK(dp), 'Total DP', 'fas fa-money-bill-wave') + anlCard(cnt ? Math.round(pax / cnt) : 0, 'Rata-rata Tamu', 'fas fa-chart-line');
+
   var labels = [], data = [];
   if (mode === 'month') {
     var mc = Array(12).fill(0);
@@ -1732,22 +1466,27 @@ function runAnalysis() {
     labels = dc.map(function (_, i) { return String(i + 1); }); data = dc;
   }
   renderAnlChart(labels, data, mode === 'month' ? 'Reservasi per Bulan' : 'Reservasi per Tanggal');
+
   var dowMap = {}; DAYS.forEach(function (d) { dowMap[d] = 0; });
   filtered.forEach(function (r) { if (r.date) { var dow = DAYS[new Date(r.date + 'T12:00:00').getDay()]; dowMap[dow] = (dowMap[dow] || 0) + 1; } });
   var topDow = Object.entries(dowMap).sort(function (a, b) { return b[1] - a[1]; })[0];
+
   var menuMap = {};
   filtered.forEach(function (r) { if (Array.isArray(r.menus)) r.menus.forEach(function (m) { menuMap[m.name] = (menuMap[m.name] || 0) + (parseInt(m.quantity) || 1); }); });
   var topMenu = Object.entries(menuMap).sort(function (a, b) { return b[1] - a[1]; })[0];
+
   var ins = ['Periode: ' + filtered.length + ' reservasi, ' + pax + ' tamu total.'];
   if (topDow && topDow[1]) ins.push('Hari tersibuk: <strong>' + topDow[0] + '</strong> (' + topDow[1] + ' reservasi).');
   if (topMenu) ins.push('Menu favorit: <strong>' + esc(topMenu[0]) + '</strong> (' + topMenu[1] + ' porsi).');
   var insightEl = document.getElementById('anl-insight');
   if (insightEl) insightEl.innerHTML = '<h5><i class="fas fa-robot"></i> Insight Otomatis</h5>' + (filtered.length ? '<ul>' + ins.map(function (i) { return '<li>' + i + '</li>'; }).join('') + '</ul>' : '<p style="color:var(--ink-4);font-size:.85rem">Belum ada data untuk periode ini.</p>');
+
   var custM = {};
   filtered.forEach(function (r) { if (r.nomorHp) { if (!custM[r.nomorHp]) custM[r.nomorHp] = { name: r.nama, count: 0 }; custM[r.nomorHp].count++; } });
-  var topC = Object.values(custM).sort(function (a, b) { return b.count - a.count; }).slice(0, 5);
-  var freq = document.getElementById('anl-frequent');
+  var topC  = Object.values(custM).sort(function (a, b) { return b.count - a.count; }).slice(0, 5);
+  var freq  = document.getElementById('anl-frequent');
   if (freq) freq.innerHTML = topC.length ? topC.map(function (c) { return '<li class="rank-item"><span>' + esc(c.name) + '</span><span class="ri-val">' + c.count + 'x</span></li>'; }).join('') : '<li style="color:var(--ink-4);font-size:.85rem;padding:12px 0">Belum ada data</li>';
+
   var topM  = Object.entries(menuMap).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 5);
   var mrank = document.getElementById('anl-menus-rank');
   if (mrank) mrank.innerHTML = topM.length ? topM.map(function (m) { return '<li class="rank-item"><span>' + esc(m[0]) + '</span><span class="ri-val">' + m[1] + ' porsi</span></li>'; }).join('') : '<li style="color:var(--ink-4);font-size:.85rem;padding:12px 0">Belum ada data</li>';
@@ -1765,9 +1504,9 @@ function renderAnlChart(labels, data, title) {
   anlChart = new Chart(ctx.getContext('2d'), {
     type: 'bar',
     data: {
-      labels,
+      labels: labels,
       datasets: [{
-        label: 'Reservasi', data,
+        label: 'Reservasi', data: data,
         backgroundColor: function (c) {
           var ch = c.chart, ct = ch.ctx, a = ch.chartArea;
           if (!a) return acColor + 'b3';
@@ -1872,7 +1611,7 @@ function showToast(msg, type, dur) {
   type = type || 'success'; dur = dur || 3000;
   var c = document.getElementById('toast-container');
   if (!c) return;
-  var icons = { success:'fas fa-check-circle', error:'fas fa-times-circle', info:'fas fa-info-circle', warning:'fas fa-exclamation-triangle' };
+  var icons = { success: 'fas fa-check-circle', error: 'fas fa-times-circle', info: 'fas fa-info-circle', warning: 'fas fa-exclamation-triangle' };
   var div = document.createElement('div');
   div.className = 'toast toast-' + type;
   div.innerHTML = '<i class="' + (icons[type] || icons.success) + '"></i><span>' + msg + '</span>';
@@ -1929,51 +1668,43 @@ function nameColor(n) {
   if (!n) return '#64748b';
   var h = 0;
   for (var i = 0; i < n.length; i++) h = n.charCodeAt(i) + ((h << 5) - h);
-  return ['#e8630a','#06b6d4','#10b981','#f59e0b','#8b5cf6','#ec4899','#0284c7','#ef4444'][Math.abs(h) % 8];
+  return ['#e8630a', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0284c7', '#ef4444'][Math.abs(h) % 8];
 }
 
 function validPhone(p) { return /^[\d\s\-+()]{10,15}$/.test(p); }
 
-/* [FIX-5] normPhone - handle semua format */
 function normPhone(p) {
   if (!p) return '';
-  /* Strip semua karakter non-digit */
   var c = p.replace(/\D/g, '');
-  /* Sudah format internasional */
   if (c.startsWith('62')) return c;
-  /* Format lokal dengan 0 di depan */
-  if (c.startsWith('0')) return '62' + c.slice(1);
-  /* Nomor tanpa prefix (mis. 8123456789) - tambahkan 62 */
+  if (c.startsWith('0'))  return '62' + c.slice(1);
   return '62' + c;
 }
 
-function setText(id, v)  { var el = document.getElementById(id); if (el) el.innerHTML  = v; }
-function setHTML(id, v)  { var el = document.getElementById(id); if (el) el.innerHTML  = v; }
-function gval(id)        { var el = document.getElementById(id); return el ? el.value   : ''; }
-function val(id, v)      { var el = document.getElementById(id); if (el) el.value      = v; }
-function selVal(id, v)   { var el = document.getElementById(id); if (el) el.value      = v; }
+function setText(id, v) { var el = document.getElementById(id); if (el) el.innerHTML  = v; }
+function setHTML(id, v) { var el = document.getElementById(id); if (el) el.innerHTML  = v; }
+function gval(id)       { var el = document.getElementById(id); return el ? el.value   : ''; }
+function val(id, v)     { var el = document.getElementById(id); if (el) el.value      = v; }
+function selVal(id, v)  { var el = document.getElementById(id); if (el) el.value      = v; }
 
 function clearErrors() { document.querySelectorAll('.form-error').forEach(function (e) { e.textContent = ''; e.classList.remove('show'); }); }
 function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.textContent = msg; el.classList.add('show'); } }
+
 /* ──────────────────────────────────────────────────────────
    FINAL BOOT
-   Jalankan hanya setelah seluruh file selesai dieksekusi.
    ────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function () {
-
   boot();
 
   /*
-   * Jika ada auth user pending dari redirect login mobile,
-   * proses sekarang setelah seluruh app siap.
+   * Bridge script di index.html (defer kedua) memanggil
+   * _onAuthReady(pendingUser) jika ada user pending.
+   * Tapi jika DOMContentLoaded terpanggil lebih dulu
+   * dari bridge, handle di sini sebagai safety net.
    */
-  if (window._pendingAuthUser && window._onAuthReady) {
-
+  if (window._pendingAuthUser !== undefined && window._onAuthReady) {
     var pendingUser = window._pendingAuthUser;
-
-    window._pendingAuthUser = null;
-
+    delete window._pendingAuthUser;
     window._onAuthReady(pendingUser);
   }
 });
-
