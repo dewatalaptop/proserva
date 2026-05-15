@@ -256,7 +256,7 @@ if (typeof window.doGoogleSignIn !== 'function') {
   window.doGoogleSignIn = async function () {
     if (!window._FB) { showToast('Firebase belum siap', 'error'); return; }
     var btn = document.getElementById('btn-google-signin');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses…'; }
     try {
       var fb = window._FB;
       if (fb.signInWithPopup) {
@@ -350,22 +350,15 @@ function boot() {
   if (sidebarOverlay) sidebarOverlay.onclick = toggleSidebar;
 
   /*
-   * [FIX-3 lanjutan] Cek apakah ada _pendingAuthUser dari bridge script.
-   * Bridge script (defer kedua) memanggil _onAuthReady, tapi jika
-   * boot() dipanggil dari DOMContentLoaded (readyState loading),
-   * bridge sudah pasti jalan duluan karena defer berurutan.
-   * Ini safety check tambahan.
+   * _pendingAuthUser TIDAK di-handle di sini.
+   * Bridge script (defer kedua setelah app.js) yang bertanggung jawab
+   * memanggil _onAuthReady(pendingUser) setelah seluruh app.js selesai.
+   * Jika di-handle di sini: var S belum dieksekusi (ada di bawah boot() call)
+   * sehingga _onAuthReady → S.biz → TypeError: Cannot read properties of undefined.
    */
-  if (typeof window._pendingAuthUser !== 'undefined') {
-    var pendingUser = window._pendingAuthUser;
-    delete window._pendingAuthUser;
-    window._onAuthReady(pendingUser);
-  }
 }
 
-document.readyState === 'loading'
-  ? document.addEventListener('DOMContentLoaded', boot)
-  : boot();
+/* Boot call dipindah ke bawah semua var declarations - lihat akhir file */
 
 /* ──────────────────────────────────────────────────────────
    STATE
@@ -628,6 +621,10 @@ function showSettingsSection(id, el) {
 }
 
 function loadSettingsForm() {
+  /* Rebuild grids setiap kali settings dibuka - aman karena semua var sudah terdefinisi */
+  buildAccentGrid();
+  buildEmojiGrid();
+
   val('set-biz-name',    S.biz.name    || '');
   val('set-tagline',     S.biz.tagline || '');
   selVal('set-biz-type', S.biz.type    || 'restoran');
@@ -759,7 +756,7 @@ async function wzFinish() {
 
   var btn = document.getElementById('wz-finish-btn');
   var backBtn = document.getElementById('wz-back-3');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan…'; }
   if (backBtn) backBtn.disabled = true;
   setText('wz-err-3', '');
 
@@ -1099,7 +1096,7 @@ async function saveRes() {
   if (!valid) return;
 
   var btn = document.getElementById('btn-save-res');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan…'; }
   try {
     var resObj;
     if (editId) {
@@ -1148,7 +1145,7 @@ async function delRes(id) {
 function populateLocSelect(selId, selV) {
   var sel = document.getElementById(selId);
   if (!sel) return;
-  sel.innerHTML = '<option value="">Pilih lokasi...</option>';
+  sel.innerHTML = '<option value="">Pilih lokasi…</option>';
   getLocsSorted().forEach(function (loc) {
     var opt = document.createElement('option');
     opt.value = loc.name;
@@ -1172,7 +1169,7 @@ function addMenuRow(cId, menuName, qty) {
   }).join('');
   var div = document.createElement('div');
   div.className = 'menu-row';
-  div.innerHTML = '<select class="form-select" onchange="updateMrPrice(this)"><option value="">Pilih menu...</option>' + opts + '</select>'
+  div.innerHTML = '<select class="form-select" onchange="updateMrPrice(this)"><option value="">Pilih menu…</option>' + opts + '</select>'
     + '<input type="number" class="form-input mr-qty" value="' + qty + '" min="1"/>'
     + '<span class="mr-price"></span>'
     + '<button class="mr-del" onclick="this.closest(\'.menu-row\').remove()" title="Hapus"><i class="fas fa-times"></i></button>';
@@ -1382,7 +1379,7 @@ function shareWA(scope) {
 
 function buildConfMsg(r) {
   var menuList = '*(tidak ada)*';
-  if (Array.isArray(r.menus) && r.menus.length) menuList = r.menus.map(function (i) { return '  - *' + i.quantity + 'x ' + i.name + '*'; }).join('\n');
+  if (Array.isArray(r.menus) && r.menus.length) menuList = r.menus.map(function (i) { return '  • *' + i.quantity + 'x ' + i.name + '*'; }).join('\n');
   return 'Halo Kak *' + r.nama + '* 👋\n\nKonfirmasi reservasi di *' + S.biz.name + '*:\n\n📅 *Tanggal:* ' + formatDateFull(r.date) + '\n⏰ *Jam:* ' + r.jam + '\n📍 *Tempat:* ' + r.tempat + '\n👥 *Jumlah:* ' + r.jumlah + ' orang\n\n🍽 *Pesanan:*\n' + menuList + '\n\n' + (parseInt(r.dp) > 0 ? '💰 *DP:* Rp' + formatRp(r.dp) + (r.tipeDp ? ' via ' + r.tipeDp : '') + '\n\n' : '') + (r.tambahan ? '📝 *Catatan:* ' + r.tambahan + '\n\n' : '') + 'Mohon konfirmasi kehadiran ya! 😊';
 }
 
@@ -1394,10 +1391,10 @@ function buildDailyMsg(dateStr, res) {
   var msg = '*📋 LAPORAN RESERVASI*\n*' + S.biz.name + '*\n\n📅 ' + formatDateFull(dateStr) + '\n' + '-'.repeat(24) + '\n\n';
   if (!res.length) return msg + '*Tidak ada reservasi.*';
   res.forEach(function (r, i) {
-    var ml = Array.isArray(r.menus) && r.menus.length ? r.menus.map(function (m) { return '  - ' + m.quantity + 'x ' + m.name; }).join('\n') : '*(tidak ada)*';
+    var ml = Array.isArray(r.menus) && r.menus.length ? r.menus.map(function (m) { return '  • ' + m.quantity + 'x ' + m.name; }).join('\n') : '*(tidak ada)*';
     msg += '*' + (i + 1) + '. ' + r.nama + '*\n⏰ ' + r.jam + ' | 📍 ' + r.tempat + ' | 👥 ' + r.jumlah + ' orang\n🍽 Pesanan:\n' + ml + '\n' + (parseInt(r.dp) > 0 ? '💰 DP: Rp' + formatRp(r.dp) + '\n' : '') + (r.tambahan ? '📝 ' + r.tambahan + '\n' : '') + '\n';
   });
-  return msg.replace(/\s+$/, '');
+  return msg.trimEnd();
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -1849,3 +1846,13 @@ function selVal(id, v)   { var el = document.getElementById(id); if (el) el.valu
 
 function clearErrors() { document.querySelectorAll('.form-error').forEach(function (e) { e.textContent = ''; e.classList.remove('show'); }); }
 function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.textContent = msg; el.classList.add('show'); } }
+
+
+/* ──────────────────────────────────────────────────────────
+   BOOT - dipanggil setelah SEMUA var declarations di atas
+   selesai dieksekusi, termasuk ACCENT_MAP, LOGO_EMOJIS, S.
+   Ini memastikan tidak ada TypeError saat boot() dijalankan.
+   ────────────────────────────────────────────────────────── */
+document.readyState === 'loading'
+  ? document.addEventListener('DOMContentLoaded', boot)
+  : boot();
