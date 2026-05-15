@@ -243,13 +243,53 @@
       collection,
       getDocs
 };
+window._DONE_FS = true;
 
+console.log('[Firebase] ready');
 /* Firebase bootstrap selesai */
 window._DONE_FS = true;
 
     /* ── Auth state listener ─────────────────── */
     onAuthStateChanged(auth, async (user) => {
+
   window._FB_READY = true;
+
+  console.log('[AUTH] state changed:', user);
+
+  /*
+   * Simpan user global
+   */
+  window._CURRENT_USER = user || null;
+
+  /*
+   * app.js belum siap
+   */
+  if (typeof window._onAuthReady !== 'function') {
+
+    console.log('[AUTH] app.js belum siap');
+
+    window._pendingAuthUser = user || null;
+
+    return;
+  }
+
+  /*
+   * Tunggu Firebase bootstrap selesai
+   */
+  let tries = 0;
+
+  while (!window._DONE_FS && tries < 100) {
+
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    tries++;
+  }
+
+  console.log('[AUTH] kirim user ke app.js');
+
+  window._onAuthReady(user || null);
+
+});
 
   if (user) {
     window._FBUSER = user;
