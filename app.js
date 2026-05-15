@@ -30,7 +30,51 @@ var DB = {
     } catch (e) { return fb !== undefined ? fb : null; }
   },
   set: function (k, v) {
-    try { localStorage.setItem(_ckey(k), JSON.stringify(v)); return true; }
+    try {
+      if (window.requestIdleCallback) {
+        requestIdleCallback(function () {
+          localStorage.setItem(_ckey(k), JSON.stringify(v));
+        }, { timeout: 1200 });
+      } else {
+        localStorage.setItem(_ckey(k), JSON.stringify(v));
+      }
+      return true;
+    }
+
+requestAnimationFrame(function(){\n      showScreen('landing');\n    });|||requestAnimationFrame(function () {
+      showScreen('landing');
+    });
+
+if (!window._NOTIF_STARTED) {\n    NOTIF.start();\n    window._NOTIF_STARTED = true;\n  }|||if (!window._NOTIF_STARTED) {
+    NOTIF.start();
+    window._NOTIF_STARTED = true;
+  }
+
+requestAnimationFrame(function(){\n      showScreen('app');\n    });|||requestAnimationFrame(function () {
+      showScreen('app');
+    });
+
+requestAnimationFrame(function(){\n    window.scrollTo({ top: 0, behavior: 'smooth' });\n  });|||requestAnimationFrame(function () {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+var waUrl = 'https://wa.me/' + normPhone(phone) + '?text=' + encodeURIComponent(msg);\n  var win = window.open(waUrl, '_blank');\n  if (!win) location.href = waUrl;|||var waUrl = 'https://wa.me/' + normPhone(phone) + '?text=' + encodeURIComponent(msg);
+  var win = window.open(waUrl, '_blank');
+  if (!win) location.href = waUrl;
+
+self.handle = setInterval(function () {\n      if (!document.hidden) self.render();\n    }, 5 * 60 * 1000);|||self.handle = setInterval(function () {
+      if (!document.hidden) self.render();
+    }, 5 * 60 * 1000);
+
+div.style.opacity = '0';\n    div.style.transform = 'translate3d(18px,0,0)';|||div.style.opacity = '0';
+    div.style.transform = 'translate3d(18px,0,0)';
+
+window.addEventListener('DOMContentLoaded', function () {\n  document.body.classList.add('app-ready');|||window.addEventListener('DOMContentLoaded', function () {
+  document.body.classList.add('app-ready');
+
+Promise.resolve().then(function(){\n      window._onAuthReady(pendingUser);\n    });|||Promise.resolve().then(function () {
+      window._onAuthReady(pendingUser);
+    });
     catch (e) { return false; }
   }
 };
@@ -224,7 +268,7 @@ async function doSignOut() {
   window._AUTH_PROCESSING = false;
   window._pendingAuthUser = null;
   S.res = {}; S.menus = {}; S.locs = {};
-  showScreen('landing');
+  requestAnimationFrame(function(){\n      showScreen('landing');\n    });
   showToast('Berhasil keluar. Sampai jumpa! 👋', 'info');
 }
 
@@ -236,7 +280,7 @@ window._onAuthReady = async function (user) {
   /* Firebase tidak dikonfigurasi */
   if (window._FB_UNCONFIGURED) {
     window._AUTH_PROCESSING = false;
-    showScreen('landing');
+    requestAnimationFrame(function(){\n      showScreen('landing');\n    });
     return;
   }
 
@@ -249,7 +293,7 @@ window._onAuthReady = async function (user) {
 
   var retry = 0;
 
-  while (retry < 30) {
+  while (retry < 12) {
 
     await new Promise(function (resolve) {
       setTimeout(resolve, 300);
@@ -269,15 +313,15 @@ window._onAuthReady = async function (user) {
 
   if (!user) {
     window._AUTH_PROCESSING = false;
-    showScreen('landing');
+    requestAnimationFrame(function(){\n      showScreen('landing');\n    });
     return;
   }
 }
 
   /* Tunggu Firebase module selesai init (window._DONE_FS) */
   var waitCount = 0;
-  while (!window._DONE_FS && waitCount < 100) {
-    await new Promise(function (resolve) { setTimeout(resolve, 100); });
+  while (!window._DONE_FS && waitCount < 35) {
+    await new Promise(function (resolve) { setTimeout(resolve, 80); });
     waitCount++;
   }
 
@@ -317,7 +361,7 @@ window._onAuthReady = async function (user) {
   setText('sb-biz-name', biz);
 
   renderCalendar();
-  NOTIF.start();
+  if (!window._NOTIF_STARTED) {\n    NOTIF.start();\n    window._NOTIF_STARTED = true;\n  }
 
   document.removeEventListener('click', closeNotifH);
   document.addEventListener('click', closeNotifH);
@@ -330,7 +374,7 @@ window._onAuthReady = async function (user) {
   if (!Object.keys(S.locs || {}).length) {
     showScreen('wizard');
   } else {
-    showScreen('app');
+    requestAnimationFrame(function(){\n      showScreen('app');\n    });
   }
 };
 
@@ -698,11 +742,11 @@ async function wzFinish() {
     setText('sb-biz-name', biz);
     applyAllAppearance(false);
     renderCalendar();
-    NOTIF.start();
+    if (!window._NOTIF_STARTED) {\n    NOTIF.start();\n    window._NOTIF_STARTED = true;\n  }
     document.removeEventListener('click', closeNotifH);
     document.addEventListener('click', closeNotifH);
     loadSettingsForm();
-    showScreen('app');
+    requestAnimationFrame(function(){\n      showScreen('app');\n    });
     showToast('Selamat datang di Proserva! 🎉', 'success', 4000);
   } catch (e) {
     setText('wz-err-3', 'Gagal menyimpan: ' + e.message + '. Coba lagi.');
@@ -789,7 +833,7 @@ function selectDate(ds) {
   setText('topbar-page', 'Detail Reservasi');
   renderAvailBar(ds);
   renderDetail(getResDate(ds));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  requestAnimationFrame(function(){\n    window.scrollTo({ top: 0, behavior: 'smooth' });\n  });
 }
 
 function backToCal() { S.date = null; showView('calendar'); renderCalendar(); }
@@ -1241,7 +1285,7 @@ function custWA(phone, name) { openWA(phone, 'Halo Kak *' + name + '* 👋\n\nKa
 
 function openWA(phone, msg) {
   if (!phone) return;
-  window.open('https://wa.me/' + normPhone(phone) + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+  var waUrl = 'https://wa.me/' + normPhone(phone) + '?text=' + encodeURIComponent(msg);\n  var win = window.open(waUrl, '_blank');\n  if (!win) location.href = waUrl;
 }
 
 function contactWA(id) {
@@ -1325,7 +1369,7 @@ var NOTIF = {
     var self = this;
     self.render();
     if (self.handle) clearInterval(self.handle);
-    self.handle = setInterval(function () { self.render(); }, 2 * 60 * 1000);
+    self.handle = setInterval(function () {\n      if (!document.hidden) self.render();\n    }, 5 * 60 * 1000);
   }
 };
 
@@ -1635,7 +1679,7 @@ function showToast(msg, type, dur) {
   div.innerHTML = '<i class="' + (icons[type] || icons.success) + '"></i><span>' + msg + '</span>';
   c.appendChild(div);
   setTimeout(function () {
-    div.style.opacity = '0'; div.style.transform = 'translateX(18px)';
+    div.style.opacity = '0';\n    div.style.transform = 'translate3d(18px,0,0)';
     setTimeout(function () { if (div.parentNode) div.remove(); }, 320);
   }, dur);
 }
@@ -1711,7 +1755,7 @@ function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.t
 /* ──────────────────────────────────────────────────────────
    FINAL BOOT
    ────────────────────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', function () {
+window.addEventListener('DOMContentLoaded', function () {\n  document.body.classList.add('app-ready');
   boot();
 
   /*
@@ -1727,6 +1771,6 @@ window.addEventListener('DOMContentLoaded', function () {
 ) {
     var pendingUser = window._pendingAuthUser;
     delete window._pendingAuthUser;
-    window._onAuthReady(pendingUser);
+    Promise.resolve().then(function(){\n      window._onAuthReady(pendingUser);\n    });
   }
 });
