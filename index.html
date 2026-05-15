@@ -171,9 +171,14 @@
          * Kriteria: user agent mengandung Mobile/Android/iOS
          * dan bukan browser desktop yang dibuka di mobile UA.
          */
-        const isMobile =
+        const isStandalone =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.navigator.standalone === true;
+
+const isMobile =
   /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
+  
         if (isMobile) {
           /* Pada mobile: redirect lebih reliable */
           await signInWithRedirect(auth, provider);
@@ -1508,7 +1513,16 @@ console.log('Firebase module loaded successfully');
      ────────────────────────────────────────── */
   window._onAuthReady = function (user) {
   window._pendingAuthUser = user;
-  window._AUTH_PROCESSING = true;  // tetap true sampai app.js selesai
+
+  if (!window.__AUTH_TIMEOUT_LOCK) {
+    window.__AUTH_TIMEOUT_LOCK = true;
+
+    window._AUTH_PROCESSING = true;
+
+    setTimeout(function () {
+      window._AUTH_PROCESSING = false;
+    }, 20000);
+  }
 };
 
 
@@ -1538,7 +1552,7 @@ loading.style.opacity = '0';
 setTimeout(function () {
   loading.style.display = 'none';
 }, 400);
-      }, 300);
+      }, 1200);
     }
 
     /* Fallback: naikkan ke 10 detik agar redirect login punya waktu cukup restore session */
@@ -1550,7 +1564,8 @@ setTimeout(function () {
   var wizard = document.getElementById('screen-wizard');
   var auth   = document.getElementById('screen-auth');
 
-  var appVisible   = shell  && shell.style.display !== 'none' && shell.style.display !== '';
+  var appVisible = shell &&
+  window.getComputedStyle(shell).display !== 'none';
   var wizardActive = wizard && wizard.classList.contains('active');
   var authActive   = auth   && auth.classList.contains('active');
 
@@ -1613,6 +1628,23 @@ setTimeout(function () {
       window.__AUTH_READY_CALLED = true;
       window.__AUTH_READY_FROM_APPJS = true;
       window._onAuthReady(user);
+      if (typeof window._onAuthReady === 'function') {
+
+  if (window.__AUTH_READY_CALLED && window.__AUTH_READY_FROM_APPJS) {
+    return;
+  }
+
+  window.__AUTH_READY_CALLED = true;
+  window.__AUTH_READY_FROM_APPJS = true;
+
+  Promise.resolve(window._onAuthReady(user))
+    .catch(function (err) {
+      console.error('_onAuthReady bridge error:', err);
+    })
+    .finally(function () {
+      window._AUTH_PROCESSING = false;
+    });
+}
     }
 
   }
