@@ -887,7 +887,261 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.documentElement.classList.add('dom-ready');
 });
 </script>
+<script>
 
+/* ═══════════════════════════════════════
+   PROSERVA SAFE BOOT GUARD
+   Tidak menghapus fungsi existing
+   Hanya menambah fallback protection
+   ═══════════════════════════════════════ */
+
+(function(){
+
+  'use strict';
+
+  /* ─────────────────────────────────────
+     SAFE GLOBALS
+     ───────────────────────────────────── */
+
+  window.ACCENTS = window.ACCENTS || {
+    orange : {label:'Orange'},
+    blue   : {label:'Blue'},
+    emerald: {label:'Emerald'},
+    violet : {label:'Violet'}
+  };
+
+  window.safeEntries = function(obj){
+    try{
+      return Object.entries(obj || {});
+    }catch(e){
+      console.error('safeEntries error:', e);
+      return [];
+    }
+  };
+
+  /* ─────────────────────────────────────
+     SAFE SCREEN HANDLER
+     ───────────────────────────────────── */
+
+  if(typeof window.showScreen !== 'function'){
+
+    window.showScreen = function(name){
+
+      try{
+
+        document
+          .querySelectorAll('.screen')
+          .forEach(el=>{
+            el.classList.remove('active');
+            el.setAttribute('aria-hidden','true');
+          });
+
+        const target =
+          document.getElementById('screen-' + name);
+
+        if(target){
+          target.classList.add('active');
+          target.setAttribute('aria-hidden','false');
+        }
+
+      }catch(err){
+        console.error('showScreen error:', err);
+      }
+    };
+
+  }
+
+  /* ─────────────────────────────────────
+     SAFE TOAST
+     ───────────────────────────────────── */
+
+  if(typeof window.toast !== 'function'){
+
+    window.toast = function(msg,type){
+
+      console.log('[TOAST]',type || 'info',msg);
+
+      try{
+
+        const box =
+          document.getElementById('toast-container');
+
+        if(!box) return;
+
+        const el =
+          document.createElement('div');
+
+        el.className='toast toast-' + (type || 'info');
+
+        el.style.cssText =
+          'background:#111827;color:#fff;padding:12px 14px;border-radius:12px;margin-top:10px;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.2)';
+
+        el.textContent = msg;
+
+        box.appendChild(el);
+
+        setTimeout(()=>{
+          if(el.parentNode){
+            el.parentNode.removeChild(el);
+          }
+        },3500);
+
+      }catch(e){
+        console.error(e);
+      }
+    };
+
+  }
+
+  /* ─────────────────────────────────────
+     SAFE BUILD ACCENT GRID
+     Fix error:
+     Cannot convert undefined or null to object
+     ───────────────────────────────────── */
+
+  const __oldBuildAccentGrid =
+    window.buildAccentGrid;
+
+  window.buildAccentGrid = function(){
+
+    try{
+
+      const ACC =
+        window.ACCENTS || {};
+
+      if(
+        !ACC ||
+        typeof ACC !== 'object'
+      ){
+        console.warn('ACCENTS invalid');
+        return;
+      }
+
+      const grid =
+        document.getElementById('accent-grid');
+
+      if(!grid){
+        console.warn('accent-grid missing');
+        return;
+      }
+
+      if(typeof __oldBuildAccentGrid === 'function'){
+
+        return __oldBuildAccentGrid();
+
+      }
+
+      grid.innerHTML='';
+
+      safeEntries(ACC).forEach(([k,v])=>{
+
+        const div =
+          document.createElement('div');
+
+        div.className='accent-opt';
+
+        div.dataset.accent=k;
+
+        div.innerHTML=
+          '<span>'+k+'</span>';
+
+        grid.appendChild(div);
+
+      });
+
+    }catch(err){
+
+      console.error(
+        'buildAccentGrid fatal:',
+        err
+      );
+
+    }
+
+  };
+
+  /* ─────────────────────────────────────
+     SAFE APP READY
+     ───────────────────────────────────── */
+
+  window.addEventListener('DOMContentLoaded',()=>{
+
+    try{
+
+      const loading =
+        document.getElementById('screen-loading');
+
+      setTimeout(()=>{
+
+        if(loading){
+
+          loading.classList.remove('active');
+
+          loading.style.pointerEvents='none';
+          loading.style.opacity='0';
+
+        }
+
+      },600);
+
+      /* fallback landing */
+
+      setTimeout(()=>{
+
+        const appShell =
+          document.getElementById('app-shell');
+
+        const landing =
+          document.getElementById('screen-landing');
+
+        const wizard =
+          document.getElementById('screen-wizard');
+
+        const auth =
+          document.getElementById('screen-auth');
+
+        const isVisible =
+          (appShell && appShell.style.display !== 'none') ||
+          (wizard && wizard.classList.contains('active')) ||
+          (auth && auth.classList.contains('active'));
+
+        if(!isVisible && landing){
+
+          showScreen('landing');
+
+        }
+
+      },1200);
+
+    }catch(e){
+
+      console.error(
+        'DOMContentLoaded guard error:',
+        e
+      );
+
+    }
+
+  });
+
+  /* ─────────────────────────────────────
+     SAFE APP.JS LOAD CHECK
+     ───────────────────────────────────── */
+
+  setTimeout(()=>{
+
+    if(
+      typeof window.buildAccentGrid !== 'function'
+    ){
+      console.warn(
+        'app.js not fully loaded'
+      );
+    }
+
+  },3000);
+
+})();
+</script>
 <script defer src="./app.js?v=5.2" charset="utf-8"></script>
 
 
