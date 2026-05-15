@@ -15,7 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=Geist:wght@300;400;500;600;700&family=Satoshi:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <link rel="stylesheet" href="style.css"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 
 <!-- 🔧 FIREBASE CONFIG — GANTI BAGIAN INI -->
 
@@ -44,7 +44,9 @@ const root = document.body || document.documentElement;
     root.appendChild(errBox);
   }
   setTimeout(() => {
-    errBox.remove();
+    if(errBox.parentNode){
+    errBox.parentNode.removeChild(errBox);
+  }
   }, 7000);
 });
 window.addEventListener('unhandledrejection', e => {
@@ -75,7 +77,7 @@ import {
   authDomain: "proserva-bisnisku.firebaseapp.com",
   projectId: "proserva-bisnisku",
   
-storageBucket: "proserva-bisnisku.appspot.com",
+storageBucket: "proserva-bisnisku.firebasestorage.app",
   messagingSenderId: "995357200209",
   appId: "1:995357200209:web:5cdba2db9975fcc35f4d70"
 };
@@ -138,25 +140,8 @@ window.doGoogleSignIn = async function () {
 
       }
     };
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          console.log('Redirect login success:', result.user.email);
-        }
-      })
-      
-.catch((err) => {
-
-        console.error('Redirect Result Error:', err);
-
-        const msg =
-          err?.code ||
-          err?.message ||
-          'Google redirect login gagal';
-
-        window.toast ? window.toast(msg,'error') : console.error(msg);
-
-      });
+    // Redirect result handling dihapus.
+// onAuthStateChanged sudah cukup untuk menangani login redirect Firebase.
     window._FB = {
       auth,
       db,
@@ -201,13 +186,12 @@ window._FBUSER = null;
   }
 
 
-window._FB_READY = true;
 console.log('Firebase module loaded successfully');
 
-// // window._FB_READY handled by onAuthStateChanged
+// window._FB_READY hanya boleh diset di onAuthStateChanged
 
 setTimeout(()=>{
-  if(!window._FB_READY){
+  if(window._FB_READY !== true){
     console.error('Firebase timeout');
 
     const loading=document.getElementById('screen-loading');
@@ -877,7 +861,7 @@ setTimeout(()=>{
 
 // BOM guard
 
-window.addEventListener('load',()=>{
+window.addEventListener('DOMContentLoaded',()=>{
 
   const loading =
     document.getElementById('screen-loading');
