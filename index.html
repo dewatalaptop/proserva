@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="id" data-theme="dark" data-font="font-elegant" data-density="normal" data-accent="orange">
 <head>
-<meta charset="UTF-8" />>
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -224,117 +224,60 @@
        tidak di-export -> app.js crash saat manggil.
        ────────────────────────────────────────── */
     window._FB = {
-      auth,
-      db,
-      provider,
+  auth,
+  db,
+  provider,
 
-      /* Auth methods */
-      signInWithPopup,
-      signInWithRedirect,
-      getRedirectResult,
-      onAuthStateChanged,
-      signOut,
+  /* Auth methods */
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  onAuthStateChanged,
+  signOut,
 
-      /* Firestore methods */
-      doc,
-      getDoc,
-      setDoc,
-      deleteDoc,
-      collection,
-      getDocs
+  /* Firestore methods */
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  collection,
+  getDocs
 };
-window._DONE_FS = true;
 
 console.log('[Firebase] ready');
-/* Firebase bootstrap selesai */
+
 window._DONE_FS = true;
 
-    /* ── Auth state listener ─────────────────── */
-    onAuthStateChanged(auth, async (user) => {
+/* ── Auth state listener ─────────────────── */
+onAuthStateChanged(auth, async (user) => {
 
   window._FB_READY = true;
 
   console.log('[AUTH] state changed:', user);
 
   /*
-   * Simpan user global
+   * Simpan user global agar boot guard
+   * tidak salah redirect ke landing.
    */
-  window._CURRENT_USER = user || null;
+  window._FBUSER = user || null;
 
   /*
-   * app.js belum siap
+   * Jika app.js sudah siap,
+   * langsung teruskan auth state.
    */
-  if (typeof window._onAuthReady !== 'function') {
-
-    console.log('[AUTH] app.js belum siap');
-
-    window._pendingAuthUser = user || null;
-
-    return;
-  }
-
-  /*
-   * Tunggu Firebase bootstrap selesai
-   */
-  let tries = 0;
-
-  while (!window._DONE_FS && tries < 100) {
-
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    tries++;
-  }
-
-  console.log('[AUTH] kirim user ke app.js');
-
-  window._onAuthReady(user || null);
-
-});
-
-  if (user) {
-    window._FBUSER = user;
+  if (typeof window._onAuthReady === 'function') {
     try {
-      const snap = await getDoc(
-        doc(db, 'users', user.uid, 'config', 'biz')
-      );
-      window._DONE_FS = snap.exists();
-    } catch (e) {
-      console.warn('Config check error:', e);
-      window._DONE_FS = false;
+      window._onAuthReady(user || null);
+    } catch (err) {
+      console.error('_onAuthReady error:', err);
     }
-    /* User ada - langsung panggil */
-    if (typeof window._onAuthReady === 'function') {
-      window._onAuthReady(user);
-    } else {
-      window._pendingAuthUser = user;
-    }
-  } else {
-    window._FBUSER  = null;
-    window._DONE_FS = false;
-    /*
-     * User null - JANGAN langsung panggil _onAuthReady(null).
-     * Setelah redirect login, Firebase selalu fire null dulu
-     * sebelum fire user yang sesungguhnya (~1-3 detik kemudian).
-     * Tunggu sebentar, jika tidak ada user yang datang barulah ke landing.
-     */
-    setTimeout(function () {
-      /* Hanya ke landing jika masih null (belum ada user yang login) */
-      if (!window._FBUSER) {
-        if (typeof window._onAuthReady === 'function') {
-          window._onAuthReady(null);
-        } else {
-          window._pendingAuthUser = null;
-        }
-      }
-    }, 3000);
   }
-});
 
+}); /* ← PENUTUP CALLBACK YANG HILANG */
 
-  } /* end isConfigured */
+} /* end isConfigured */
 
-  console.log('Firebase module loaded successfully');
-
+console.log('Firebase module loaded successfully');
 </script>
 <!-- END FIREBASE MODULE -->
 
