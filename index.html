@@ -171,8 +171,9 @@
          * Kriteria: user agent mengandung Mobile/Android/iOS
          * dan bukan browser desktop yang dibuka di mobile UA.
          */
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
+        const isMobile =
+  /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+  (navigator.maxTouchPoints > 1 && window.innerWidth < 1024);
         if (isMobile) {
           /* Pada mobile: redirect lebih reliable */
           await signInWithRedirect(auth, provider);
@@ -1530,7 +1531,11 @@ console.log('Firebase module loaded successfully');
         loading.classList.remove('active');
         loading.setAttribute('aria-hidden', 'true');
         loading.style.pointerEvents = 'none';
-        loading.style.opacity = '0';
+loading.style.opacity = '0';
+
+setTimeout(function () {
+  loading.style.display = 'none';
+}, 400);
       }, 300);
     }
 
@@ -1551,6 +1556,8 @@ setTimeout(function () {
     }
   }
 }, 10000);
+
+});
 
 
   /* Toast fallback minimal sebelum app.js load */
@@ -1597,6 +1604,8 @@ setTimeout(function () {
      * Panggil versi app.js (bukan versi boot guard di atas).
      */
     if (typeof window._onAuthReady === 'function') {
+      if (window.__AUTH_READY_CALLED) return;
+window.__AUTH_READY_CALLED = true;
       window._onAuthReady(user);
     }
   }
