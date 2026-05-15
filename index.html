@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="style.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 
-<!-- 🔧 FIREBASE CONFIG — GANTI BAGIAN INI -->
+<!-- 🔧 FIREBASE CONFIG -->
 
 <script type="module">
 
@@ -33,7 +33,10 @@ window.addEventListener('error', e => {
   },3000);
   console.error('Global Error:', e?.error || e?.message || e);
 
+  if(document.getElementById('__global_err_box')) return;
+
   const errBox = document.createElement('div');
+  errBox.id='__global_err_box';
   errBox.style.cssText='position:fixed;bottom:12px;left:12px;right:12px;padding:12px 14px;background:#ef4444;color:#fff;font-size:12px;border-radius:14px;z-index:999999;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
   errBox.textContent='JS Error: ' + (e.message || 'Unknown error');
 
@@ -57,7 +60,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithRedirect,
-  getRedirectResult,
+  /* getRedirectResult removed */
   onAuthStateChanged,
   signOut,
   browserLocalPersistence,
@@ -147,7 +150,7 @@ window.doGoogleSignIn = async function () {
       db,
       provider,
       signInWithRedirect,
-      getRedirectResult,
+      /* getRedirectResult removed */
       onAuthStateChanged,
       signOut,
       doc,
@@ -160,7 +163,6 @@ window.doGoogleSignIn = async function () {
 
     onAuthStateChanged(auth, async (user) => {
       window._FB_READY = true;
-      // // window._FB_READY handled by onAuthStateChanged
 
       if (user) {
         window._FBUSER = user;
@@ -173,7 +175,6 @@ window.doGoogleSignIn = async function () {
         
 window._FBUSER = null;
         window._DONE_FS = false;
-        // // window._FB_READY handled by onAuthStateChanged
 
         if (window._onAuthReady){
           window._onAuthReady(null);
@@ -191,7 +192,7 @@ console.log('Firebase module loaded successfully');
 // window._FB_READY hanya boleh diset di onAuthStateChanged
 
 setTimeout(()=>{
-  if(window._FB_READY !== true){
+  if(window._FB_READY !== true && !window._FB_UNCONFIGURED){
     console.error('Firebase timeout');
 
     const loading=document.getElementById('screen-loading');
@@ -535,7 +536,7 @@ setTimeout(()=>{
 
   <main id="content">
     <!-- Kalender -->
-    <div id="view-calendar" class="view active-view">
+    <section id="view-calendar" class="view active-view">
       <div class="view-header">
         <div><h1 class="view-title" id="cal-title">Dashboard Reservasi</h1><p class="view-sub" id="cal-sub">Kelola semua reservasi dengan mudah</p></div>
         <div class="cal-nav">
@@ -555,9 +556,9 @@ setTimeout(()=>{
         <div class="cal-weekdays"><div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div></div>
         <div class="cal-grid" id="cal-days"></div>
       </div>
-    </div>
+    </section>
 
-```
+
 <!-- Detail -->
 <div id="view-detail" class="view">
   <div class="detail-header">
@@ -724,7 +725,7 @@ setTimeout(()=>{
     </div>
   </div>
 </div>
-```
+
 
   </main>
 </div>
@@ -854,7 +855,8 @@ setTimeout(()=>{
 
 
 <div id="toast-container" aria-live="polite"></div>
-<div id="global-loader" style="display:none"></div><div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+<div id="global-loader" style="display:none"></div>
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 
 <script>
@@ -886,7 +888,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 </script>
 
-<script src="./app.js?v=5.2" charset="utf-8"></script>
+<script defer src="./app.js?v=5.2" charset="utf-8"></script>
 
 
 </body>
