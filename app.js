@@ -341,10 +341,9 @@ window._onAuthReady = async function (user) {
    Fungsi boot() fokus pada inisialisasi UI saja.
    ────────────────────────────────────────────────────────── */
 function boot() {
-  buildAccentGrid();
-  buildEmojiGrid();
   initModalClose();
   initKbd();
+
 
   var sidebarOverlay = document.getElementById('sidebar-overlay');
   if (sidebarOverlay) sidebarOverlay.onclick = toggleSidebar;
@@ -621,11 +620,10 @@ function showSettingsSection(id, el) {
 }
 
 function loadSettingsForm() {
-  /* Rebuild grids setiap kali settings dibuka - aman karena semua var sudah terdefinisi */
   buildAccentGrid();
   buildEmojiGrid();
-
   val('set-biz-name',    S.biz.name    || '');
+
   val('set-tagline',     S.biz.tagline || '');
   selVal('set-biz-type', S.biz.type    || 'restoran');
   val('set-open',         S.ops.openTime  || '09:00');
@@ -1846,6 +1844,9 @@ function selVal(id, v)   { var el = document.getElementById(id); if (el) el.valu
 
 function clearErrors() { document.querySelectorAll('.form-error').forEach(function (e) { e.textContent = ''; e.classList.remove('show'); }); }
 function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.textContent = msg; el.classList.add('show'); } }
+document.readyState === 'loading'
+  ? document.addEventListener('DOMContentLoaded', boot)
+  : boot();
 
 
 /* ──────────────────────────────────────────────────────────
@@ -1853,6 +1854,4 @@ function showErr(id, msg) { var el = document.getElementById(id); if (el) { el.t
    selesai dieksekusi, termasuk ACCENT_MAP, LOGO_EMOJIS, S.
    Ini memastikan tidak ada TypeError saat boot() dijalankan.
    ────────────────────────────────────────────────────────── */
-document.readyState === 'loading'
-  ? document.addEventListener('DOMContentLoaded', boot)
-  : boot();
+
