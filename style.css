@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   PROSERVA v4.1 — style.css
+   PROSERVA v4.1 - style.css
    Theme: Light Professional
    ═══════════════════════════════════════════════════ */
 
@@ -48,7 +48,7 @@
   --r-xl: 20px;
   --r-2xl:28px;
 
-  /* Colors — Light Theme */
+  /* Colors - Light Theme */
   --bg:        #f8fafc;
   --bg-2:      #f1f5f9;
   --bg-3:      #e2e8f0;
@@ -891,7 +891,7 @@ button { cursor: pointer }
 #trial-banner .tb-close:hover { opacity: 1 }
 
 /* ════════════════════════════════════════════════════
-   APP SHELL — Sidebar
+   APP SHELL - Sidebar
    ════════════════════════════════════════════════════ */
 #app-shell { min-height: 100vh }
 
