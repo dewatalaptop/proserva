@@ -10,63 +10,50 @@
 <title>Proserva - Reservation Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=Geist:wght@300;400;500;600;700&family=Satoshi:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,600&family=Geist:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 
-<!-- ═══════════════════════════════════════════════════
-     FIREBASE MODULE - Email/Password Auth
-     ═══════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════
+     FIREBASE MODULE
+     FIX #8 : showAuthErr pakai querySelector('span') - icon tidak terhapus
+     FIX #4 : guard _AUTH_HANDLER_RUNNING di onAuthStateChanged
+     ═══════════════════════════════════════════════════════ -->
 <script type="module">
 
-  /* ── Global error handler ── */
+  /* ── Global error overlay ── */
   window.addEventListener('error', e => {
     if (window.__ERR_LOCK) return;
     window.__ERR_LOCK = true;
     setTimeout(() => { window.__ERR_LOCK = false; }, 3000);
     console.error('Global Error:', e?.error || e?.message || e);
     if (document.getElementById('__global_err_box')) return;
-    const errBox = document.createElement('div');
-    errBox.id = '__global_err_box';
-    errBox.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;padding:12px 14px;background:#ef4444;color:#fff;font-size:12px;border-radius:14px;z-index:999999;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
-    errBox.textContent = 'JS Error: ' + (e.message || 'Unknown error');
-    (document.body || document.documentElement).appendChild(errBox);
-    setTimeout(() => errBox.parentNode?.removeChild(errBox), 7000);
+    const b = document.createElement('div');
+    b.id = '__global_err_box';
+    b.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;padding:12px 14px;background:#ef4444;color:#fff;font-size:12px;border-radius:14px;z-index:999999;font-family:system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+    b.textContent = 'JS Error: ' + (e.message || 'Unknown error');
+    (document.body || document.documentElement).appendChild(b);
+    setTimeout(() => b.parentNode?.removeChild(b), 7000);
   });
-
   window.addEventListener('unhandledrejection', e => {
-    console.error('Promise Error:', e?.reason || e);
+    console.error('Unhandled Promise:', e?.reason || e);
   });
 
   /* ── Firebase imports ── */
   import { initializeApp }
     from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
-
   import {
-    getAuth,
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    sendPasswordResetEmail,
-    updateProfile,
-    onAuthStateChanged,
-    signOut,
-    browserLocalPersistence,
-    setPersistence
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    sendPasswordResetEmail, updateProfile, onAuthStateChanged, signOut,
+    browserLocalPersistence, setPersistence
   } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
-
   import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    deleteDoc,
-    collection,
-    getDocs,
-    serverTimestamp
+    getFirestore, doc, getDoc, setDoc, deleteDoc,
+    collection, getDocs, serverTimestamp
   } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 
-  /* ── Firebase Config - GANTI DENGAN CONFIG FIREBASE KAMU ── */
+  /* ── Config ── */
   const firebaseConfig = {
     apiKey:            "AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw",
     authDomain:        "proserva-bisnisku.firebaseapp.com",
@@ -81,18 +68,17 @@
 
   if (!isConfigured) {
     window._FB_UNCONFIGURED = true;
-    setTimeout(() => {
-      if (typeof window._onAuthReady === 'function') window._onAuthReady(null);
-    }, 500);
+    setTimeout(() => { if (typeof window._onAuthReady === 'function') window._onAuthReady(null); }, 500);
+
   } else {
 
     const app  = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    try {
-      await setPersistence(auth, browserLocalPersistence);
-    } catch (e) { console.warn('Persistence warning:', e); }
+    /* browserLocalPersistence - user tidak perlu login ulang setelah tutup browser */
+    try { await setPersistence(auth, browserLocalPersistence); }
+    catch (e) { console.warn('Persistence warning:', e); }
 
     /* ── REGISTER ── */
     window.doRegister = async function () {
@@ -101,33 +87,22 @@
       const pass  = document.getElementById('reg-pass')?.value          || '';
       const pass2 = document.getElementById('reg-pass2')?.value         || '';
       const btn   = document.getElementById('btn-register');
-
       clearAuthErr();
-
-      if (!name)              return showAuthErr('Nama wajib diisi.');
-      if (!email)             return showAuthErr('Email wajib diisi.');
-      if (pass.length < 6)    return showAuthErr('Password minimal 6 karakter.');
-      if (pass !== pass2)     return showAuthErr('Konfirmasi password tidak cocok.');
-
+      if (!name)           return showAuthErr('Nama wajib diisi.');
+      if (!email)          return showAuthErr('Email wajib diisi.');
+      if (pass.length < 6) return showAuthErr('Password minimal 6 karakter.');
+      if (pass !== pass2)  return showAuthErr('Konfirmasi password tidak cocok.');
       setAuthLoading(btn, true, 'Mendaftar...');
       try {
         const cred = await createUserWithEmailAndPassword(auth, email, pass);
         await updateProfile(cred.user, { displayName: name });
-
-        /* Buat akun trial 14 hari */
-        const now      = Date.now();
-        const trialEnd = now + (14 * 24 * 60 * 60 * 1000);
+        const now = Date.now();
         await setDoc(doc(db, 'users', cred.user.uid, 'config', 'account'), {
-          displayName:  name,
-          email:        email,
-          createdAt:    now,
-          trialEndsAt:  trialEnd,
-          status:       'trial',
-          plan:         'free',
-          paymentRef:   null
+          displayName: name, email,
+          createdAt: now, trialEndsAt: now + (14 * 24 * 60 * 60 * 1000),
+          status: 'trial', plan: 'free', paymentRef: null
         });
-
-        /* onAuthStateChanged akan menangkap user baru */
+        /* onAuthStateChanged akan menangani navigasi */
       } catch (e) {
         setAuthLoading(btn, false, 'Daftar Sekarang');
         const msgs = {
@@ -144,11 +119,9 @@
       const email = document.getElementById('login-email')?.value.trim() || '';
       const pass  = document.getElementById('login-pass')?.value          || '';
       const btn   = document.getElementById('btn-login');
-
       clearAuthErr();
       if (!email) return showAuthErr('Email wajib diisi.');
       if (!pass)  return showAuthErr('Password wajib diisi.');
-
       setAuthLoading(btn, true, 'Masuk...');
       try {
         await signInWithEmailAndPassword(auth, email, pass);
@@ -156,10 +129,10 @@
       } catch (e) {
         setAuthLoading(btn, false, 'Masuk');
         const msgs = {
-          'auth/user-not-found':   'Akun tidak ditemukan. Periksa email Anda.',
-          'auth/wrong-password':   'Password salah. Coba lagi.',
-          'auth/invalid-email':    'Format email tidak valid.',
-          'auth/too-many-requests':'Terlalu banyak percobaan. Tunggu sebentar.',
+          'auth/user-not-found':     'Akun tidak ditemukan. Periksa email Anda.',
+          'auth/wrong-password':     'Password salah. Coba lagi.',
+          'auth/invalid-email':      'Format email tidak valid.',
+          'auth/too-many-requests':  'Terlalu banyak percobaan. Tunggu sebentar.',
           'auth/invalid-credential': 'Email atau password salah.'
         };
         showAuthErr(msgs[e.code] || ('Gagal login: ' + e.message));
@@ -168,69 +141,80 @@
 
     /* ── RESET PASSWORD ── */
     window.doResetPassword = async function () {
-      const email = document.getElementById('login-email')?.value.trim()
-                 || document.getElementById('reset-email')?.value.trim()
-                 || '';
+      const email = document.getElementById('reset-email')?.value.trim()
+                 || document.getElementById('login-email')?.value.trim() || '';
       if (!email) return showAuthErr('Masukkan email terlebih dahulu.');
       try {
         await sendPasswordResetEmail(auth, email);
-        showAuthSuccess('Link reset password telah dikirim ke ' + email + '. Periksa inbox Anda.');
+        showAuthSuccess('Link reset dikirim ke ' + email + '. Periksa inbox kamu.');
       } catch (e) {
         showAuthErr('Gagal kirim reset: ' + e.message);
       }
     };
 
-    /* ── EXPORT FIREBASE OBJECT ── */
+    /* ── Export Firebase ke global ── */
     window._FB = {
-      auth, db,
-      signOut,
-      onAuthStateChanged,
-      doc, getDoc, setDoc, deleteDoc,
-      collection, getDocs,
-      serverTimestamp
+      auth, db, signOut, onAuthStateChanged,
+      doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp
     };
 
-    console.log('[Firebase] ready - Email/Password Auth');
     window._DONE_FS = true;
+    console.log('[Firebase] ready');
 
-    /* ── AUTH STATE ── */
+    /* ── AUTH STATE
+       FIX #4: Guard _AUTH_HANDLER_RUNNING agar tidak double-call
+       saat Firebase refresh token (~1 jam sekali).
+       Jika _onAuthReady sedang berjalan di jalur lain, skip. ── */
     onAuthStateChanged(auth, async (user) => {
-      window._FB_READY = true;
       window._FBUSER   = user || null;
+      window._FB_READY = true;
       console.log('[AUTH] state changed:', user?.email || null);
+
+      if (window._AUTH_HANDLER_RUNNING) {
+        console.log('[AUTH] handler already running, skip duplicate call.');
+        return;
+      }
 
       if (typeof window._onAuthReady === 'function') {
         try { window._onAuthReady(user || null); }
-        catch (err) { console.error('_onAuthReady error:', err); }
+        catch (err) { console.error('[AUTH] _onAuthReady error:', err); }
       }
     });
 
   } /* end isConfigured */
 
-  /* ── Auth UI Helpers ── */
-  window.showAuthErr     = function (msg) {
+  /* ── Auth UI helpers
+     FIX #8: querySelector('span') agar icon <i> tidak ikut terhapus ── */
+  window.showAuthErr = function (msg) {
     const el = document.getElementById('auth-error');
-    if (el) { el.textContent = msg; el.style.display = 'flex'; }
+    if (!el) return;
+    const span = el.querySelector('span');
+    if (span) span.textContent = msg; else el.textContent = msg;
+    el.style.display = 'flex';
   };
   window.showAuthSuccess = function (msg) {
     const el = document.getElementById('auth-success');
-    if (el) { el.textContent = msg; el.style.display = 'flex'; }
+    if (!el) return;
+    const span = el.querySelector('span');
+    if (span) span.textContent = msg; else el.textContent = msg;
+    el.style.display = 'flex';
   };
-  window.clearAuthErr    = function () {
-    const err = document.getElementById('auth-error');
-    const suc = document.getElementById('auth-success');
-    if (err) { err.textContent = ''; err.style.display = 'none'; }
-    if (suc) { suc.textContent = ''; suc.style.display = 'none'; }
+  window.clearAuthErr = function () {
+    ['auth-error', 'auth-success'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const span = el.querySelector('span');
+      if (span) span.textContent = '';
+      el.style.display = 'none';
+    });
   };
-  window.setAuthLoading  = function (btn, on, label) {
+  window.setAuthLoading = function (btn, on, label) {
     if (!btn) return;
-    btn.disabled = on;
-    btn.innerHTML = on
-      ? '<i class="fas fa-spinner fa-spin"></i> ' + label
-      : label;
+    btn.disabled  = on;
+    btn.innerHTML = on ? '<i class="fas fa-spinner fa-spin"></i> ' + label : label;
   };
 
-  console.log('Firebase module loaded.');
+  console.log('[Firebase] module loaded.');
 </script>
 <!-- END FIREBASE MODULE -->
 
@@ -240,12 +224,12 @@
 <!-- ══════════════════════════════
      SCREEN: LOADING
      ══════════════════════════════ -->
-<div id="screen-loading" class="screen active" aria-hidden="false" data-screen="loading">
+<div id="screen-loading" class="screen active" aria-hidden="false">
   <div class="loading-inner">
     <div class="loading-logo">
       <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
         alt="Proserva"
-        onerror="this.parentNode.style.background='var(--ac)';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:22px;font-weight:700\'>P</span>'"/>
+        onerror="this.parentNode.style.background='#e8630a';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:22px;font-weight:700\'>P</span>'"/>
     </div>
     <div class="loading-brand">Proserva</div>
     <div class="loading-spinner"></div>
@@ -256,9 +240,8 @@
 <!-- ══════════════════════════════
      SCREEN: LANDING
      ══════════════════════════════ -->
-<div id="screen-landing" class="screen" aria-hidden="true" data-screen="landing">
+<div id="screen-landing" class="screen" aria-hidden="true">
 
-  <!-- NAV -->
   <nav class="land-nav">
     <div class="land-nav-left">
       <div class="land-nav-logo">
@@ -269,11 +252,10 @@
     </div>
     <div class="land-nav-right">
       <button type="button" class="land-nav-login" onclick="showAuthTab('login')">Masuk</button>
-      <button type="button" class="land-nav-cta" onclick="showAuthTab('register')">Coba Gratis 14 Hari</button>
+      <button type="button" class="land-nav-cta"   onclick="showAuthTab('register')">Coba Gratis 14 Hari</button>
     </div>
   </nav>
 
-  <!-- HERO -->
   <section class="land-hero">
     <div class="land-hero-bg">
       <div class="hero-orb hero-orb-1"></div>
@@ -296,10 +278,10 @@
       </p>
       <div class="hero-actions">
         <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')">
-          <i class="fas fa-rocket"></i>
-          Mulai Trial 14 Hari Gratis
+          <i class="fas fa-rocket"></i> Mulai Trial 14 Hari Gratis
         </button>
-        <button type="button" class="hero-btn-ghost" onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">
+        <button type="button" class="hero-btn-ghost"
+          onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">
           Lihat Fitur <i class="fas fa-arrow-down"></i>
         </button>
       </div>
@@ -312,7 +294,6 @@
       </div>
     </div>
 
-    <!-- DASHBOARD MOCKUP -->
     <div class="hero-mockup">
       <div class="mockup-window">
         <div class="mockup-titlebar">
@@ -358,18 +339,18 @@
           </div>
         </div>
       </div>
+      <!-- FIX: warna icon mockup disesuaikan ke tema orange/green -->
       <div class="mockup-float mockup-float-1">
-        <i class="fas fa-calendar-check" style="color:#3b82f6"></i>
+        <i class="fas fa-calendar-check" style="color:#e8630a"></i>
         <span>12 Reservasi Hari Ini</span>
       </div>
       <div class="mockup-float mockup-float-2">
-        <i class="fas fa-users" style="color:#10b981"></i>
+        <i class="fas fa-users" style="color:#059669"></i>
         <span>48 Tamu Bulan Ini</span>
       </div>
     </div>
   </section>
 
-  <!-- FEATURES -->
   <section class="land-sect" id="land-features">
     <div class="land-sect-header">
       <div class="land-sect-label">Fitur Unggulan</div>
@@ -409,7 +390,6 @@
     </div>
   </section>
 
-  <!-- PRICING -->
   <section class="land-sect land-sect-gray" id="land-pricing">
     <div class="land-sect-header">
       <div class="land-sect-label">Harga Transparan</div>
@@ -417,13 +397,10 @@
       <p class="land-sect-sub">Mulai gratis 14 hari, tidak perlu kartu kredit</p>
     </div>
     <div class="pricing-grid">
-      <!-- Trial -->
       <div class="pricing-card">
         <div class="pricing-badge-wrap"></div>
         <div class="pricing-name">Trial</div>
-        <div class="pricing-price">
-          <span class="pricing-currency">Gratis</span>
-        </div>
+        <div class="pricing-price"><span class="pricing-currency">Gratis</span></div>
         <div class="pricing-period">14 hari pertama</div>
         <ul class="pricing-features">
           <li><i class="fas fa-check"></i> Semua fitur lengkap</li>
@@ -434,7 +411,6 @@
         </ul>
         <button type="button" class="pricing-btn pricing-btn-ghost" onclick="showAuthTab('register')">Mulai Trial Gratis</button>
       </div>
-      <!-- Bulanan -->
       <div class="pricing-card pricing-card-featured">
         <div class="pricing-badge-wrap"><div class="pricing-badge">Paling Populer</div></div>
         <div class="pricing-name">Pro Bulanan</div>
@@ -452,7 +428,6 @@
         </ul>
         <button type="button" class="pricing-btn pricing-btn-primary" onclick="showAuthTab('register')">Mulai Sekarang</button>
       </div>
-      <!-- Tahunan -->
       <div class="pricing-card">
         <div class="pricing-badge-wrap"><div class="pricing-badge pricing-badge-green">Hemat 22%</div></div>
         <div class="pricing-name">Pro Tahunan</div>
@@ -473,7 +448,6 @@
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer class="land-footer">
     <div class="land-footer-inner">
       <div class="land-footer-logo">
@@ -481,35 +455,32 @@
           alt="Proserva" onerror="this.style.display='none'"/>
         <span>Proserva</span>
       </div>
-      <div class="land-footer-copy">&copy; 2025 Proserva · Reservation Engine v4.1</div>
+      <div class="land-footer-copy">&copy; 2025 Proserva &middot; Reservation Engine v4.1</div>
     </div>
   </footer>
 </div>
 
 <!-- ══════════════════════════════
-     SCREEN: AUTH (Login / Register)
+     SCREEN: AUTH
      ══════════════════════════════ -->
-<div id="screen-auth" class="screen" aria-hidden="true" data-screen="auth">
+<div id="screen-auth" class="screen" aria-hidden="true">
   <div class="auth-split">
 
-    <!-- Left panel - branding -->
     <div class="auth-left">
       <div class="auth-left-inner">
         <div class="auth-brand">
           <div class="auth-brand-logo">
             <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-              alt="Proserva" onerror="this.parentNode.style.background='#3b82f6';this.style.display='none'"/>
+              alt="Proserva" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
           </div>
           <span class="auth-brand-name">Proserva</span>
         </div>
-        <div class="auth-left-headline">
-          Kelola reservasi bisnis kamu lebih efisien
-        </div>
+        <div class="auth-left-headline">Kelola reservasi bisnis kamu lebih efisien</div>
         <div class="auth-left-points">
-          <div class="alp-item"><i class="fas fa-check-circle"></i> <span>Trial gratis 14 hari, tanpa kartu kredit</span></div>
-          <div class="alp-item"><i class="fas fa-check-circle"></i> <span>Setup bisnis dalam 2 menit</span></div>
-          <div class="alp-item"><i class="fas fa-check-circle"></i> <span>Data tersimpan aman di cloud Firebase</span></div>
-          <div class="alp-item"><i class="fas fa-check-circle"></i> <span>Konfirmasi & broadcast via WhatsApp</span></div>
+          <div class="alp-item"><i class="fas fa-check-circle"></i><span>Trial gratis 14 hari, tanpa kartu kredit</span></div>
+          <div class="alp-item"><i class="fas fa-check-circle"></i><span>Setup bisnis dalam 2 menit</span></div>
+          <div class="alp-item"><i class="fas fa-check-circle"></i><span>Data tersimpan aman di cloud Firebase</span></div>
+          <div class="alp-item"><i class="fas fa-check-circle"></i><span>Konfirmasi &amp; broadcast via WhatsApp</span></div>
         </div>
       </div>
       <div class="auth-left-deco">
@@ -518,19 +489,17 @@
       </div>
     </div>
 
-    <!-- Right panel - form -->
     <div class="auth-right">
-      <button type="button" class="auth-back-home" onclick="showScreen('landing')">
+      <button type="button" class="auth-back-home" onclick="window.showScreen('landing')">
         <i class="fas fa-arrow-left"></i> Kembali
       </button>
 
-      <!-- Tab switcher -->
       <div class="auth-tabs">
-        <button type="button" class="auth-tab active" id="tab-login" onclick="showAuthTab('login')">Masuk</button>
-        <button type="button" class="auth-tab" id="tab-register" onclick="showAuthTab('register')">Daftar</button>
+        <button type="button" class="auth-tab active" id="tab-login"    onclick="showAuthTab('login')">Masuk</button>
+        <button type="button" class="auth-tab"        id="tab-register" onclick="showAuthTab('register')">Daftar</button>
       </div>
 
-      <!-- Feedback -->
+      <!-- FIX #8: <span> terpisah dari <i> agar icon tidak terhapus -->
       <div class="auth-error" id="auth-error" style="display:none">
         <i class="fas fa-exclamation-circle"></i>
         <span></span>
@@ -540,20 +509,19 @@
         <span></span>
       </div>
 
-      <!-- ── LOGIN FORM ── -->
+      <!-- Login -->
       <div id="form-login" class="auth-form active">
         <div class="auth-form-title">Selamat datang kembali</div>
         <div class="auth-form-sub">Masuk untuk melanjutkan ke dashboard</div>
-
         <div class="af-group">
           <label class="af-label">Email</label>
           <div class="af-input-wrap">
             <i class="fas fa-envelope"></i>
             <input class="af-input" id="login-email" type="email" placeholder="nama@email.com"
-              autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"/>
+              autocomplete="email"
+              onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"/>
           </div>
         </div>
-
         <div class="af-group">
           <div class="af-label-row">
             <label class="af-label">Password</label>
@@ -562,84 +530,69 @@
           <div class="af-input-wrap">
             <i class="fas fa-lock"></i>
             <input class="af-input" id="login-pass" type="password" placeholder="Masukkan password"
-              autocomplete="current-password" onkeydown="if(event.key==='Enter')window.doLogin?.()"/>
+              autocomplete="current-password"
+              onkeydown="if(event.key==='Enter')window.doLogin?.()"/>
             <button type="button" class="af-eye" onclick="togglePass('login-pass',this)"><i class="fas fa-eye"></i></button>
           </div>
         </div>
-
-        <button type="button" class="af-btn" id="btn-login" onclick="window.doLogin?.()">
-          Masuk
-        </button>
-
-        <div class="af-switch">
-          Belum punya akun?
-          <button type="button" onclick="showAuthTab('register')">Daftar gratis</button>
-        </div>
+        <button type="button" class="af-btn" id="btn-login" onclick="window.doLogin?.()">Masuk</button>
+        <div class="af-switch">Belum punya akun? <button type="button" onclick="showAuthTab('register')">Daftar gratis</button></div>
       </div>
 
-      <!-- ── REGISTER FORM ── -->
+      <!-- Register -->
       <div id="form-register" class="auth-form">
         <div class="auth-form-title">Buat akun baru</div>
         <div class="auth-form-sub">Trial gratis 14 hari, tanpa kartu kredit</div>
-
         <div class="af-group">
           <label class="af-label">Nama Lengkap</label>
           <div class="af-input-wrap">
             <i class="fas fa-user"></i>
             <input class="af-input" id="reg-name" type="text" placeholder="Nama lengkap Anda"
-              autocomplete="name" onkeydown="if(event.key==='Enter')document.getElementById('reg-email').focus()"/>
+              autocomplete="name"
+              onkeydown="if(event.key==='Enter')document.getElementById('reg-email').focus()"/>
           </div>
         </div>
-
         <div class="af-group">
           <label class="af-label">Email</label>
           <div class="af-input-wrap">
             <i class="fas fa-envelope"></i>
             <input class="af-input" id="reg-email" type="email" placeholder="nama@email.com"
-              autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()"/>
+              autocomplete="email"
+              onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()"/>
           </div>
         </div>
-
         <div class="af-group">
           <label class="af-label">Password</label>
           <div class="af-input-wrap">
             <i class="fas fa-lock"></i>
             <input class="af-input" id="reg-pass" type="password" placeholder="Minimal 6 karakter"
-              autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass2').focus()"/>
+              autocomplete="new-password"
+              onkeydown="if(event.key==='Enter')document.getElementById('reg-pass2').focus()"/>
             <button type="button" class="af-eye" onclick="togglePass('reg-pass',this)"><i class="fas fa-eye"></i></button>
           </div>
         </div>
-
         <div class="af-group">
           <label class="af-label">Konfirmasi Password</label>
           <div class="af-input-wrap">
             <i class="fas fa-lock"></i>
             <input class="af-input" id="reg-pass2" type="password" placeholder="Ulangi password"
-              autocomplete="new-password" onkeydown="if(event.key==='Enter')window.doRegister?.()"/>
+              autocomplete="new-password"
+              onkeydown="if(event.key==='Enter')window.doRegister?.()"/>
             <button type="button" class="af-eye" onclick="togglePass('reg-pass2',this)"><i class="fas fa-eye"></i></button>
           </div>
         </div>
-
         <div class="af-tos">
-          Dengan mendaftar, kamu menyetujui <a href="#" onclick="return false">Syarat & Ketentuan</a>
+          Dengan mendaftar, kamu menyetujui <a href="#" onclick="return false">Syarat &amp; Ketentuan</a>
           dan <a href="#" onclick="return false">Kebijakan Privasi</a> Proserva.
         </div>
-
-        <button type="button" class="af-btn" id="btn-register" onclick="window.doRegister?.()">
-          Daftar Sekarang
-        </button>
-
-        <div class="af-switch">
-          Sudah punya akun?
-          <button type="button" onclick="showAuthTab('login')">Masuk</button>
-        </div>
+        <button type="button" class="af-btn" id="btn-register" onclick="window.doRegister?.()">Daftar Sekarang</button>
+        <div class="af-switch">Sudah punya akun? <button type="button" onclick="showAuthTab('login')">Masuk</button></div>
       </div>
 
-      <!-- ── RESET FORM ── -->
+      <!-- Reset -->
       <div id="form-reset" class="auth-form">
         <div class="auth-form-title">Reset Password</div>
         <div class="auth-form-sub">Kami akan kirim link reset ke email kamu</div>
-
         <div class="af-group">
           <label class="af-label">Email</label>
           <div class="af-input-wrap">
@@ -648,41 +601,35 @@
               onkeydown="if(event.key==='Enter')window.doResetPassword?.()"/>
           </div>
         </div>
-
         <button type="button" class="af-btn" onclick="window.doResetPassword?.()">
           <i class="fas fa-paper-plane"></i> Kirim Link Reset
         </button>
-
         <div class="af-switch">
           <button type="button" onclick="showAuthTab('login')"><i class="fas fa-arrow-left"></i> Kembali ke Login</button>
         </div>
       </div>
 
-    </div><!-- /auth-right -->
-  </div><!-- /auth-split -->
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════
      SCREEN: PAYWALL
-     (Trial habis / belum bayar)
      ══════════════════════════════ -->
-<div id="screen-paywall" class="screen" aria-hidden="true" data-screen="paywall">
+<div id="screen-paywall" class="screen" aria-hidden="true">
   <div class="paywall-wrap">
     <div class="paywall-card">
-      <div class="paywall-icon">
-        <i class="fas fa-lock"></i>
-      </div>
+      <div class="paywall-icon"><i class="fas fa-lock"></i></div>
       <h2 class="paywall-title">Trial Kamu Telah Berakhir</h2>
       <p class="paywall-sub">
         Data kamu aman dan tersimpan. Pilih paket untuk melanjutkan akses penuh ke dashboard Proserva.
       </p>
       <div class="paywall-notice">
         <i class="fas fa-info-circle"></i>
-        Saat ini kamu dalam <strong>mode baca saja</strong>. Data tidak hilang dan bisa diakses kembali setelah berlangganan.
+        Saat ini kamu dalam <strong>mode baca saja</strong>.
+        Data tidak hilang dan bisa diakses kembali setelah berlangganan.
       </div>
-
       <div class="paywall-plans">
-        <!-- Bulanan -->
         <div class="pp-card">
           <div class="pp-name">Pro Bulanan</div>
           <div class="pp-price">
@@ -694,7 +641,6 @@
             <i class="fas fa-credit-card"></i> Bayar Sekarang
           </button>
         </div>
-        <!-- Tahunan -->
         <div class="pp-card pp-card-featured">
           <div class="pp-badge">Hemat 22%</div>
           <div class="pp-name">Pro Tahunan</div>
@@ -709,8 +655,10 @@
           </button>
         </div>
       </div>
-
       <div class="paywall-actions">
+        <!-- Tombol ini hanya muncul di paywall (status sudah expired).
+             enterReadOnlyMode aman dipanggil karena data sudah ter-load
+             oleh _onAuthReady sebelum redirect ke sini. -->
         <button type="button" class="paywall-readonly-btn" onclick="enterReadOnlyMode()">
           <i class="fas fa-eye"></i> Lihat Data (Mode Baca Saja)
         </button>
@@ -725,7 +673,7 @@
 <!-- ══════════════════════════════
      SCREEN: WIZARD
      ══════════════════════════════ -->
-<div id="screen-wizard" class="screen" aria-hidden="true" data-screen="wizard">
+<div id="screen-wizard" class="screen" aria-hidden="true">
   <div class="wz-bg">
     <div class="wz-orb wz-orb-1"></div>
     <div class="wz-orb wz-orb-2"></div>
@@ -736,7 +684,7 @@
     <div class="wizard-card">
       <div class="wz-logo">
         <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
+          alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
       </div>
       <div class="wz-steps">
         <div class="wz-step-dot active">1</div><div class="wz-step-line"></div>
@@ -778,7 +726,7 @@
     <div class="wizard-card wizard-card-wide">
       <div class="wz-logo">
         <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
+          alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
       </div>
       <div class="wz-steps">
         <div class="wz-step-dot done"><i class="fas fa-check"></i></div><div class="wz-step-line done"></div>
@@ -815,7 +763,7 @@
     <div class="wizard-card wizard-card-wide">
       <div class="wz-logo">
         <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="" onerror="this.parentNode.style.background='var(--ac)';this.style.display='none'"/>
+          alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
       </div>
       <div class="wz-steps">
         <div class="wz-step-dot done"><i class="fas fa-check"></i></div><div class="wz-step-line done"></div>
@@ -861,23 +809,23 @@
      ══════════════════════════════ -->
 <div id="app-shell" style="display:none" aria-hidden="true">
 
-  <!-- READ-ONLY BANNER (tampil saat trial habis tapi user pilih read-only) -->
+  <!-- Banner trial & readonly - dikelola JS via applyAccountUI() -->
   <div id="readonly-banner" style="display:none">
     <i class="fas fa-lock"></i>
     <span>Mode Baca Saja - Trial telah berakhir.</span>
-    <button type="button" onclick="showScreen('paywall')">
+    <button type="button" onclick="window.showScreen('paywall')">
       <i class="fas fa-crown"></i> Aktifkan Sekarang
     </button>
   </div>
-
-  <!-- TRIAL BANNER (tampil saat masih trial) -->
   <div id="trial-banner" style="display:none">
     <i class="fas fa-clock"></i>
     <span id="trial-banner-text">Trial kamu berakhir dalam X hari.</span>
-    <button type="button" onclick="showScreen('paywall')">
+    <button type="button" onclick="window.showScreen('paywall')">
       <i class="fas fa-crown"></i> Upgrade Sekarang
     </button>
-    <button type="button" class="tb-close" onclick="document.getElementById('trial-banner').style.display='none'">
+    <button type="button" class="tb-close"
+      onclick="this.closest('#trial-banner').style.display='none';
+               document.getElementById('app-shell').classList.remove('has-banner')">
       <i class="fas fa-times"></i>
     </button>
   </div>
@@ -887,7 +835,7 @@
       <div class="brand-icon">
         <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
           alt="Proserva"
-          onerror="this.parentNode.style.background='var(--ac)';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:14px;font-weight:700\'>P</span>'"/>
+          onerror="this.parentNode.style.background='#e8630a';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:14px;font-weight:700\'>P</span>'"/>
       </div>
       <div>
         <div class="brand-name">Proserva</div>
@@ -898,19 +846,17 @@
     <div class="sidebar-user">
       <div class="sidebar-user-avatar-fallback" id="sb-avatar-fallback">?</div>
       <div class="sidebar-user-info">
-        <div class="sidebar-user-name" id="sb-user-name">-</div>
+        <div class="sidebar-user-name"  id="sb-user-name">-</div>
         <div class="sidebar-user-email" id="sb-user-email">-</div>
       </div>
     </div>
 
-    <!-- Trial / Status indicator di sidebar -->
     <div id="sb-account-status" class="sb-status"></div>
-
     <div class="sidebar-biz" id="sb-biz-name">-</div>
 
     <nav class="sidebar-nav">
       <div class="nav-group">Utama</div>
-      <div class="nav-item active" data-view="calendar" onclick="showView('calendar')">
+      <div class="nav-item active" data-view="calendar"  onclick="showView('calendar')">
         <span class="nav-icon"><i class="fas fa-calendar-alt"></i></span>
         <span class="nav-label">Kalender</span>
       </div>
@@ -918,7 +864,7 @@
         <span class="nav-icon"><i class="fas fa-users"></i></span>
         <span class="nav-label">Pelanggan</span>
       </div>
-      <div class="nav-item" data-view="analysis" onclick="showView('analysis')">
+      <div class="nav-item" data-view="analysis"  onclick="showView('analysis')">
         <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
         <span class="nav-label">Analisis</span>
       </div>
@@ -927,7 +873,7 @@
         <span class="nav-label">Broadcast</span>
       </div>
       <div class="nav-group" style="margin-top:12px">Pengaturan</div>
-      <div class="nav-item" data-view="menus" onclick="showView('menus')">
+      <div class="nav-item" data-view="menus"     onclick="showView('menus')">
         <span class="nav-icon"><i class="fas fa-book-open"></i></span>
         <span class="nav-label">Menu &amp; Paket</span>
       </div>
@@ -935,20 +881,21 @@
         <span class="nav-icon"><i class="fas fa-map-marker-alt"></i></span>
         <span class="nav-label">Lokasi</span>
       </div>
-      <div class="nav-item" data-view="settings" onclick="showView('settings')">
+      <div class="nav-item" data-view="settings"  onclick="showView('settings')">
         <span class="nav-icon"><i class="fas fa-sliders"></i></span>
         <span class="nav-label">Pengaturan</span>
       </div>
     </nav>
 
     <div class="sidebar-footer">
-      <button type="button" class="btn-upgrade" id="sb-upgrade-btn" onclick="showScreen('paywall')" style="display:none">
+      <button type="button" class="btn-upgrade" id="sb-upgrade-btn"
+        onclick="window.showScreen('paywall')" style="display:none">
         <i class="fas fa-crown"></i> Upgrade ke Pro
       </button>
       <button type="button" class="btn-signout" onclick="doSignOut()">
         <i class="fas fa-sign-out-alt"></i> Keluar
       </button>
-      <div class="sidebar-ver">Proserva v4.1 · Firebase</div>
+      <div class="sidebar-ver">Proserva v4.1 &middot; Firebase</div>
     </div>
   </aside>
 
@@ -993,31 +940,14 @@
         </div>
       </div>
       <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-icon si-ac"><i class="fas fa-calendar-check"></i></div>
-          <div class="stat-val" id="st-total">0</div>
-          <div class="stat-lbl">Reservasi Bulan Ini</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon si-g"><i class="fas fa-users"></i></div>
-          <div class="stat-val" id="st-pax">0</div>
-          <div class="stat-lbl">Total Tamu</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon si-b"><i class="fas fa-money-bill-wave"></i></div>
-          <div class="stat-val" id="st-dp">Rp0</div>
-          <div class="stat-lbl">Omzet DP</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon si-y"><i class="fas fa-fire"></i></div>
-          <div class="stat-val" id="st-busy">-</div>
-          <div class="stat-lbl">Hari Tersibuk</div>
-        </div>
+        <div class="stat-card"><div class="stat-icon si-ac"><i class="fas fa-calendar-check"></i></div><div class="stat-val" id="st-total">0</div><div class="stat-lbl">Reservasi Bulan Ini</div></div>
+        <div class="stat-card"><div class="stat-icon si-g"><i class="fas fa-users"></i></div><div class="stat-val" id="st-pax">0</div><div class="stat-lbl">Total Tamu</div></div>
+        <div class="stat-card"><div class="stat-icon si-b"><i class="fas fa-money-bill-wave"></i></div><div class="stat-val" id="st-dp">Rp0</div><div class="stat-lbl">Omzet DP</div></div>
+        <div class="stat-card"><div class="stat-icon si-y"><i class="fas fa-fire"></i></div><div class="stat-val" id="st-busy">-</div><div class="stat-lbl">Hari Tersibuk</div></div>
       </div>
       <div class="cal-card">
         <div class="cal-weekdays">
-          <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div>
-          <div>Kam</div><div>Jum</div><div>Sab</div>
+          <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
         </div>
         <div class="cal-grid" id="cal-days"></div>
       </div>
@@ -1049,14 +979,12 @@
         <div><h1 class="view-title">Menu &amp; Paket</h1><p class="view-sub">Kelola semua paket yang tersedia</p></div>
         <button type="button" class="btn btn-accent" onclick="openMenuModal()"><i class="fas fa-plus"></i> Tambah Menu</button>
       </div>
-      <div class="data-card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
-            <tbody id="menus-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="data-card"><div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
+          <tbody id="menus-tbody"></tbody>
+        </table>
+      </div></div>
     </div>
 
     <!-- Lokasi -->
@@ -1065,14 +993,12 @@
         <div><h1 class="view-title">Manajemen Lokasi</h1><p class="view-sub">Atur tempat duduk, gazebo, atau area reservasi</p></div>
         <button type="button" class="btn btn-accent" onclick="openLocModal()"><i class="fas fa-plus"></i> Tambah Lokasi</button>
       </div>
-      <div class="data-card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead><tr><th>Nama</th><th>Kapasitas</th><th>Min. Tamu</th><th>Durasi Default</th><th>Buffer</th><th>Jam Operasional</th><th>Aksi</th></tr></thead>
-            <tbody id="locations-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="data-card"><div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Nama</th><th>Kapasitas</th><th>Min. Tamu</th><th>Durasi Default</th><th>Buffer</th><th>Jam Operasional</th><th>Aksi</th></tr></thead>
+          <tbody id="locations-tbody"></tbody>
+        </table>
+      </div></div>
     </div>
 
     <!-- Pelanggan -->
@@ -1081,14 +1007,12 @@
         <div><h1 class="view-title">Data Pelanggan</h1><p class="view-sub">Semua tamu yang pernah melakukan reservasi</p></div>
         <div class="search-wrap"><i class="fas fa-search"></i><input class="search-input" id="cust-search" placeholder="Cari nama atau HP..." oninput="filterCustomers(this.value)"/></div>
       </div>
-      <div class="data-card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Kunjungan</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead>
-            <tbody id="customers-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="data-card"><div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Kunjungan</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead>
+          <tbody id="customers-tbody"></tbody>
+        </table>
+      </div></div>
     </div>
 
     <!-- Analisis -->
@@ -1096,7 +1020,7 @@
       <div class="view-header">
         <div><h1 class="view-title">Analisis Bisnis</h1><p class="view-sub">Wawasan mendalam performa reservasi Anda</p></div>
         <div style="display:flex;gap:7px">
-          <select class="form-select-sm" id="anl-year" onchange="runAnalysis()"></select>
+          <select class="form-select-sm" id="anl-year"  onchange="runAnalysis()"></select>
           <select class="form-select-sm" id="anl-month" style="width:155px" onchange="runAnalysis()"></select>
         </div>
       </div>
@@ -1146,163 +1070,76 @@
           <div class="settings-nav-item active" onclick="showSettingsSection('branding',this)"><i class="fas fa-palette"></i> Branding</div>
           <div class="settings-nav-item" onclick="showSettingsSection('operational',this)"><i class="fas fa-clock"></i> Operasional</div>
           <div class="settings-nav-item" onclick="showSettingsSection('messages',this)"><i class="fab fa-whatsapp"></i> Pesan WA</div>
-          <div class="settings-nav-item" onclick="showSettingsSection('account',this)"><i class="fas fa-user-circle"></i> Akun & Billing</div>
+          <div class="settings-nav-item" onclick="showSettingsSection('account',this)"><i class="fas fa-user-circle"></i> Akun &amp; Billing</div>
         </div>
         <div>
-          <!-- Branding -->
           <div class="settings-section active" id="sec-branding">
             <div class="settings-card">
               <div class="settings-card-title"><i class="fas fa-store"></i> Identitas Bisnis</div>
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Nama Usaha</label>
-                  <div class="input-wrap"><i class="fas fa-store"></i><input class="form-input" id="set-biz-name" placeholder="Nama bisnis Anda"/></div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Tipe Usaha</label>
-                  <div class="input-wrap"><i class="fas fa-tag"></i>
-                    <select class="form-select" id="set-biz-type">
-                      <option value="restoran">🍽️ Restoran / Warung</option>
-                      <option value="cafe">☕ Café / Coffee Shop</option>
-                      <option value="wisata">🏞️ Tempat Wisata</option>
-                      <option value="villa">🏡 Villa / Resort</option>
-                      <option value="lainnya">✨ Lainnya</option>
-                    </select>
-                  </div>
-                </div>
+                <div class="form-group"><label class="form-label">Nama Usaha</label><div class="input-wrap"><i class="fas fa-store"></i><input class="form-input" id="set-biz-name" placeholder="Nama bisnis Anda"/></div></div>
+                <div class="form-group"><label class="form-label">Tipe Usaha</label><div class="input-wrap"><i class="fas fa-tag"></i><select class="form-select" id="set-biz-type"><option value="restoran">🍽️ Restoran / Warung</option><option value="cafe">☕ Café / Coffee Shop</option><option value="wisata">🏞️ Tempat Wisata</option><option value="villa">🏡 Villa / Resort</option><option value="lainnya">✨ Lainnya</option></select></div></div>
               </div>
-              <div class="form-group">
-                <label class="form-label">Tagline / Slogan</label>
-                <div class="input-wrap"><i class="fas fa-quote-left"></i><input class="form-input" id="set-tagline" placeholder="Tempat makan terbaik di kota..."/></div>
-              </div>
-              <div class="form-group">
-                <label class="form-label" style="margin-bottom:10px">Ikon Logo</label>
-                <div class="emoji-grid" id="emoji-grid"></div>
-              </div>
+              <div class="form-group"><label class="form-label">Tagline / Slogan</label><div class="input-wrap"><i class="fas fa-quote-left"></i><input class="form-input" id="set-tagline" placeholder="Tempat makan terbaik di kota..."/></div></div>
+              <div class="form-group"><label class="form-label" style="margin-bottom:10px">Ikon Logo</label><div class="emoji-grid" id="emoji-grid"></div></div>
               <button type="button" class="btn btn-accent" onclick="saveBranding()"><i class="fas fa-save"></i> Simpan Branding</button>
             </div>
           </div>
-
-          <!-- Operasional -->
           <div class="settings-section" id="sec-operational">
             <div class="settings-card">
               <div class="settings-card-title"><i class="fas fa-clock"></i> Jam &amp; Slot Operasional</div>
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Jam Buka Default</label>
-                  <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="set-open" type="time" value="09:00"/></div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Jam Tutup Default</label>
-                  <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="set-close" type="time" value="21:00"/></div>
-                </div>
+                <div class="form-group"><label class="form-label">Jam Buka Default</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="set-open" type="time" value="09:00"/></div></div>
+                <div class="form-group"><label class="form-label">Jam Tutup Default</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="set-close" type="time" value="21:00"/></div></div>
               </div>
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Interval Slot (menit)</label>
-                  <div class="input-wrap"><i class="fas fa-stopwatch"></i>
-                    <select class="form-select" id="set-slot-interval">
-                      <option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">60 menit</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Durasi Default (menit)</label>
-                  <div class="input-wrap"><i class="fas fa-hourglass-half"></i><input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/></div>
-                </div>
+                <div class="form-group"><label class="form-label">Interval Slot (menit)</label><div class="input-wrap"><i class="fas fa-stopwatch"></i><select class="form-select" id="set-slot-interval"><option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">60 menit</option></select></div></div>
+                <div class="form-group"><label class="form-label">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half"></i><input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/></div></div>
               </div>
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">Buffer Antar Reservasi (menit)</label>
-                  <div class="input-wrap"><i class="fas fa-pause"></i><input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/></div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Minimal Booking Sebelum (jam)</label>
-                  <div class="input-wrap"><i class="fas fa-bell"></i><input class="form-input" id="set-min-advance" type="number" min="0" value="2"/></div>
-                </div>
+                <div class="form-group"><label class="form-label">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause"></i><input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/></div></div>
+                <div class="form-group"><label class="form-label">Minimal Booking Sebelum (jam)</label><div class="input-wrap"><i class="fas fa-bell"></i><input class="form-input" id="set-min-advance" type="number" min="0" value="2"/></div></div>
               </div>
               <button type="button" class="btn btn-accent" onclick="saveOperational()"><i class="fas fa-save"></i> Simpan Pengaturan</button>
             </div>
           </div>
-
-          <!-- Pesan WA -->
           <div class="settings-section" id="sec-messages">
             <div class="settings-card">
               <div class="settings-card-title"><i class="fab fa-whatsapp"></i> Template Pesan WhatsApp</div>
-              <div class="form-group">
-                <label class="form-label">Pesan Konfirmasi Reservasi</label>
-                <textarea class="form-textarea" id="set-wa-confirm" style="min-height:120px"></textarea>
-                <p class="form-hint">Variabel: {nama}, {tanggal}, {jam}, {tempat}, {jumlah}, {menu}, {dp}</p>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Pesan Terima Kasih (setelah kunjungan)</label>
-                <textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"></textarea>
-              </div>
+              <div class="form-group"><label class="form-label">Pesan Konfirmasi Reservasi</label><textarea class="form-textarea" id="set-wa-confirm" style="min-height:120px"></textarea><p class="form-hint">Variabel: {nama}, {tanggal}, {jam}, {tempat}, {jumlah}, {menu}, {dp}</p></div>
+              <div class="form-group"><label class="form-label">Pesan Terima Kasih (setelah kunjungan)</label><textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"></textarea></div>
               <button type="button" class="btn btn-accent" onclick="saveMessages()"><i class="fas fa-save"></i> Simpan Template</button>
             </div>
           </div>
-
-          <!-- Akun & Billing -->
           <div class="settings-section" id="sec-account">
             <div class="settings-card">
               <div class="settings-card-title"><i class="fas fa-user-circle"></i> Informasi Akun</div>
-              <div class="form-group">
-                <label class="form-label">Email</label>
-                <div class="input-wrap"><i class="fas fa-envelope"></i><input class="form-input" id="set-account-email" readonly style="background:var(--bg-2);cursor:default"/></div>
-              </div>
+              <div class="form-group"><label class="form-label">Email</label><div class="input-wrap"><i class="fas fa-envelope"></i><input class="form-input" id="set-account-email" readonly style="background:var(--bg-2);cursor:default"/></div></div>
               <div class="account-status-card" id="account-status-display"></div>
             </div>
             <div class="settings-card">
               <div class="settings-card-title"><i class="fas fa-crown"></i> Paket &amp; Berlangganan</div>
               <div id="billing-section">
-                <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:16px">
-                  Pilih paket berlangganan untuk melanjutkan akses penuh setelah trial berakhir.
-                </p>
+                <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:16px">Pilih paket berlangganan untuk melanjutkan akses penuh setelah trial berakhir.</p>
                 <div class="billing-plans">
-                  <div class="bp-item">
-                    <div class="bp-info">
-                      <div class="bp-name">Pro Bulanan</div>
-                      <div class="bp-price">Rp 149.000 / bulan</div>
-                    </div>
-                    <button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('monthly')">
-                      <i class="fas fa-credit-card"></i> Bayar
-                    </button>
-                  </div>
-                  <div class="bp-item bp-item-featured">
-                    <div class="bp-badge">Hemat 22%</div>
-                    <div class="bp-info">
-                      <div class="bp-name">Pro Tahunan</div>
-                      <div class="bp-price">Rp 1.399.000 / tahun</div>
-                    </div>
-                    <button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('yearly')">
-                      <i class="fas fa-crown"></i> Bayar
-                    </button>
-                  </div>
+                  <div class="bp-item"><div class="bp-info"><div class="bp-name">Pro Bulanan</div><div class="bp-price">Rp 149.000 / bulan</div></div><button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('monthly')"><i class="fas fa-credit-card"></i> Bayar</button></div>
+                  <div class="bp-item bp-item-featured"><div class="bp-badge">Hemat 22%</div><div class="bp-info"><div class="bp-name">Pro Tahunan</div><div class="bp-price">Rp 1.399.000 / tahun</div></div><button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('yearly')"><i class="fas fa-crown"></i> Bayar</button></div>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
   </main>
 </div>
 
-<!-- SYNC INDICATOR -->
 <div id="sync-indicator"><i class="fas fa-cloud-upload-alt"></i> Tersimpan</div>
 
-<!-- ══════════════════════════════
-     MODALS
-     ══════════════════════════════ -->
-
-<!-- Modal Reservasi -->
+<!-- MODALS -->
 <div class="modal-overlay" id="modal-res">
   <div class="modal modal-lg">
-    <div class="modal-head">
-      <h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-res')"><i class="fas fa-times"></i></button>
-    </div>
+    <div class="modal-head"><h3 id="res-modal-title"><i class="fas fa-calendar-plus"></i> Tambah Reservasi</h3><button type="button" class="modal-close" onclick="closeModal('modal-res')"><i class="fas fa-times"></i></button></div>
     <div class="modal-body">
       <input type="hidden" id="res-edit-id"/>
       <div class="form-row">
@@ -1318,34 +1155,13 @@
         <div class="form-group"></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Nama Tamu <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div>
-          <div class="form-error" id="err-nama"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Nomor HP</label>
-          <div class="input-wrap"><i class="fas fa-phone"></i><input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/></div>
-          <div class="form-error" id="err-hp"></div>
-        </div>
+        <div class="form-group"><label class="form-label">Nama Tamu <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-user"></i><input class="form-input" id="res-nama" placeholder="Nama lengkap"/></div><div class="form-error" id="err-nama"></div></div>
+        <div class="form-group"><label class="form-label">Nomor HP</label><div class="input-wrap"><i class="fas fa-phone"></i><input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/></div><div class="form-error" id="err-hp"></div></div>
       </div>
       <div class="form-row form-row-3">
-        <div class="form-group">
-          <label class="form-label">Jam <span class="req">*</span></label>
-          <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="res-jam" type="time" oninput="onResFieldChange()"/></div>
-          <div class="form-error" id="err-jam"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Jumlah Tamu <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10" oninput="onResFieldChange()"/></div>
-          <div class="form-error" id="err-jumlah"></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Lokasi <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-map-pin"></i><select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select></div>
-          <div class="form-error" id="err-tempat"></div>
-          <div class="form-hint" id="res-cap-hint"></div>
-        </div>
+        <div class="form-group"><label class="form-label">Jam <span class="req">*</span></label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="res-jam" type="time" oninput="onResFieldChange()"/></div><div class="form-error" id="err-jam"></div></div>
+        <div class="form-group"><label class="form-label">Jumlah Tamu <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10" oninput="onResFieldChange()"/></div><div class="form-error" id="err-jumlah"></div></div>
+        <div class="form-group"><label class="form-label">Lokasi <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-map-pin"></i><select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select></div><div class="form-error" id="err-tempat"></div><div class="form-hint" id="res-cap-hint"></div></div>
       </div>
       <div class="conflict-alert" id="conflict-alert"></div>
       <div class="slot-suggester" id="slot-suggester">
@@ -1353,446 +1169,317 @@
         <div id="slot-content"></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Durasi Reservasi (menit)</label>
-          <div class="dur-wrap">
-            <div class="input-wrap dur-input"><i class="fas fa-hourglass-half"></i><input class="form-input" id="res-duration" type="number" min="30" step="15" placeholder="Default lokasi"/></div>
-            <span class="dur-unit">menit</span>
-          </div>
-          <p class="form-hint" id="res-dur-hint"></p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Status Reservasi</label>
-          <div class="input-wrap"><i class="fas fa-circle-dot"></i>
-            <select class="form-select" id="res-status">
-              <option value="pending">⏳ Pending</option>
-              <option value="confirmed">✅ Confirmed</option>
-              <option value="selesai">🎉 Selesai</option>
-              <option value="batal">❌ Batal</option>
-            </select>
-          </div>
-        </div>
+        <div class="form-group"><label class="form-label">Durasi Reservasi (menit)</label><div class="dur-wrap"><div class="input-wrap dur-input"><i class="fas fa-hourglass-half"></i><input class="form-input" id="res-duration" type="number" min="30" step="15" placeholder="Default lokasi"/></div><span class="dur-unit">menit</span></div><p class="form-hint" id="res-dur-hint"></p></div>
+        <div class="form-group"><label class="form-label">Status Reservasi</label><div class="input-wrap"><i class="fas fa-circle-dot"></i><select class="form-select" id="res-status"><option value="pending">⏳ Pending</option><option value="confirmed">✅ Confirmed</option><option value="selesai">🎉 Selesai</option><option value="batal">❌ Batal</option></select></div></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">DP (Rp)</label>
-          <div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Metode Pembayaran DP</label>
-          <div class="input-wrap"><i class="fas fa-credit-card"></i>
-            <select class="form-select" id="res-tipe-dp">
-              <option value="">- Tanpa DP -</option>
-              <option>Cash</option><option>QRIS</option><option>Transfer BCA</option>
-              <option>Transfer Mandiri</option><option>Transfer BRI</option><option>Transfer BNI</option>
-            </select>
-          </div>
-        </div>
+        <div class="form-group"><label class="form-label">DP (Rp)</label><div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div></div>
+        <div class="form-group"><label class="form-label">Metode Pembayaran DP</label><div class="input-wrap"><i class="fas fa-credit-card"></i><select class="form-select" id="res-tipe-dp"><option value="">- Tanpa DP -</option><option>Cash</option><option>QRIS</option><option>Transfer BCA</option><option>Transfer Mandiri</option><option>Transfer BRI</option><option>Transfer BNI</option></select></div></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Menu &amp; Paket Dipesan</label>
-        <div class="form-error" id="err-menus"></div>
-        <div id="res-menus-container" class="menus-container"></div>
-        <button type="button" class="add-menu-btn" onclick="addMenuRow('res-menus-container')"><i class="fas fa-plus"></i> Tambah Paket</button>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Catatan / Request Tambahan</label>
-        <textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan..."></textarea>
-      </div>
+      <div class="form-group"><label class="form-label">Menu &amp; Paket Dipesan</label><div class="form-error" id="err-menus"></div><div id="res-menus-container" class="menus-container"></div><button type="button" class="add-menu-btn" onclick="addMenuRow('res-menus-container')"><i class="fas fa-plus"></i> Tambah Paket</button></div>
+      <div class="form-group"><label class="form-label">Catatan / Request Tambahan</label><textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan..."></textarea></div>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-res')">Batal</button>
-      <button type="button" class="btn btn-accent" id="btn-save-res" onclick="saveRes()"><i class="fas fa-save"></i> Simpan</button>
-    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-res')">Batal</button><button type="button" class="btn btn-accent" id="btn-save-res" onclick="saveRes()"><i class="fas fa-save"></i> Simpan</button></div>
   </div>
 </div>
 
-<!-- Modal Menu -->
 <div class="modal-overlay" id="modal-menu">
   <div class="modal">
-    <div class="modal-head">
-      <h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button>
-    </div>
+    <div class="modal-head"><h3 id="menu-modal-title"><i class="fas fa-utensils"></i> Tambah Menu</h3><button type="button" class="modal-close" onclick="closeModal('modal-menu')"><i class="fas fa-times"></i></button></div>
     <div class="modal-body">
       <input type="hidden" id="menu-edit-id"/>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Nama Menu <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-bowl-food"></i><input class="form-input" id="menu-name" placeholder="Paket Keluarga"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Harga (Rp)</label>
-          <div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div>
-        </div>
+        <div class="form-group"><label class="form-label">Nama Menu <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-bowl-food"></i><input class="form-input" id="menu-name" placeholder="Paket Keluarga"/></div></div>
+        <div class="form-group"><label class="form-label">Harga (Rp)</label><div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div></div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Detail Menu</label>
-        <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
-        <p class="form-hint">Pisahkan dengan koma.</p>
-      </div>
+      <div class="form-group"><label class="form-label">Detail Menu</label><textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea><p class="form-hint">Pisahkan dengan koma.</p></div>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-menu')">Batal</button>
-      <button type="button" class="btn btn-accent" onclick="saveMenu()"><i class="fas fa-save"></i> Simpan</button>
-    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-menu')">Batal</button><button type="button" class="btn btn-accent" onclick="saveMenu()"><i class="fas fa-save"></i> Simpan</button></div>
   </div>
 </div>
 
-<!-- Modal Lokasi -->
 <div class="modal-overlay" id="modal-loc">
   <div class="modal modal-lg">
-    <div class="modal-head">
-      <h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-loc')"><i class="fas fa-times"></i></button>
-    </div>
+    <div class="modal-head"><h3 id="loc-modal-title"><i class="fas fa-map-marker-alt"></i> Tambah Lokasi</h3><button type="button" class="modal-close" onclick="closeModal('modal-loc')"><i class="fas fa-times"></i></button></div>
     <div class="modal-body">
       <input type="hidden" id="loc-edit-id"/>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Nama Lokasi <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-map-pin"></i><input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room..."/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Kapasitas Maksimum <span class="req">*</span></label>
-          <div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div>
-        </div>
+        <div class="form-group"><label class="form-label">Nama Lokasi <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-map-pin"></i><input class="form-input" id="loc-name" placeholder="Gazebo A, Meja 1, VIP Room..."/></div></div>
+        <div class="form-group"><label class="form-label">Kapasitas Maksimum <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-users"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Minimum Tamu</label>
-          <div class="input-wrap"><i class="fas fa-user-check"></i><input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Durasi Default (menit)</label>
-          <div class="input-wrap"><i class="fas fa-hourglass-half"></i><input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/></div>
-          <p class="form-hint">Kosongkan untuk menggunakan pengaturan global.</p>
-        </div>
+        <div class="form-group"><label class="form-label">Minimum Tamu</label><div class="input-wrap"><i class="fas fa-user-check"></i><input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/></div></div>
+        <div class="form-group"><label class="form-label">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half"></i><input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/></div><p class="form-hint">Kosongkan untuk menggunakan pengaturan global.</p></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Buffer Antar Reservasi (menit)</label>
-          <div class="input-wrap"><i class="fas fa-pause"></i><input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Jam Buka Lokasi Ini</label>
-          <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="loc-open" type="time"/></div>
-        </div>
+        <div class="form-group"><label class="form-label">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause"></i><input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/></div></div>
+        <div class="form-group"><label class="form-label">Jam Buka Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="loc-open" type="time"/></div></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Jam Tutup Lokasi Ini</label>
-          <div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="loc-close" type="time"/></div>
-        </div>
+        <div class="form-group"><label class="form-label">Jam Tutup Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock"></i><input class="form-input" id="loc-close" type="time"/></div></div>
         <div></div>
       </div>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-loc')">Batal</button>
-      <button type="button" class="btn btn-accent" onclick="saveLoc()"><i class="fas fa-save"></i> Simpan</button>
-    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-loc')">Batal</button><button type="button" class="btn btn-accent" onclick="saveLoc()"><i class="fas fa-save"></i> Simpan</button></div>
   </div>
 </div>
 
-<!-- Modal Print -->
 <div class="modal-overlay" id="modal-print">
   <div class="modal">
-    <div class="modal-head">
-      <h3><i class="fas fa-print"></i> Opsi Cetak</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button>
-    </div>
+    <div class="modal-head"><h3><i class="fas fa-print"></i> Opsi Cetak</h3><button type="button" class="modal-close" onclick="closeModal('modal-print')"><i class="fas fa-times"></i></button></div>
     <div class="modal-body">
       <p class="form-hint" style="margin-bottom:13px">Pilih kolom yang ingin ditampilkan:</p>
       <div class="print-opts">
         <label class="print-opt"><input type="checkbox" id="po-menu" checked/> <i class="fas fa-utensils"></i> Detail Menu</label>
-        <label class="print-opt"><input type="checkbox" id="po-hp" checked/> <i class="fas fa-phone"></i> Nomor HP</label>
-        <label class="print-opt"><input type="checkbox" id="po-dp" checked/> <i class="fas fa-money-bill"></i> Info DP</label>
+        <label class="print-opt"><input type="checkbox" id="po-hp"   checked/> <i class="fas fa-phone"></i> Nomor HP</label>
+        <label class="print-opt"><input type="checkbox" id="po-dp"   checked/> <i class="fas fa-money-bill"></i> Info DP</label>
         <label class="print-opt"><input type="checkbox" id="po-note" checked/> <i class="fas fa-comment-dots"></i> Catatan</label>
       </div>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-print')">Batal</button>
-      <button type="button" class="btn btn-accent" onclick="doPrint()"><i class="fas fa-print"></i> Cetak</button>
-    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-print')">Batal</button><button type="button" class="btn btn-accent" onclick="doPrint()"><i class="fas fa-print"></i> Cetak</button></div>
   </div>
 </div>
 
-<!-- Modal Export -->
 <div class="modal-overlay" id="modal-export">
   <div class="modal">
-    <div class="modal-head">
-      <h3><i class="fas fa-upload"></i> Export &amp; Backup</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button>
-    </div>
+    <div class="modal-head"><h3><i class="fas fa-upload"></i> Export &amp; Backup</h3><button type="button" class="modal-close" onclick="closeModal('modal-export')"><i class="fas fa-times"></i></button></div>
     <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Kode Backup</label>
-        <textarea class="form-textarea code-area" id="export-out" readonly placeholder="Klik Export untuk generate kode..."></textarea>
-        <p class="form-hint">Salin kode ini untuk backup atau pindah device.</p>
-      </div>
+      <div class="form-group"><label class="form-label">Kode Backup</label><textarea class="form-textarea code-area" id="export-out" readonly placeholder="Klik Export untuk generate kode..."></textarea><p class="form-hint">Salin kode ini untuk backup atau pindah device.</p></div>
       <div class="modal-divider"><span>atau import data</span></div>
-      <div class="form-group">
-        <label class="form-label">Import dari Backup</label>
-        <textarea class="form-textarea code-area" id="import-in" placeholder="Tempel kode backup di sini..."></textarea>
-      </div>
+      <div class="form-group"><label class="form-label">Import dari Backup</label><textarea class="form-textarea code-area" id="import-in" placeholder="Tempel kode backup di sini..."></textarea></div>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
-      <button type="button" class="btn btn-secondary" onclick="doImport()"><i class="fas fa-download"></i> Import</button>
-      <button type="button" class="btn btn-accent" onclick="copyExport()"><i class="fas fa-copy"></i> Salin Kode</button>
-    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-ghost" onclick="closeModal('modal-export')">Tutup</button><button type="button" class="btn btn-secondary" onclick="doImport()"><i class="fas fa-download"></i> Import</button><button type="button" class="btn btn-accent" onclick="copyExport()"><i class="fas fa-copy"></i> Salin Kode</button></div>
   </div>
 </div>
 
-<!-- UI Utilities -->
 <div id="toast-container" aria-live="polite"></div>
-<div id="global-loader" style="display:none"></div>
 <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
-<!-- ══════════════════════════════
+<!-- ══════════════════════════════════════════════════════
      BOOT GUARD
-     ══════════════════════════════ -->
+     FIX #9 : showScreen satu definisi - dipakai HTML & app.js
+     FIX #4 : _AUTH_HANDLER_RUNNING mencegah double-call
+     FIX #1 : enterReadOnlyMode hanya dari paywall (status sudah expired)
+     FIX #6 : _AUTH_PROCESSING & _AUTH_HANDLER_RUNNING selalu di-reset
+     ══════════════════════════════════════════════════════ -->
 <script>
 (function () {
   'use strict';
 
-  /* showScreen - satu fungsi terpusat */
+  /* ── showScreen - satu fungsi terpusat, dipakai oleh onclick & app.js ── */
   window.showScreen = function (name) {
     try {
-      var screens = ['screen-loading','screen-landing','screen-auth','screen-wizard','screen-paywall'];
-      screens.forEach(function (id) {
+      var IDS = ['screen-loading','screen-landing','screen-auth','screen-wizard','screen-paywall'];
+      IDS.forEach(function (id) {
         var el = document.getElementById(id);
         if (!el) return;
         el.style.display = 'none';
         el.classList.remove('active');
         el.setAttribute('aria-hidden', 'true');
       });
-
       var shell = document.getElementById('app-shell');
       if (name === 'app') {
         if (shell) { shell.style.display = 'block'; shell.setAttribute('aria-hidden','false'); }
         document.body.style.overflow = '';
       } else {
         if (shell) { shell.style.display = 'none'; shell.setAttribute('aria-hidden','true'); }
-        var map = {
-          loading:  'screen-loading',
-          landing:  'screen-landing',
-          auth:     'screen-auth',
-          wizard:   'screen-wizard',
-          paywall:  'screen-paywall'
-        };
-        var target = map[name] ? document.getElementById(map[name]) : null;
-        if (target) {
-          target.style.display = 'flex';
-          target.classList.add('active');
-          target.setAttribute('aria-hidden','false');
-        }
-        document.body.style.overflow = (name === 'landing' || name === 'wizard') ? 'auto' : 'hidden';
+        var MAP = { loading:'screen-loading', landing:'screen-landing',
+                    auth:'screen-auth', wizard:'screen-wizard', paywall:'screen-paywall' };
+        var target = MAP[name] ? document.getElementById(MAP[name]) : null;
+        if (target) { target.style.display='flex'; target.classList.add('active'); target.setAttribute('aria-hidden','false'); }
+        document.body.style.overflow = (name==='landing'||name==='wizard') ? 'auto' : 'hidden';
       }
-    } catch (err) { console.error('showScreen error:', err); }
+    } catch(e) { console.error('[showScreen]', e); }
   };
 
-  /* showAuthTab - tampilkan login/register/reset */
+  /* ── showAuthTab ── */
   window.showAuthTab = function (tab) {
     window.showScreen('auth');
     ['login','register','reset'].forEach(function (t) {
-      var form = document.getElementById('form-' + t);
-      var tabEl = document.getElementById('tab-' + t);
-      if (form) form.classList.toggle('active', t === tab);
-      if (tabEl) tabEl.classList.toggle('active', t === tab);
+      var f = document.getElementById('form-'+t);
+      var b = document.getElementById('tab-'+t);
+      if (f) f.classList.toggle('active', t===tab);
+      if (b) b.classList.toggle('active', t===tab);
     });
-    window.clearAuthErr?.();
+    if (typeof window.clearAuthErr === 'function') window.clearAuthErr();
   };
-
-  /* showResetForm */
   window.showResetForm = function () { window.showAuthTab('reset'); };
 
-  /* togglePass */
-  window.togglePass = function (inputId, btn) {
-    var inp = document.getElementById(inputId);
+  /* ── togglePass ── */
+  window.togglePass = function (id, btn) {
+    var inp = document.getElementById(id);
     if (!inp) return;
     var show = inp.type === 'password';
     inp.type = show ? 'text' : 'password';
-    var icon = btn.querySelector('i');
-    if (icon) { icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye'; }
+    var ic = btn.querySelector('i');
+    if (ic) ic.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
   };
 
-  /* Pending auth queue */
+  /* ── _onAuthReady - queue sebelum app.js siap
+     FIX #4: Set _AUTH_HANDLER_RUNNING agar onAuthStateChanged
+     tidak bisa memicu instance kedua secara bersamaan. ── */
   window._onAuthReady = function (user) {
-    window._pendingAuthUser = user;
-    if (!window.__AUTH_TIMEOUT_LOCK) {
-      window.__AUTH_TIMEOUT_LOCK = true;
-      window._AUTH_PROCESSING = true;
-      setTimeout(function () { window._AUTH_PROCESSING = false; }, 20000);
+    if (window._AUTH_HANDLER_RUNNING) {
+      console.log('[boot] _onAuthReady dipanggil saat masih running, skip.');
+      return;
     }
+    window._AUTH_HANDLER_RUNNING = true;
+    window._AUTH_PROCESSING      = true;
+    window._pendingAuthUser      = user;
+    /* Safety timeout 30 detik - reset otomatis jika ada masalah */
+    setTimeout(function () {
+      window._AUTH_HANDLER_RUNNING = false;
+      window._AUTH_PROCESSING      = false;
+    }, 30000);
   };
 
-  /* ═══════════════════════════════════════════
-     MIDTRANS PAYMENT INTEGRATION
-     Isi CLIENT_KEY dan SNAP_URL dengan data dari
-     dashboard Midtrans kamu setelah mendaftar.
-     ═══════════════════════════════════════════ */
+  /* ── Midtrans config ── */
   window.MIDTRANS_CONFIG = {
-    // SANDBOX (testing):
-    CLIENT_KEY: 'SB-Mid-client-XXXXXXXXXXXXXXXX',
-    SNAP_URL:   'https://app.sandbox.midtrans.com/snap/snap.js',
-
-    // PRODUCTION (live) - uncomment saat sudah siap:
-    // CLIENT_KEY: 'Mid-client-XXXXXXXXXXXXXXXX',
-    // SNAP_URL:   'https://app.midtrans.com/snap/snap.js',
-
-    // URL backend Cloud Function kamu untuk generate token:
-    // Akan diisi setelah Cloud Function di-deploy
+    CLIENT_KEY:  'SB-Mid-client-XXXXXXXXXXXXXXXX',
+    SNAP_URL:    'https://app.sandbox.midtrans.com/snap/snap.js',
     BACKEND_URL: 'https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/createPayment'
   };
 
-  /* Fungsi payment - dipanggil dari paywall & settings */
+  /* ── initiatePayment ── */
   window.initiatePayment = async function (planType) {
     if (!window._FBUSER) { window.showToast?.('Kamu harus login terlebih dahulu.', 'error'); return; }
-
-    var btnId = planType === 'monthly' ? 'btn-pay-monthly' : 'btn-pay-yearly';
+    var btnId = planType==='monthly' ? 'btn-pay-monthly' : 'btn-pay-yearly';
     var btn   = document.getElementById(btnId);
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...'; }
-
+    if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Memproses...'; }
     try {
-      /* Request snap token dari Cloud Function */
-      var resp = await fetch(window.MIDTRANS_CONFIG.BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid:      window._FBUSER.uid,
-          email:    window._FBUSER.email,
-          plan:     planType,
-          /* Harga dalam rupiah */
-          amount:   planType === 'monthly' ? 149000 : 1399000
-        })
+      var r = await fetch(window.MIDTRANS_CONFIG.BACKEND_URL, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ uid:window._FBUSER.uid, email:window._FBUSER.email,
+          plan:planType, amount:planType==='monthly'?149000:1399000 })
       });
-
-      if (!resp.ok) throw new Error('Backend error: ' + resp.status);
-      var data = await resp.json();
-
-      if (!data.snap_token) throw new Error('Snap token tidak diterima.');
-
-      /* Muat Midtrans Snap script jika belum ada */
+      if (!r.ok) throw new Error('Backend error: ' + r.status);
+      var d = await r.json();
+      if (!d.snap_token) throw new Error('Snap token tidak diterima.');
       if (!window.snap) {
-        await new Promise(function (resolve, reject) {
-          var script = document.createElement('script');
-          script.src = window.MIDTRANS_CONFIG.SNAP_URL;
-          script.setAttribute('data-client-key', window.MIDTRANS_CONFIG.CLIENT_KEY);
-          script.onload  = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
+        await new Promise(function(res,rej){
+          var s=document.createElement('script');
+          s.src=window.MIDTRANS_CONFIG.SNAP_URL;
+          s.setAttribute('data-client-key', window.MIDTRANS_CONFIG.CLIENT_KEY);
+          s.onload=res; s.onerror=rej; document.head.appendChild(s);
         });
       }
-
-      /* Buka Snap popup */
-      window.snap.pay(data.snap_token, {
-        onSuccess: function (result) {
-          console.log('Payment success:', result);
-          window.onPaymentSuccess?.(planType, result);
-        },
-        onPending: function (result) {
-          window.showToast?.('Pembayaran menunggu konfirmasi. Cek email kamu.', 'info', 5000);
-          console.log('Payment pending:', result);
-        },
-        onError: function (result) {
-          window.showToast?.('Pembayaran gagal. Coba lagi.', 'error');
-          console.error('Payment error:', result);
-        },
-        onClose: function () {
-          window.showToast?.('Pembayaran dibatalkan.', 'info');
-        }
+      window.snap.pay(d.snap_token, {
+        onSuccess: function(result){ window.onPaymentSuccess?.(planType, result); },
+        onPending: function(){ window.showToast?.('Menunggu konfirmasi pembayaran.','info',5000); },
+        onError:   function(){ window.showToast?.('Pembayaran gagal. Coba lagi.','error'); },
+        onClose:   function(){ window.showToast?.('Pembayaran dibatalkan.','info'); }
       });
-
-    } catch (e) {
-      console.error('initiatePayment error:', e);
+    } catch(e) {
+      console.error('[initiatePayment]', e);
       window.showToast?.('Gagal memulai pembayaran: ' + e.message, 'error');
     } finally {
       if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = planType === 'monthly'
+        btn.disabled=false;
+        btn.innerHTML = planType==='monthly'
           ? '<i class="fas fa-credit-card"></i> Bayar Sekarang'
           : '<i class="fas fa-crown"></i> Pilih Tahunan';
       }
     }
   };
 
-  /* enterReadOnlyMode - masuk ke app dalam mode read-only */
+  /* ── enterReadOnlyMode
+     FIX #1: Dipanggil hanya dari paywall (status sudah pasti expired).
+     FIX #7: Data sudah ter-load _onAuthReady sebelum ke paywall,
+             aman langsung render kalender. ── */
   window.enterReadOnlyMode = function () {
     window._READ_ONLY = true;
     window.showScreen('app');
-    var rb = document.getElementById('readonly-banner');
-    if (rb) rb.style.display = 'flex';
-    var tb = document.getElementById('trial-banner');
-    if (tb) tb.style.display = 'none';
-    /* Disable tombol aksi */
+    var rb    = document.getElementById('readonly-banner');
+    var tb    = document.getElementById('trial-banner');
+    var shell = document.getElementById('app-shell');
     var addBtn = document.getElementById('btn-add-res');
-    if (addBtn) addBtn.style.display = 'none';
+    if (rb)     { rb.style.display = 'flex'; }
+    if (tb)     { tb.style.display = 'none'; }
+    if (shell)  { shell.classList.add('has-banner'); }
+    if (addBtn) { addBtn.style.display = 'none'; }
+    if (typeof window.renderCalendar === 'function') window.renderCalendar();
   };
 
-  /* DOMContentLoaded */
+  /* ── DOMContentLoaded ── */
   document.addEventListener('DOMContentLoaded', function () {
     document.documentElement.classList.add('dom-ready');
-
-    /* Sembunyikan loading setelah 1.2 detik */
     var loading = document.getElementById('screen-loading');
     if (loading) {
       setTimeout(function () {
-        loading.style.opacity = '0';
+        loading.style.opacity       = '0';
         loading.style.pointerEvents = 'none';
         setTimeout(function () { loading.style.display = 'none'; }, 400);
-      }, 1200);
+      }, 1300);
     }
-
-    /* Fallback landing jika tidak ada aktivitas auth dalam 15 detik */
+    /* Fallback landing jika tidak ada auth dalam 15 detik */
     setTimeout(function () {
-      if (window._AUTH_PROCESSING) return;
-      var shell   = document.getElementById('app-shell');
-      var appVis  = shell && window.getComputedStyle(shell).display !== 'none';
-      var hasScreen = ['screen-wizard','screen-auth','screen-paywall'].some(function (id) {
+      if (window._AUTH_PROCESSING || window._AUTH_HANDLER_RUNNING) return;
+      var shell    = document.getElementById('app-shell');
+      var appVis   = shell && window.getComputedStyle(shell).display !== 'none';
+      var hasActive = ['screen-wizard','screen-auth','screen-paywall'].some(function(id){
         var el = document.getElementById(id);
         return el && el.classList.contains('active');
       });
-      if (!appVis && !hasScreen) window.showScreen('landing');
+      if (!appVis && !hasActive) window.showScreen('landing');
     }, 15000);
   });
 
   /* Toast fallback minimal */
-  window.showToast = window.showToast || function (msg, type, dur) {
-    console.log('[TOAST]', type || 'info', msg);
+  window.showToast = window.showToast || function (msg, type) {
+    console.log('[TOAST]', type||'info', msg);
   };
 
 })();
 </script>
 
-<!-- app.js - defer -->
-<script defer src="./app.js?v=5.4" charset="utf-8"></script>
+<!-- app.js - defer, versi baru -->
+<script defer src="./app.js?v=5.5" charset="utf-8"></script>
 
-<!-- APP.JS READY BRIDGE -->
+<!-- ══════════════════════════════════════════════════════
+     BRIDGE: app.js siap, eksekusi pending auth
+     FIX #4 : _AUTH_HANDLER_RUNNING di-set sebelum memanggil
+     FIX #6 : Kedua flag di-reset di .finally() tanpa terkecuali
+     ══════════════════════════════════════════════════════ -->
 <script defer>
 (function () {
+
+  /*
+   * Bridge dijalankan setelah app.js selesai load (defer + urutan).
+   * Jika _pendingAuthUser ada, berarti onAuthStateChanged sudah terpanggil
+   * sebelum app.js siap - kita teruskan ke _onAuthReady (versi app.js).
+   *
+   * Jika onAuthStateChanged lebih cepat dari bridge DAN sudah memanggil
+   * _onAuthReady langsung (tanpa melalui boot guard), maka _pendingAuthUser
+   * tidak akan ada dan bridge tidak melakukan apa-apa - flag sudah di-reset
+   * oleh .finally() di jalur tersebut.
+   */
+
   if (typeof window._pendingAuthUser !== 'undefined') {
-    var user = window._pendingAuthUser;
+    var pendingUser = window._pendingAuthUser;
     delete window._pendingAuthUser;
+
     if (typeof window._onAuthReady === 'function') {
-      window.__AUTH_READY_CALLED = true;
-      Promise.resolve(window._onAuthReady(user))
-        .catch(function (err) { console.error('_onAuthReady bridge error:', err); })
-        .finally(function () { window._AUTH_PROCESSING = false; });
+      Promise.resolve(window._onAuthReady(pendingUser))
+        .catch(function (err) {
+          console.error('[bridge] _onAuthReady error:', err);
+        })
+        .finally(function () {
+          /* FIX #6: selalu reset kedua flag ── */
+          window._AUTH_HANDLER_RUNNING = false;
+          window._AUTH_PROCESSING      = false;
+        });
     }
+  } else {
+    /* Tidak ada pending user - reset flag ── */
+    window._AUTH_HANDLER_RUNNING = false;
+    window._AUTH_PROCESSING      = false;
   }
+
   window._appReady = true;
   document.dispatchEvent(new Event('app-js-ready'));
+
 })();
 </script>
-
-<!-- AUTH LOADING OVERLAY -->
-<div id="auth-loading-overlay" style="display:none">
-  <div class="auth-loading-box">
-    <div class="auth-spinner"></div>
-    <div class="auth-loading-text">Memuat Proserva...</div>
-  </div>
-</div>
 
 </body>
 </html>
