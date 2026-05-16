@@ -474,7 +474,7 @@ async function loadStateFS() {
 
   /* Appear selalu dari local */
   S.appear = Object.assign(
-    { accent: 'blue', logo: '🍽️' },
+    { accent: 'orange', logo: '🍽️' },
     DB.get(K.APPEAR, {})
   );
 }
@@ -486,7 +486,7 @@ function loadStateLocal() {
   S.res    = DB.get(K.RES,   {});
   S.ops    = Object.assign({ openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:2 }, DB.get(K.OPS, {}));
   S.msgs   = Object.assign({ confirm: DEFAULT_CONF, thanks: DEFAULT_THANKS }, DB.get(K.MSGS, {}));
-  S.appear = Object.assign({ accent: 'blue', logo: '🍽️' }, DB.get(K.APPEAR, {}));
+  S.appear = Object.assign({ accent: 'orange', logo: '🍽️' }, DB.get(K.APPEAR, {}));
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -613,7 +613,8 @@ window._onAuthReady = async function (user) {
   await loadStateFS();
 
   /* ── Apply accent ── */
-  applyAccent(S.appear.accent || 'blue', false);
+  applyAccent(S.appear.accent || 'orange', false);
+
 
   /* ── Update teks dashboard ── */
   var biz = S.biz.name || 'Usaha Saya';
@@ -1638,14 +1639,84 @@ function buildThanksMsg(r) {
 }
 
 function buildDailyMsg(dateStr, res) {
-  var msg='*📋 LAPORAN RESERVASI*\n*'+S.biz.name+'*\n\n📅 '+formatDateFull(dateStr)+'\n'+'─'.repeat(22)+'\n\n';
-  if (!res.length) return msg+'*Tidak ada reservasi.*';
-  res.forEach(function(r,i){
-    var ml=Array.isArray(r.menus)&&r.menus.length?r.menus.map(function(m){return '  • '+m.quantity+'x '+m.name;}).join('\n'):'*(tidak ada)*';
-    msg+='*'+(i+1)+'. '+r.nama+'*\n⏰ '+r.jam+' | 📍 '+r.tempat+' | 👥 '+r.jumlah+' orang\n🍽 Pesanan:\n'+ml+'\n'+(parseInt(r.dp)>0?'💰 DP: Rp'+formatRp(r.dp)+'\n':'')+(r.tambahan?'📝 '+r.tambahan+'\n':'')+'\n';
+  var msg = '*📋 LAPORAN RESERVASI*\n'
+    + '*' + S.biz.name + '*\n'
+    + '📅 ' + formatDateFull(dateStr) + '\n'
+    + '━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+  if (!res.length) return msg + '_Tidak ada reservasi._';
+
+  var totalPax = res.reduce(function(s, r) { return s + (parseInt(r.jumlah) || 0); }, 0);
+  var totalDp  = res.reduce(function(s, r) { return s + (parseInt(r.dp) || 0); }, 0);
+
+  res.forEach(function(r, i) {
+    var loc = getLocByName(r.tempat);
+    var dur = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
+    var endT = r.jam ? minsToTime(toMins(r.jam) + dur) : '';
+
+    /* Baris menu dengan detail isian */
+    var menuLines = '';
+    if (Array.isArray(r.menus) && r.menus.length) {
+      menuLines = r.menus.map(function(item) {
+        var md = getMenuByName(item.name);
+        var line = '    ▸ *' + item.quantity + 'x ' + item.name + '*';
+        if (md && md.price) {
+          line += ' (Rp' + formatRp(md.price) + '/porsi)';
+        }
+        /* Tambahkan detail isian makanan */
+        if (md && Array.isArray(md.details) && md.details.length) {
+          line += '\n      _' + md.details.join(', ') + '_';
+        }
+        return line;
+      }).join('\n');
+    } else {
+      menuLines = '    _Tidak ada pesanan_';
+    }
+
+    msg += '*' + (i + 1) + '. ' + r.nama + '*';
+
+    /* Status */
+    var statusMap = { pending:'⏳ Pending', confirmed:'✅ Confirmed', selesai:'🎉 Selesai', batal:'❌ Batal' };
+    if (r.status && r.status !== 'pending') {
+      msg += '  ' + (statusMap[r.status] || '');
+    }
+    msg += '\n';
+
+    msg += '⏰ ' + (r.jam || '-');
+    if (endT) msg += '–' + endT;
+    msg += '  |  📍 ' + r.tempat + '  |  👥 ' + r.jumlah + ' orang\n';
+
+    msg += '🍽️ *Pesanan:*\n' + menuLines + '\n';
+
+    if (parseInt(r.dp) > 0) {
+      msg += '💰 DP: *Rp' + formatRp(r.dp) + '*';
+      if (r.tipeDp) msg += ' via ' + r.tipeDp;
+      msg += '\n';
+    }
+
+    if (r.tambahan) {
+      msg += '📝 _' + r.tambahan + '_\n';
+    }
+
+    if (r.nomorHp) {
+      msg += '📱 ' + r.nomorHp + '\n';
+    }
+
+    msg += '\n';
   });
+
+  /* Ringkasan total di bawah */
+  msg += '━━━━━━━━━━━━━━━━━━━━━━\n';
+  msg += '📊 *RINGKASAN*\n';
+  msg += 'Total Reservasi: *' + res.length + '*\n';
+  msg += 'Total Tamu: *' + totalPax + ' orang*\n';
+  if (totalDp > 0) {
+    msg += 'Total DP Masuk: *Rp' + formatRp(totalDp) + '*\n';
+  }
+
   return msg.trimEnd();
 }
+
 
 /* ──────────────────────────────────────────────────────────
    NOTIF
