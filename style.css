@@ -20,10 +20,11 @@
   --ac-border:rgba(124,58,237,.20)
 }
 [data-accent="orange"] {
-  --ac:#ea580c;--ac-h:#c2410c;--ac-light:#f97316;
-  --ac-dim:rgba(234,88,12,.08);--ac-glow:rgba(234,88,12,.20);
-  --ac-border:rgba(234,88,12,.20)
+  --ac:#e8630a;--ac-h:#c4520a;--ac-light:#f97316;
+  --ac-dim:rgba(232,99,10,.07);--ac-glow:rgba(232,99,10,.18);
+  --ac-border:rgba(232,99,10,.18)
 }
+
 [data-accent="rose"] {
   --ac:#e11d48;--ac-h:#be123c;--ac-light:#f43f5e;
   --ac-dim:rgba(225,29,72,.08);--ac-glow:rgba(225,29,72,.20);
@@ -65,10 +66,10 @@
   --ink-4:     #94a3b8;
   --ink-5:     #cbd5e1;
 
-  --sidebar-bg:     #1e293b;
-  --sidebar-border: rgba(255,255,255,.07);
-  --sidebar-text:   rgba(148,163,184,.70);
-  --sidebar-active: rgba(255,255,255,.06);
+  --sidebar-bg:     #111111;
+  --sidebar-border: rgba(255,255,255,.08);
+  --sidebar-text:   rgba(180,180,180,.70);
+  --sidebar-active: rgba(232,99,10,.12);
 
   --topbar-bg:      rgba(255,255,255,.90);
   --modal-overlay:  rgba(15,23,42,.40);
@@ -969,8 +970,8 @@ button { cursor: pointer }
 .nav-item:hover .nav-icon { background: rgba(255,255,255,.09); color: #e2e8f0 }
 .nav-item:hover .nav-label { color: #e2e8f0 }
 .nav-item.active { background: var(--sidebar-active); border-color: rgba(255,255,255,.06) }
-.nav-item.active .nav-icon { background: var(--ac-dim); color: var(--ac-light) }
-.nav-item.active .nav-label { color: #fff; font-weight: 600 }
+.nav-item.active .nav-icon { background: rgba(232,99,10,.18); color: #f97316 }
+.nav-item.active .nav-label { color: #ffffff; font-weight: 600 }
 
 .sidebar-footer { padding: 12px 10px 14px; border-top: 1px solid var(--sidebar-border); flex-shrink: 0; display: flex; flex-direction: column; gap: 6px }
 .btn-upgrade {
@@ -994,9 +995,12 @@ button { cursor: pointer }
 
 /* ── Topbar ── */
 #topbar {
+  #topbar {
   position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
   background: var(--topbar-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border); padding: 0 18px 0 calc(var(--sidebar-w) + 18px);
+  border-bottom: 1px solid var(--border);
+  border-top: 2px solid var(--ac);
+  padding: 0 18px 0 calc(var(--sidebar-w) + 18px);
   display: flex; align-items: center; gap: 10px; z-index: 400; transition: padding-left .3s ease;
   box-shadow: var(--shadow-xs);
 }
