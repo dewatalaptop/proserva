@@ -88,7 +88,7 @@ function isReadOnly() {
 
 function guardWrite(action) {
   if (isReadOnly()) {
-    showToast('Mode baca saja — aktifkan langganan untuk melanjutkan.', 'warning', 4000);
+    showToast('Mode baca saja - aktifkan langganan untuk melanjutkan.', 'warning', 4000);
     showScreen('paywall');
     return false;
   }
@@ -112,7 +112,7 @@ async function loadAccount() {
     if (snap.exists()) {
       _ACCOUNT = snap.data();
     } else {
-      /* User lama — beri trial 14 hari retroaktif */
+      /* User lama - beri trial 14 hari retroaktif */
       var now      = Date.now();
       var trialEnd = now + (14 * 24 * 60 * 60 * 1000);
       _ACCOUNT = {
@@ -148,7 +148,7 @@ function evaluateAccountStatus() {
   /* Sudah expired manual */
   if (status === 'expired') return 'expired';
 
-  /* Trial — cek apakah sudah lewat */
+  /* Trial - cek apakah sudah lewat */
   if (status === 'trial') {
     var now = Date.now();
     var end = _ACCOUNT.trialEndsAt || 0;
@@ -196,17 +196,19 @@ async function _updateAccountStatus(newStatus, extra) {
  * Render UI berdasarkan status akun
  */
 function applyAccountUI(accountStatus) {
-  var trialBanner  = document.getElementById('trial-banner');
+  var trialBanner    = document.getElementById('trial-banner');
   var readonlyBanner = document.getElementById('readonly-banner');
-  var upgradeBtn   = document.getElementById('sb-upgrade-btn');
-  var sbStatus     = document.getElementById('sb-account-status');
-  var addResBtn    = document.getElementById('btn-add-res');
+  var upgradeBtn     = document.getElementById('sb-upgrade-btn');
+  var sbStatus       = document.getElementById('sb-account-status');
+  var addResBtn      = document.getElementById('btn-add-res');
+  var shell          = document.getElementById('app-shell');
 
   /* Reset dulu */
   if (trialBanner)    trialBanner.style.display    = 'none';
   if (readonlyBanner) readonlyBanner.style.display  = 'none';
   if (upgradeBtn)     upgradeBtn.style.display      = 'none';
   if (addResBtn)      addResBtn.style.display        = 'flex';
+  if (shell)          shell.classList.remove('has-banner');
   window._READ_ONLY = false;
 
   if (accountStatus === 'active') {
@@ -229,6 +231,7 @@ function applyAccountUI(accountStatus) {
           ? 'Trial kamu berakhir hari ini! Segera upgrade.'
           : 'Trial kamu berakhir dalam ' + days + ' hari.';
       }
+      if (shell) shell.classList.add('has-banner');
     }
     if (upgradeBtn) upgradeBtn.style.display = 'flex';
 
@@ -239,7 +242,10 @@ function applyAccountUI(accountStatus) {
       sbStatus.className = 'sb-status expired';
       sbStatus.innerHTML = '<i class="fas fa-lock"></i> Trial Berakhir';
     }
-    if (readonlyBanner) readonlyBanner.style.display = 'flex';
+    if (readonlyBanner) {
+      readonlyBanner.style.display = 'flex';
+      if (shell) shell.classList.add('has-banner');
+    }
     if (upgradeBtn) upgradeBtn.style.display = 'flex';
     /* Sembunyikan tombol tambah reservasi */
     if (addResBtn) addResBtn.style.display = 'none';
@@ -457,7 +463,7 @@ async function loadStateFS() {
       S.locs = DB.get(K.LOCS, {});
     }
 
-    /* Reservations — dari localStorage saja (terlalu besar untuk load semua) */
+    /* Reservations - dari localStorage saja (terlalu besar untuk load semua) */
     S.res = DB.get(K.RES, {});
 
     /* Cache ke localStorage */
@@ -474,7 +480,7 @@ async function loadStateFS() {
 
   /* Appear selalu dari local */
   S.appear = Object.assign(
-    { accent: 'orange', logo: '🍽️' },
+    { accent: 'blue', logo: '🍽️' },
     DB.get(K.APPEAR, {})
   );
 }
@@ -486,11 +492,11 @@ function loadStateLocal() {
   S.res    = DB.get(K.RES,   {});
   S.ops    = Object.assign({ openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:2 }, DB.get(K.OPS, {}));
   S.msgs   = Object.assign({ confirm: DEFAULT_CONF, thanks: DEFAULT_THANKS }, DB.get(K.MSGS, {}));
-  S.appear = Object.assign({ accent: 'orange', logo: '🍽️' }, DB.get(K.APPEAR, {}));
+  S.appear = Object.assign({ accent: 'blue', logo: '🍽️' }, DB.get(K.APPEAR, {}));
 }
 
 /* ──────────────────────────────────────────────────────────
-   showScreen — override dari boot guard
+   showScreen - override dari boot guard
    ────────────────────────────────────────────────────────── */
 function showScreen(name) {
   var screens = ['screen-loading','screen-landing','screen-auth','screen-wizard','screen-paywall'];
@@ -544,7 +550,7 @@ async function doSignOut() {
 }
 
 /* ──────────────────────────────────────────────────────────
-   _onAuthReady — ENTRY POINT UTAMA
+   _onAuthReady - ENTRY POINT UTAMA
    ────────────────────────────────────────────────────────── */
 window._onAuthReady = async function (user) {
 
@@ -555,7 +561,7 @@ window._onAuthReady = async function (user) {
     return;
   }
 
-  /* Tidak ada user — tampilkan landing */
+  /* Tidak ada user - tampilkan landing */
   if (!user) {
     /* Tunggu sebentar untuk redirect mobile */
     var retry = 0;
@@ -613,12 +619,11 @@ window._onAuthReady = async function (user) {
   await loadStateFS();
 
   /* ── Apply accent ── */
-  applyAccent(S.appear.accent || 'orange', false);
-
+  applyAccent(S.appear.accent || 'blue', false);
 
   /* ── Update teks dashboard ── */
   var biz = S.biz.name || 'Usaha Saya';
-  setText('cal-title', 'Dashboard — ' + biz);
+  setText('cal-title', 'Dashboard - ' + biz);
   setText('cal-sub',   'Selamat datang kembali! Kelola reservasi dengan mudah.');
   setText('sb-biz-name', biz);
 
@@ -645,9 +650,9 @@ window._onAuthReady = async function (user) {
     return;
   }
 
-  /* Trial atau aktif — masuk ke app */
+  /* Trial atau aktif - masuk ke app */
   if (!Object.keys(S.locs || {}).length) {
-    /* Belum setup — wizard */
+    /* Belum setup - wizard */
     showScreen('wizard');
   } else {
     showScreen('app');
@@ -731,14 +736,18 @@ function showView(name) {
   });
 
   setText('topbar-page', PAGE_NAMES[name] || name);
-  document.title = (PAGE_NAMES[name] || name) + ' — Proserva';
+  document.title = (PAGE_NAMES[name] || name) + ' - Proserva';
 
   var sb = document.getElementById('sidebar');
   if (sb && sb.classList.contains('open')) toggleSidebar();
 
   var addBtn = document.getElementById('btn-add-res');
   if (addBtn) {
-    addBtn.style.display = (name === 'detail' || isReadOnly()) ? 'none' : 'flex';
+    if (isReadOnly()) {
+      addBtn.style.display = 'none';
+    } else {
+      addBtn.style.display = (name === 'detail') ? 'none' : 'flex';
+    }
   }
 
   var viewActions = {
@@ -791,7 +800,7 @@ async function saveBranding() {
   S.biz.logo    = S.appear.logo || '🍽️';
   await saveBizFS();
   setText('sb-biz-name', S.biz.name);
-  setText('cal-title', 'Dashboard — ' + S.biz.name);
+  setText('cal-title', 'Dashboard - ' + S.biz.name);
   showToast('Branding berhasil disimpan!', 'success');
 }
 
@@ -869,7 +878,7 @@ function checkConflict(date, locName, jam, jumlah, durationOverride, excludeId) 
     var rDur = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
     var rStart = toMins(r.jam), rEnd = rStart + rDur + buffer;
     if (newStart < rEnd && newEnd > rStart) {
-      return { ok:false, type:'hard_overlap', msg:'✗ Konflik dengan <strong>' + esc(r.nama) + '</strong> · ' + r.jam + '–' + minsToTime(rStart+rDur) + ' (+' + buffer + 'm buffer)', conflictWith:r };
+      return { ok:false, type:'hard_overlap', msg:'✗ Konflik dengan <strong>' + esc(r.nama) + '</strong> · ' + r.jam + '-' + minsToTime(rStart+rDur) + ' (+' + buffer + 'm buffer)', conflictWith:r };
     }
   }
 
@@ -947,9 +956,9 @@ function wzNext(step) {
 function renderWzLocList() {
   var el = document.getElementById('wz-loc-list');
   if (!el) return;
-  if (!S.wizData.locs.length) { el.innerHTML = '<div class="wz-empty-hint">Belum ada lokasi — tambah minimal 1</div>'; return; }
+  if (!S.wizData.locs.length) { el.innerHTML = '<div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>'; return; }
   el.innerHTML = S.wizData.locs.map(function (l, i) {
-    return '<div class="wz-list-item"><span><strong>' + esc(l.name) + '</strong> — ' + l.capacity + ' orang</span>'
+    return '<div class="wz-list-item"><span><strong>' + esc(l.name) + '</strong> - ' + l.capacity + ' orang</span>'
       + '<button class="item-remove" onclick="wzRemove(\'loc\',' + i + ')"><i class="fas fa-times"></i></button></div>';
   }).join('');
 }
@@ -958,7 +967,7 @@ function renderWzMenuList() {
   var el = document.getElementById('wz-menu-list');
   if (!el) return;
   el.innerHTML = S.wizData.menus.map(function (m, i) {
-    return '<div class="wz-list-item"><span><strong>' + esc(m.name) + '</strong> — Rp' + formatRp(m.price) + '</span>'
+    return '<div class="wz-list-item"><span><strong>' + esc(m.name) + '</strong> - Rp' + formatRp(m.price) + '</span>'
       + '<button class="item-remove" onclick="wzRemove(\'menu\',' + i + ')"><i class="fas fa-times"></i></button></div>';
   }).join('');
 }
@@ -1009,7 +1018,7 @@ async function wzFinish() {
       await saveMenuFS(genId(), { name:m.name, price:m.price, details:m.details });
     }
 
-    setText('cal-title', 'Dashboard — ' + S.biz.name);
+    setText('cal-title', 'Dashboard - ' + S.biz.name);
     setText('sb-biz-name', S.biz.name);
     renderCalendar();
 
@@ -1217,7 +1226,7 @@ function buildResCard(r) {
   return '<div class="res-card" id="rcard-' + r.id + '">'
     + '<div class="rc-stripe ' + STATUS_STRIPE[st] + '"></div>'
     + '<div class="rc-top"><div class="rc-name"><div class="rc-avatar" style="background:' + nameColor(r.nama||'?') + '">' + initials(r.nama||'?') + '</div><div class="rc-guest">' + esc(r.nama||'Tanpa Nama') + '</div></div>'
-    + '<div class="rc-badges"><span class="badge badge-ac"><i class="far fa-clock"></i> ' + esc(r.jam||'?') + '–' + endT + '</span>'
+    + '<div class="rc-badges"><span class="badge badge-ac"><i class="far fa-clock"></i> ' + esc(r.jam||'?') + '-' + endT + '</span>'
     + '<span class="badge badge-gray"><i class="fas fa-map-pin"></i> ' + esc(r.tempat||'?') + '</span>'
     + '<span class="badge badge-g"><i class="fas fa-users"></i> ' + esc(r.jumlah||'?') + ' org</span>'
     + '<span class="status-badge ' + STATUS_BADGE[st] + '">' + STATUS_LABELS[st] + '</span></div></div>'
@@ -1343,7 +1352,7 @@ async function saveRes() {
 
   if (tempat && jam && jumlah && valid) {
     var cr = checkConflict(resDate, tempat, jam, jumlah, duration||null, editId||null);
-    if (!cr.ok && cr.type !== 'soft_capacity') { showErr('err-jam','Konflik jadwal — pilih jam atau lokasi lain'); valid=false; }
+    if (!cr.ok && cr.type !== 'soft_capacity') { showErr('err-jam','Konflik jadwal - pilih jam atau lokasi lain'); valid=false; }
   }
 
   var menus=[], usedN={}, menuOk=true;
@@ -1426,7 +1435,7 @@ function addMenuRow(cId, menuName, qty) {
     return;
   }
   var opts=menus.map(function (m) {
-    return '<option value="'+esc(m.name)+'"'+(m.name===menuName?' selected':'')+'>'+esc(m.name)+(m.price?' — Rp'+formatRp(m.price):'')+' </option>';
+    return '<option value="'+esc(m.name)+'"'+(m.name===menuName?' selected':'')+'>'+esc(m.name)+(m.price?' - Rp'+formatRp(m.price):'')+' </option>';
   }).join('');
   var div=document.createElement('div');
   div.className='menu-row';
@@ -1511,7 +1520,7 @@ function renderLocsTable() {
   tbody.innerHTML=locs.map(function (l) {
     var dur=l.defaultDuration?l.defaultDuration+'m':'Global ('+S.ops.defaultDuration+'m)';
     var buf=(l.bufferTime!==undefined&&l.bufferTime!=='')?l.bufferTime+'m':'Global ('+S.ops.bufferTime+'m)';
-    var jam=(l.openTime||S.ops.openTime||'09:00')+' – '+(l.closeTime||S.ops.closeTime||'21:00');
+    var jam=(l.openTime||S.ops.openTime||'09:00')+' - '+(l.closeTime||S.ops.closeTime||'21:00');
     var editBtn=isReadOnly()?'':'<button class="btn btn-info btn-sm" onclick="openLocModal(\''+l.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-danger btn-sm" onclick="doDeleteLoc(\''+l.id+'\')"><i class="fas fa-trash-alt"></i></button>';
     return '<tr><td><strong>'+esc(l.name)+'</strong></td>'
       +'<td><span class="badge badge-b"><i class="fas fa-users"></i> '+l.capacity+'</span></td>'
@@ -1639,84 +1648,14 @@ function buildThanksMsg(r) {
 }
 
 function buildDailyMsg(dateStr, res) {
-  var msg = '*📋 LAPORAN RESERVASI*\n'
-    + '*' + S.biz.name + '*\n'
-    + '📅 ' + formatDateFull(dateStr) + '\n'
-    + '━━━━━━━━━━━━━━━━━━━━━━\n\n';
-
-  if (!res.length) return msg + '_Tidak ada reservasi._';
-
-  var totalPax = res.reduce(function(s, r) { return s + (parseInt(r.jumlah) || 0); }, 0);
-  var totalDp  = res.reduce(function(s, r) { return s + (parseInt(r.dp) || 0); }, 0);
-
-  res.forEach(function(r, i) {
-    var loc = getLocByName(r.tempat);
-    var dur = r.duration ? parseInt(r.duration) : getEffectiveDuration(loc);
-    var endT = r.jam ? minsToTime(toMins(r.jam) + dur) : '';
-
-    /* Baris menu dengan detail isian */
-    var menuLines = '';
-    if (Array.isArray(r.menus) && r.menus.length) {
-      menuLines = r.menus.map(function(item) {
-        var md = getMenuByName(item.name);
-        var line = '    ▸ *' + item.quantity + 'x ' + item.name + '*';
-        if (md && md.price) {
-          line += ' (Rp' + formatRp(md.price) + '/porsi)';
-        }
-        /* Tambahkan detail isian makanan */
-        if (md && Array.isArray(md.details) && md.details.length) {
-          line += '\n      _' + md.details.join(', ') + '_';
-        }
-        return line;
-      }).join('\n');
-    } else {
-      menuLines = '    _Tidak ada pesanan_';
-    }
-
-    msg += '*' + (i + 1) + '. ' + r.nama + '*';
-
-    /* Status */
-    var statusMap = { pending:'⏳ Pending', confirmed:'✅ Confirmed', selesai:'🎉 Selesai', batal:'❌ Batal' };
-    if (r.status && r.status !== 'pending') {
-      msg += '  ' + (statusMap[r.status] || '');
-    }
-    msg += '\n';
-
-    msg += '⏰ ' + (r.jam || '-');
-    if (endT) msg += '–' + endT;
-    msg += '  |  📍 ' + r.tempat + '  |  👥 ' + r.jumlah + ' orang\n';
-
-    msg += '🍽️ *Pesanan:*\n' + menuLines + '\n';
-
-    if (parseInt(r.dp) > 0) {
-      msg += '💰 DP: *Rp' + formatRp(r.dp) + '*';
-      if (r.tipeDp) msg += ' via ' + r.tipeDp;
-      msg += '\n';
-    }
-
-    if (r.tambahan) {
-      msg += '📝 _' + r.tambahan + '_\n';
-    }
-
-    if (r.nomorHp) {
-      msg += '📱 ' + r.nomorHp + '\n';
-    }
-
-    msg += '\n';
+  var msg='*📋 LAPORAN RESERVASI*\n*'+S.biz.name+'*\n\n📅 '+formatDateFull(dateStr)+'\n'+'─'.repeat(22)+'\n\n';
+  if (!res.length) return msg+'*Tidak ada reservasi.*';
+  res.forEach(function(r,i){
+    var ml=Array.isArray(r.menus)&&r.menus.length?r.menus.map(function(m){return '  • '+m.quantity+'x '+m.name;}).join('\n'):'*(tidak ada)*';
+    msg+='*'+(i+1)+'. '+r.nama+'*\n⏰ '+r.jam+' | 📍 '+r.tempat+' | 👥 '+r.jumlah+' orang\n🍽 Pesanan:\n'+ml+'\n'+(parseInt(r.dp)>0?'💰 DP: Rp'+formatRp(r.dp)+'\n':'')+(r.tambahan?'📝 '+r.tambahan+'\n':'')+'\n';
   });
-
-  /* Ringkasan total di bawah */
-  msg += '━━━━━━━━━━━━━━━━━━━━━━\n';
-  msg += '📊 *RINGKASAN*\n';
-  msg += 'Total Reservasi: *' + res.length + '*\n';
-  msg += 'Total Tamu: *' + totalPax + ' orang*\n';
-  if (totalDp > 0) {
-    msg += 'Total DP Masuk: *Rp' + formatRp(totalDp) + '*\n';
-  }
-
   return msg.trimEnd();
 }
-
 
 /* ──────────────────────────────────────────────────────────
    NOTIF
@@ -1787,7 +1726,7 @@ function doPrint() {
   }).join('');
   var html='<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><title>Reservasi '+formatDateDisp(S.date||'')+'</title>'
     +'<style>body{font-family:sans-serif;padding:20px;color:#18181b;max-width:900px;margin:0 auto}h1{font-size:1.3rem}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{border:1px solid #e4e4e7;border-radius:10px;padding:14px;break-inside:avoid}h3{margin:0 0 7px;font-size:.95rem}p{margin:3px 0;font-size:.85rem}ul{margin:4px 0;padding-left:16px;font-size:.8rem}@media print{@page{margin:12mm}}</style>'
-    +'</head><body><h1>📋 Reservasi — '+esc(S.biz.name)+'</h1><p style="color:#71717a;margin-bottom:16px">'+formatDateFull(S.date||'')+' · '+res.length+' reservasi</p><div class="grid">'+items+'</div></body></html>';
+    +'</head><body><h1>📋 Reservasi - '+esc(S.biz.name)+'</h1><p style="color:#71717a;margin-bottom:16px">'+formatDateFull(S.date||'')+' · '+res.length+' reservasi</p><div class="grid">'+items+'</div></body></html>';
   var w=window.open('','_blank','noopener');
   if (!w) { showToast('Pop-up diblokir!','error'); return; }
   w.document.write(html); w.document.close();
@@ -1839,7 +1778,7 @@ async function doImport() {
   }
   showToast('Data berhasil diimport! ✅','success');
   closeModal('modal-export');
-  setText('cal-title','Dashboard — '+(S.biz.name||'Usaha Saya'));
+  setText('cal-title','Dashboard - '+(S.biz.name||'Usaha Saya'));
   setText('sb-biz-name',S.biz.name||'Usaha Saya');
   renderCalendar(); renderMenusTable(); renderLocsTable(); loadSettingsForm();
   if (S.date) { renderDetail(getResDate(S.date)); renderAvailBar(S.date); }
