@@ -20,11 +20,10 @@
   --ac-border:rgba(124,58,237,.20)
 }
 [data-accent="orange"] {
-  --ac:#e8630a;--ac-h:#c4520a;--ac-light:#f97316;
-  --ac-dim:rgba(232,99,10,.07);--ac-glow:rgba(232,99,10,.18);
-  --ac-border:rgba(232,99,10,.18)
+  --ac:#ea580c;--ac-h:#c2410c;--ac-light:#f97316;
+  --ac-dim:rgba(234,88,12,.08);--ac-glow:rgba(234,88,12,.20);
+  --ac-border:rgba(234,88,12,.20)
 }
-
 [data-accent="rose"] {
   --ac:#e11d48;--ac-h:#be123c;--ac-light:#f43f5e;
   --ac-dim:rgba(225,29,72,.08);--ac-glow:rgba(225,29,72,.20);
@@ -69,7 +68,7 @@
   --sidebar-bg:     #111111;
   --sidebar-border: rgba(255,255,255,.08);
   --sidebar-text:   rgba(180,180,180,.70);
-  --sidebar-active: rgba(232,99,10,.12);
+  --sidebar-active: rgba(232,99,10,.10);
 
   --topbar-bg:      rgba(255,255,255,.90);
   --modal-overlay:  rgba(15,23,42,.40);
@@ -108,8 +107,11 @@
   --font-body:    'Geist', system-ui, sans-serif;
   --font-mono:    'DM Mono', monospace;
 
-  /* Density */
+  /* Density - WAJIB ada agar calc() tidak menghasilkan 0 */
   --spacing: 1;
+
+  /* Banner height - dipakai untuk offset topbar + banner */
+  --banner-h: 0px;
 }
 
 /* ── Reset ── */
@@ -154,9 +156,9 @@ button { cursor: pointer }
 }
 .loading-logo {
   width: 64px; height: 64px; border-radius: 18px; overflow: hidden;
-  box-shadow: 0 8px 32px var(--ac-glow);
+  box-shadow: 0 8px 32px rgba(232,99,10,.30);
   display: flex; align-items: center; justify-content: center;
-  background: var(--ac);
+  background: #e8630a;
 }
 .loading-logo img { width: 100%; height: 100%; object-fit: cover }
 .loading-brand {
@@ -234,20 +236,20 @@ button { cursor: pointer }
 }
 .hero-orb-1 {
   width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(37,99,235,.12), transparent 70%);
+  background: radial-gradient(circle, rgba(232,99,10,.10), transparent 70%);
   top: -100px; right: -60px;
 }
 .hero-orb-2 {
   width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(5,150,105,.10), transparent 70%);
+  background: radial-gradient(circle, rgba(15,23,42,.06), transparent 70%);
   bottom: 100px; left: -80px;
   animation-delay: 5s; animation-direction: reverse;
 }
 .hero-grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(37,99,235,.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37,99,235,.04) 1px, transparent 1px);
+    linear-gradient(rgba(232,99,10,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(232,99,10,.04) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 80%);
   -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 80%);
@@ -329,12 +331,12 @@ button { cursor: pointer }
 }
 .mockup-body { display: flex; height: 240px }
 .mockup-sidebar {
-  width: 52px; background: var(--sidebar-bg);
+  width: 52px; background: #111111;
   padding: 12px 8px; display: flex; flex-direction: column; gap: 8px;
 }
 .mockup-sb-logo {
   width: 36px; height: 36px; border-radius: 10px;
-  background: var(--ac); margin-bottom: 8px;
+  background: #e8630a; margin-bottom: 8px;
 }
 .mockup-sb-item {
   width: 36px; height: 28px; border-radius: 7px;
@@ -505,7 +507,7 @@ button { cursor: pointer }
 
 /* ── Auth Left Panel ── */
 .auth-left {
-  flex: 0 0 420px; background: var(--sidebar-bg);
+  flex: 0 0 420px; background: #111111;
   position: relative; overflow: hidden;
   display: flex; align-items: center; justify-content: center; padding: 48px;
 }
@@ -541,11 +543,11 @@ button { cursor: pointer }
 }
 .ald-orb-1 {
   width: 300px; height: 300px;
-  background: var(--ac); top: -80px; right: -80px;
+  background: #e8630a; top: -80px; right: -80px;
 }
 .ald-orb-2 {
   width: 250px; height: 250px;
-  background: rgba(5,150,105,.5); bottom: -60px; left: -60px;
+  background: rgba(180,60,0,.5); bottom: -60px; left: -60px;
 }
 
 /* ── Auth Right Panel ── */
@@ -862,42 +864,72 @@ button { cursor: pointer }
    BANNERS (Trial & Read-only)
    ════════════════════════════════════════════════════ */
 #trial-banner, #readonly-banner {
-  display: none;
+  /* display diatur via JS (flex / none) */
   align-items: center; justify-content: center; gap: 10px;
-  padding: 10px 20px; font-size: .82rem; font-weight: 600;
-  flex-wrap: wrap;
+  padding: 8px 20px; font-size: .82rem; font-weight: 600;
+  flex-wrap: wrap; width: 100%;
+  /* Posisi: di antara topbar dan content, full width */
+  position: fixed;
+  top: var(--topbar-h);
+  left: 0; right: 0;
+  z-index: 390;
 }
 #trial-banner {
-  background: rgba(234,88,12,.08); border-bottom: 1px solid rgba(234,88,12,.18);
-  color: #9a3412;
+  background: rgba(234,88,12,.95);
+  border-bottom: 1px solid rgba(234,88,12,.3);
+  color: #fff;
 }
 #readonly-banner {
-  background: rgba(220,38,38,.08); border-bottom: 1px solid rgba(220,38,38,.20);
-  color: var(--danger);
+  background: rgba(220,38,38,.95);
+  border-bottom: 1px solid rgba(220,38,38,.3);
+  color: #fff;
 }
 #trial-banner i, #readonly-banner i { flex-shrink: 0 }
 #trial-banner button, #readonly-banner button {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 14px; border-radius: 99px; font-size: .78rem; font-weight: 700;
-  background: var(--ac); color: #fff; border: none; transition: var(--ts);
+  padding: 5px 14px; border-radius: 99px; font-size: .75rem; font-weight: 700;
+  background: rgba(255,255,255,.2); color: #fff; border: 1px solid rgba(255,255,255,.3);
+  transition: var(--ts);
 }
 #trial-banner button:hover, #readonly-banner button:hover {
-  background: var(--ac-h); transform: translateY(-1px);
+  background: rgba(255,255,255,.35); transform: translateY(-1px);
 }
 #trial-banner .tb-close {
-  background: none; color: currentColor; opacity: .5; padding: 4px 6px;
-  font-size: .75rem;
+  background: none; color: #fff; opacity: .6; padding: 4px 6px;
+  font-size: .75rem; border: none;
 }
 #trial-banner .tb-close:hover { opacity: 1 }
+
+/* Offset content saat banner tampil - diatur via JS class */
+#app-shell.has-banner #content,
+#app-shell.has-banner #sidebar {
+  top: calc(var(--topbar-h) + 40px);
+}
+#app-shell.has-banner #content {
+  padding-top: calc(var(--topbar-h) + 40px);
+}
+#app-shell.has-banner #sidebar {
+  height: calc(100vh - var(--topbar-h) - 40px);
+}
 
 /* ════════════════════════════════════════════════════
    APP SHELL - Sidebar
    ════════════════════════════════════════════════════ */
 #app-shell { min-height: 100vh }
 
+/* Banners harus di dalam flow normal sebelum sidebar/content */
+#trial-banner,
+#readonly-banner {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 395;
+  width: 100%;
+}
+
 #sidebar {
-  position: fixed; top: 0; left: 0; width: var(--sidebar-w);
-  height: 100vh; background: var(--sidebar-bg);
+  position: fixed; top: var(--topbar-h); left: 0; width: var(--sidebar-w);
+  height: calc(100vh - var(--topbar-h));
+  background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
   display: flex; flex-direction: column; z-index: 500;
   overflow: hidden; transition: transform .3s ease;
@@ -910,7 +942,7 @@ button { cursor: pointer }
 }
 .brand-icon {
   width: 36px; height: 36px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
-  box-shadow: 0 4px 12px var(--ac-glow); background: var(--ac);
+  box-shadow: 0 4px 12px rgba(232,99,10,.30); background: #e8630a;
   display: flex; align-items: center; justify-content: center;
 }
 .brand-icon img { width: 100%; height: 100%; object-fit: cover }
@@ -922,7 +954,8 @@ button { cursor: pointer }
 
 .sidebar-user {
   display: flex; align-items: center; gap: 10px; padding: 12px 14px;
-  border-bottom: 1px solid var(--sidebar-border); flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,.07); flex-shrink: 0;
+  background: rgba(255,255,255,.03);
 }
 .sidebar-user-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0 }
 .sidebar-user-avatar-fallback {
@@ -930,8 +963,8 @@ button { cursor: pointer }
   font-size: .7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .sidebar-user-info { min-width: 0 }
-.sidebar-user-name { font-size: .78rem; font-weight: 600; color: rgba(226,232,240,.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.sidebar-user-email { font-size: .63rem; color: var(--sidebar-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.sidebar-user-name { font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.sidebar-user-email { font-size: .63rem; color: rgba(180,180,180,.65); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 
 /* Sidebar status badge */
 .sb-status {
@@ -969,9 +1002,9 @@ button { cursor: pointer }
 .nav-label { font-size: .82rem; font-weight: 500; color: var(--sidebar-text); transition: var(--t); white-space: nowrap }
 .nav-item:hover .nav-icon { background: rgba(255,255,255,.09); color: #e2e8f0 }
 .nav-item:hover .nav-label { color: #e2e8f0 }
-.nav-item.active { background: var(--sidebar-active); border-color: rgba(255,255,255,.06) }
+.nav-item.active { background: var(--sidebar-active); border-color: rgba(232,99,10,.20) }
 .nav-item.active .nav-icon { background: rgba(232,99,10,.18); color: #f97316 }
-.nav-item.active .nav-label { color: #ffffff; font-weight: 600 }
+.nav-item.active .nav-label { color: #ffffff; font-weight: 700 }
 
 .sidebar-footer { padding: 12px 10px 14px; border-top: 1px solid var(--sidebar-border); flex-shrink: 0; display: flex; flex-direction: column; gap: 6px }
 .btn-upgrade {
@@ -995,14 +1028,12 @@ button { cursor: pointer }
 
 /* ── Topbar ── */
 #topbar {
-  #topbar {
   position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h);
-  background: var(--topbar-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
-  border-top: 2px solid var(--ac);
+  background: rgba(255,255,255,.96); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(232,99,10,.15);
+  box-shadow: 0 1px 0 rgba(232,99,10,.10), 0 2px 8px rgba(15,23,42,.06);
   padding: 0 18px 0 calc(var(--sidebar-w) + 18px);
-  display: flex; align-items: center; gap: 10px; z-index: 400; transition: padding-left .3s ease;
-  box-shadow: var(--shadow-xs);
+  display: flex; align-items: center; gap: 10px; z-index: 510; transition: padding-left .3s ease;
 }
 .topbar-toggle {
   display: none; background: none; border: none; color: var(--ink-3);
@@ -1064,8 +1095,13 @@ button { cursor: pointer }
 #sync-indicator.show { opacity: 1 }
 
 /* ── Content ── */
-#content { margin-left: var(--sidebar-w); padding-top: var(--topbar-h); min-height: 100vh; transition: margin-left .3s ease }
-.view { display: none; padding: calc(26px * var(--spacing)); padding-bottom: 56px; animation: fadeIn .2s ease both }
+#content {
+  margin-left: var(--sidebar-w);
+  padding-top: var(--topbar-h);
+  min-height: 100vh;
+  transition: margin-left .3s ease;
+}
+.view { display: none; padding: 26px; padding-bottom: 56px; animation: fadeIn .2s ease both }
 .view.active-view { display: block }
 
 /* ── Page Header ── */
@@ -1447,8 +1483,20 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 
 @media (max-width: 860px) {
   :root { --sidebar-w: 0px }
-  #sidebar { width: 248px; transform: translateX(-100%) }
-  #sidebar.open { transform: translateX(0); box-shadow: var(--shadow-xl) }
+
+  /* Mobile: sidebar mulai dari top:0, full height, di atas topbar */
+  #sidebar {
+    width: 272px;
+    top: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+    z-index: 600;  /* di atas topbar saat mobile open */
+  }
+  #sidebar.open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-xl);
+  }
+
   #topbar { padding-left: 14px }
   .topbar-toggle { display: flex }
   #content { margin-left: 0 }
@@ -1461,6 +1509,10 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
   .land-nav { padding: 0 20px }
   .land-sect { padding: 64px 20px }
   .pricing-grid { grid-template-columns: 1fr; padding: 0 20px }
+
+  /* Banner pada mobile: sidebar juga dari top:0 saat tidak open */
+  #app-shell.has-banner #sidebar { top: 0; height: 100vh }
+  #app-shell.has-banner #content { padding-top: calc(var(--topbar-h) + 40px) }
 }
 
 @media (max-width: 640px) {
