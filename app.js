@@ -1,11 +1,18 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════
-   PROSERVA app.js v5.4
+   PROSERVA app.js v5.5
    - Email/Password Auth
    - Trial 14 hari + Read-only mode
    - Payment callback (Midtrans)
    - Multi-user via Firestore per UID
+   CHANGELOG v5.5:
+   - FIX #5  : accent default 'orange' (bukan 'blue')
+   - FIX #6  : _AUTH_PROCESSING + _AUTH_HANDLER_RUNNING
+               di-reset di semua jalur keluar _onAuthReady
+   - FIX #9  : showScreen lokal dihapus - pakai window.showScreen
+   - FIX #10 : _AUTH_PROCESSING di-reset sebelum return expired
+   - FIX sign-out: reset _AUTH_HANDLER_RUNNING juga
    ═══════════════════════════════════════════════════════════ */
 
 /* ──────────────────────────────────────────────────────────
@@ -38,7 +45,7 @@ var S = {
   date:   null,
   bcList: [],
   ops:    { openTime: '09:00', closeTime: '21:00', slotInterval: 30, defaultDuration: 120, bufferTime: 15, minAdvance: 2 },
-  appear: { accent: 'blue', logo: '🍽️' },
+  appear: { accent: 'orange', logo: '🍽️' },
   msgs:   { confirm: '', thanks: '' },
   wizData: { bizName: '', bizType: 'restoran', locs: [], menus: [] }
 };
@@ -478,9 +485,9 @@ async function loadStateFS() {
     loadStateLocal();
   }
 
-  /* Appear selalu dari local */
+  /* Appear selalu dari local - default 'orange' sesuai tema */
   S.appear = Object.assign(
-    { accent: 'blue', logo: '🍽️' },
+    { accent: 'orange', logo: '🍽️' },
     DB.get(K.APPEAR, {})
   );
 }
@@ -492,44 +499,15 @@ function loadStateLocal() {
   S.res    = DB.get(K.RES,   {});
   S.ops    = Object.assign({ openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:2 }, DB.get(K.OPS, {}));
   S.msgs   = Object.assign({ confirm: DEFAULT_CONF, thanks: DEFAULT_THANKS }, DB.get(K.MSGS, {}));
-  S.appear = Object.assign({ accent: 'blue', logo: '🍽️' }, DB.get(K.APPEAR, {}));
+  S.appear = Object.assign({ accent: 'orange', logo: '🍽️' }, DB.get(K.APPEAR, {}));
 }
 
 /* ──────────────────────────────────────────────────────────
-   showScreen - override dari boot guard
+   showScreen - alias ke window.showScreen (boot guard)
+   FIX #9: satu definisi saja, tidak ada duplikasi.
+   Seluruh kode app.js pakai alias ini; HTML pakai window.showScreen.
    ────────────────────────────────────────────────────────── */
-function showScreen(name) {
-  var screens = ['screen-loading','screen-landing','screen-auth','screen-wizard','screen-paywall'];
-  screens.forEach(function (id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = 'none';
-    el.classList.remove('active');
-    el.setAttribute('aria-hidden', 'true');
-  });
-
-  var shell = document.getElementById('app-shell');
-  if (name === 'app') {
-    if (shell) { shell.style.display = 'block'; shell.setAttribute('aria-hidden','false'); }
-    document.body.style.overflow = '';
-  } else {
-    if (shell) { shell.style.display = 'none'; shell.setAttribute('aria-hidden','true'); }
-    var map = {
-      loading:  'screen-loading',
-      landing:  'screen-landing',
-      auth:     'screen-auth',
-      wizard:   'screen-wizard',
-      paywall:  'screen-paywall'
-    };
-    var target = map[name] ? document.getElementById(map[name]) : null;
-    if (target) {
-      target.style.display = 'flex';
-      target.classList.add('active');
-      target.setAttribute('aria-hidden','false');
-    }
-    document.body.style.overflow = (name === 'landing' || name === 'wizard') ? 'auto' : 'hidden';
-  }
-}
+var showScreen = window.showScreen;
 
 /* ──────────────────────────────────────────────────────────
    doSignOut
@@ -541,9 +519,11 @@ async function doSignOut() {
   }
   _UID     = '';
   _ACCOUNT = null;
-  window._FBUSER        = null;
-  window._AUTH_PROCESSING = false;
-  window._READ_ONLY     = false;
+  window._FBUSER               = null;
+  window._AUTH_PROCESSING      = false;
+  window._AUTH_HANDLER_RUNNING = false; /* FIX: reset agar login ulang tidak terblokir */
+  window._READ_ONLY            = false;
+  window._NOTIF_STARTED        = false;
   S.res = {}; S.menus = {}; S.locs = {};
   showScreen('landing');
   showToast('Berhasil keluar. Sampai jumpa! 👋', 'info');
@@ -574,7 +554,9 @@ window._onAuthReady = async function (user) {
       retry++;
     }
     if (!user) {
-      window._AUTH_PROCESSING = false;
+      /* FIX #6: reset kedua flag */
+      window._AUTH_PROCESSING      = false;
+      window._AUTH_HANDLER_RUNNING = false;
       showScreen('landing');
       return;
     }
@@ -615,11 +597,13 @@ window._onAuthReady = async function (user) {
   await loadAccount();
   var accountStatus = evaluateAccountStatus();
 
-  /* ── Load data bisnis ── */
+  /* ── Load data bisnis (selalu, termasuk saat expired)
+     FIX #7: data harus ter-load sebelum ke paywall, agar saat
+     user klik "Lihat Data" dari paywall, data sudah siap. ── */
   await loadStateFS();
 
-  /* ── Apply accent ── */
-  applyAccent(S.appear.accent || 'blue', false);
+  /* ── Apply accent - FIX #5: default 'orange' bukan 'blue' ── */
+  applyAccent(S.appear.accent || 'orange', false);
 
   /* ── Update teks dashboard ── */
   var biz = S.biz.name || 'Usaha Saya';
@@ -640,12 +624,18 @@ window._onAuthReady = async function (user) {
 
   loadSettingsForm();
 
-  /* ── Reset flag ── */
-  window._AUTH_PROCESSING = false;
+  /* ── FIX #6 & #10: reset KEDUA flag di semua jalur
+     Dilakukan sebelum routing agar fallback timer tidak mengganggu ── */
+  window._AUTH_PROCESSING      = false;
+  window._AUTH_HANDLER_RUNNING = false;
 
   /* ── Routing berdasarkan status akun & data ── */
   if (accountStatus === 'expired') {
-    /* Langsung ke paywall */
+    /*
+     * FIX #10: _AUTH_PROCESSING & _AUTH_HANDLER_RUNNING sudah di-reset
+     * di atas - tidak ada lagi return sebelum reset.
+     * Data sudah ter-load, jadi enterReadOnlyMode dari paywall aman.
+     */
     showScreen('paywall');
     return;
   }
@@ -691,7 +681,7 @@ function buildAccentGrid() {
   var g = document.getElementById('accent-grid');
   if (!g) return;
   g.innerHTML = Object.entries(ACCENT_MAP).map(function (e) {
-    var active = e[0] === (S.appear.accent || 'blue') ? ' active' : '';
+    var active = e[0] === (S.appear.accent || 'orange') ? ' active' : '';
     return '<div class="accent-swatch' + active + '" data-accent="' + e[0] + '" '
       + 'style="background:' + e[1] + '" '
       + 'onclick="applyAccent(\'' + e[0] + '\')" title="' + e[0] + '"></div>';
@@ -1971,17 +1961,11 @@ function showErr(id,msg){ var el=document.getElementById(id); if(el){el.textCont
 
 /* ──────────────────────────────────────────────────────────
    FINAL BOOT
+   FIX: Safety net pendingAuthUser dihapus - sudah ditangani
+   oleh bridge script di index.html dengan guard yang benar.
+   DOMContentLoaded hanya perlu init modal & keyboard.
    ────────────────────────────────────────────────────────── */
 window.addEventListener('DOMContentLoaded', function () {
   document.body.classList.add('app-ready');
   boot();
-
-  /* Safety net: jika pendingAuthUser sudah ada sebelum DOMContentLoaded */
-  if (typeof window._pendingAuthUser !== 'undefined' && window._onAuthReady) {
-    var pendingUser = window._pendingAuthUser;
-    delete window._pendingAuthUser;
-    Promise.resolve().then(function () {
-      window._onAuthReady(pendingUser);
-    });
-  }
 });
