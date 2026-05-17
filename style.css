@@ -583,7 +583,7 @@ button { cursor: pointer }
 .wz-err { font-size: .78rem; color: var(--danger); text-align: center; margin-top: 10px; min-height: 18px }
 
 /* ══════════════════════════════════════════════════════════════
-   APP SHELL — LAYOUT
+   APP SHELL - LAYOUT
 
    ARSITEKTUR (FIX CSS#1 #2 #3 #4):
    ┌─────────────────────────────────────────┐
@@ -1109,7 +1109,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 #sidebar-overlay.show { display: block }
 
 /* ══════════════════════════════════════════════════════════════
-   UX#1 — CALENDAR EMPTY STATE
+   UX#1 - CALENDAR EMPTY STATE
    Tampil saat belum ada reservasi bulan ini
    ══════════════════════════════════════════════════════════════ */
 .cal-empty-state {
@@ -1133,7 +1133,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 .ces-btn:hover { background: var(--ac-h); transform: translateY(-1px) }
 
 /* ══════════════════════════════════════════════════════════════
-   UX#3 — FAB (Floating Action Button) di view detail
+   UX#3 - FAB (Floating Action Button) di view detail
    Tombol tambah yang mudah dijangkau jempol di mobile
    ══════════════════════════════════════════════════════════════ */
 .fab-add-res {
@@ -1152,7 +1152,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 .fab-add-res:active { transform: scale(.96) }
 
 /* ══════════════════════════════════════════════════════════════
-   UX#8 — ANALISIS LAZY HINT
+   UX#8 - ANALISIS LAZY HINT
    Info bahwa data berdasarkan bulan yang sudah dibuka
    ══════════════════════════════════════════════════════════════ */
 .anl-lazy-hint {
@@ -1167,7 +1167,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 .anl-lazy-hint i { flex-shrink: 0; margin-top: 1px }
 
 /* ══════════════════════════════════════════════════════════════
-   UX#9 — MODAL ERROR SUMMARY (footer modal reservasi)
+   UX#9 - MODAL ERROR SUMMARY (footer modal reservasi)
    Ringkasan error agar tidak terlewat saat scroll ke atas
    ══════════════════════════════════════════════════════════════ */
 .modal-error-summary {
@@ -1180,7 +1180,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 .modal-error-summary i { flex-shrink: 0 }
 
 /* ══════════════════════════════════════════════════════════════
-   BILLING PREVIEW — Settings Pembayaran
+   BILLING PREVIEW - Settings Pembayaran
    Preview kalkulasi live saat toggle PPN/service
    ══════════════════════════════════════════════════════════════ */
 .billing-preview {
@@ -1205,7 +1205,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   BILLING INLINE — Modal Reservasi
+   BILLING INLINE - Modal Reservasi
    Estimasi tagihan saat pilih menu di form reservasi
    ══════════════════════════════════════════════════════════════ */
 .billing-inline {
@@ -1220,7 +1220,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   PAYMENT TOGGLE ROW — Settings Pembayaran
+   PAYMENT TOGGLE ROW - Settings Pembayaran
    Baris toggle untuk PPN dan Service Charge
    ══════════════════════════════════════════════════════════════ */
 .payment-toggle-row {
@@ -1242,7 +1242,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 .payment-detail-row .form-label { margin-bottom: 0; white-space: nowrap }
 
 /* ══════════════════════════════════════════════════════════════
-   TOGGLE SWITCH — komponen on/off yang jelas secara visual
+   TOGGLE SWITCH - komponen on/off yang jelas secara visual
    Dipakai untuk PPN dan Service Charge
    ══════════════════════════════════════════════════════════════ */
 .toggle-switch {
@@ -1271,7 +1271,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   SHARE PREVIEW AREA — Modal Laporan Harian
+   SHARE PREVIEW AREA - Modal Laporan Harian
    Textarea read-only untuk preview sebelum kirim WA
    ══════════════════════════════════════════════════════════════ */
 .share-preview-area {
