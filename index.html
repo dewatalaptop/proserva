@@ -624,7 +624,7 @@ console.log('[Firebase] module loaded.');
     </div>
   </div>
 
-  <!-- Step 2: Lokasi & Area -->
+  <!-- Step 2: Tipe Tempat & Lokasi -->
   <div class="wizard-step" id="wz-2">
     <div class="wizard-card wizard-card-wide">
       <div class="wz-logo">
@@ -636,15 +636,33 @@ console.log('[Firebase] module loaded.');
         <div class="wz-step-dot">3</div>
       </div>
       <div class="wz-eyebrow">Langkah 2 dari 3</div>
-      <h2 class="wz-title" style="font-size:1.8rem">Tambah Lokasi <em>&amp; Area</em></h2>
-      <p class="wz-sub">Gazebo, meja, atau area yang bisa dipesan tamu. Minimal 1 wajib diisi.</p>
+      <h2 class="wz-title" style="font-size:1.8rem">Tipe &amp; <em>Lokasi</em></h2>
+      <p class="wz-sub">Pilih cara pengelolaan tempat, lalu tambah minimal 1 lokasi.</p>
+
+      <!-- Pilihan tipe lokasi - pilih dulu sebelum tambah -->
+      <div class="wz-loc-mode-pick">
+        <div class="wz-loc-mode-opt active" id="wz-mode-area" onclick="window.wzSetMode?.('area')">
+          <div class="wlmo-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div class="wlmo-title">Per Area</div>
+          <div class="wlmo-desc">Gazebo, VIP Room, ruangan - satu reservasi satu area</div>
+          <div class="wlmo-check"><i class="fas fa-check-circle"></i></div>
+        </div>
+        <div class="wz-loc-mode-opt" id="wz-mode-table" onclick="window.wzSetMode?.('table')">
+          <div class="wlmo-icon"><i class="fas fa-chair"></i></div>
+          <div class="wlmo-title">Per Meja</div>
+          <div class="wlmo-desc">Meja 1, Meja 2, dst - satu reservasi bisa pilih beberapa meja</div>
+          <div class="wlmo-check"><i class="fas fa-check-circle"></i></div>
+        </div>
+      </div>
+
+      <!-- Placeholder input nama berubah sesuai mode (dikontrol wzSetMode) -->
       <div class="wz-list" id="wz-loc-list">
         <div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>
       </div>
       <div class="wz-inline">
         <div class="wz-input-wrap">
           <i class="fas fa-map-pin" aria-hidden="true"></i>
-          <input class="wz-input" id="wz-loc-name" type="text" placeholder="Nama (Gazebo A, VIP Room...)"
+          <input class="wz-input" id="wz-loc-name" type="text" placeholder="Nama area (Gazebo A, VIP Room...)"
             onkeydown="if(event.key==='Enter')document.getElementById('wz-loc-cap').focus()"/>
         </div>
         <div class="wz-input-wrap sm">
@@ -917,7 +935,7 @@ console.log('[Firebase] module loaded.');
       </div>
       <div class="data-card"><div class="table-scroll">
         <table class="data-table">
-          <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
+          <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Tersedia</th><th>Aksi</th></tr></thead>
           <tbody id="menus-tbody"></tbody>
         </table>
       </div></div>
@@ -1073,6 +1091,31 @@ console.log('[Firebase] module loaded.');
                 <i class="fas fa-save" aria-hidden="true"></i> Simpan Branding
               </button>
             </div>
+
+            <!-- Link Halaman Reservasi Customer -->
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-link" aria-hidden="true"></i> Halaman Reservasi Customer</div>
+              <p style="font-size:.84rem;color:var(--ink-3);margin-bottom:14px">
+                Bagikan link ini ke customer agar mereka bisa melakukan reservasi mandiri tanpa perlu menghubungi langsung.
+              </p>
+              <div class="booking-link-wrap">
+                <div class="input-wrap" style="flex:1">
+                  <i class="fas fa-link" aria-hidden="true"></i>
+                  <input class="form-input" id="booking-link-url" type="text" readonly
+                    style="background:var(--bg-2);cursor:default;font-size:.8rem;color:var(--ink-3)"
+                    aria-readonly="true" placeholder="Login untuk melihat link"/>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copyBookingLink()">
+                  <i class="fas fa-copy" aria-hidden="true"></i> Salin
+                </button>
+                <button type="button" class="btn btn-accent btn-sm" onclick="openBookingPage()">
+                  <i class="fas fa-external-link-alt" aria-hidden="true"></i> Buka
+                </button>
+              </div>
+              <p class="form-hint" style="margin-top:8px">
+                Pastikan pengaturan Lokasi, Menu, Jam Operasional, dan Pembayaran sudah diisi sebelum membagikan link.
+              </p>
+            </div>
           </div>
 
           <!-- ── Operasional ── -->
@@ -1098,6 +1141,52 @@ console.log('[Firebase] module loaded.');
               <button type="button" class="btn btn-accent" onclick="saveOperational()">
                 <i class="fas fa-save" aria-hidden="true"></i> Simpan Pengaturan
               </button>
+            </div>
+
+            <!-- Tipe Manajemen Tempat -->
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-chair" aria-hidden="true"></i> Tipe Manajemen Tempat</div>
+              <p style="font-size:.84rem;color:var(--ink-3);margin-bottom:16px">
+                Pilih cara pengelolaan lokasi reservasi. Perubahan hanya mempengaruhi tampilan form - data lama tetap tersimpan.
+              </p>
+              <div class="loc-mode-grid" id="set-loc-mode-grid">
+                <div class="loc-mode-card active" id="set-mode-area" onclick="setLocMode('area')">
+                  <div class="lmc-icon"><i class="fas fa-map-marker-alt"></i></div>
+                  <div class="lmc-title">Per Area</div>
+                  <div class="lmc-desc">Gazebo, VIP Room, ruangan besar. Satu reservasi satu area.</div>
+                  <div class="lmc-check"><i class="fas fa-check-circle"></i></div>
+                </div>
+                <div class="loc-mode-card" id="set-mode-table" onclick="setLocMode('table')">
+                  <div class="lmc-icon"><i class="fas fa-chair"></i></div>
+                  <div class="lmc-title">Per Meja</div>
+                  <div class="lmc-desc">Meja individual. Satu reservasi bisa pilih beberapa meja sekaligus.</div>
+                  <div class="lmc-check"><i class="fas fa-check-circle"></i></div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-accent" style="margin-top:16px" onclick="saveLocMode()">
+                <i class="fas fa-save" aria-hidden="true"></i> Simpan Tipe Tempat
+              </button>
+            </div>
+
+            <!-- Tanggal Ditutup / Override -->
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-calendar-xmark" aria-hidden="true"></i> Tanggal Ditutup</div>
+              <p style="font-size:.84rem;color:var(--ink-3);margin-bottom:14px">
+                Tanggal yang ditutup tidak bisa dipesan oleh customer di halaman reservasi mandiri.
+              </p>
+              <div id="closed-dates-list" class="closed-dates-list"></div>
+              <div class="closed-date-add">
+                <div class="input-wrap" style="flex:1">
+                  <i class="fas fa-calendar-day" aria-hidden="true"></i>
+                  <input class="form-input" id="new-closed-date" type="date"/>
+                </div>
+                <input class="form-input" id="new-closed-reason" type="text"
+                  placeholder="Alasan (opsional, e.g. Libur Nasional)"
+                  style="flex:2"/>
+                <button type="button" class="btn btn-accent btn-sm" onclick="addClosedDate()">
+                  <i class="fas fa-plus" aria-hidden="true"></i> Tambah
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1312,11 +1401,30 @@ console.log('[Firebase] module loaded.');
           <div class="input-wrap"><i class="fas fa-users" aria-hidden="true"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10" oninput="onResFieldChange()"/></div>
           <div class="form-error" id="err-jumlah" role="alert"></div>
         </div>
-        <div class="form-group">
+
+        <!-- MODE AREA: dropdown tunggal (default) -->
+        <div class="form-group" id="tempat-area-group">
           <label class="form-label" for="res-tempat">Lokasi <span class="req">*</span></label>
           <div class="input-wrap"><i class="fas fa-map-pin" aria-hidden="true"></i><select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select></div>
           <div class="form-error" id="err-tempat" role="alert"></div>
           <div class="form-hint" id="res-cap-hint"></div>
+        </div>
+      </div>
+
+      <!-- MODE MEJA: multi-row seperti menu (tersembunyi di mode area) -->
+      <div id="tempat-table-group" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Meja yang Dipesan <span class="req">*</span></label>
+          <div class="form-error" id="err-tempat-table" role="alert"></div>
+          <div id="res-tempat-container" class="menus-container"></div>
+          <button type="button" class="add-menu-btn" onclick="addTempatRow()">
+            <i class="fas fa-plus" aria-hidden="true"></i> Tambah Meja
+          </button>
+          <!-- Kapasitas gabungan + validasi jumlah tamu -->
+          <div class="tempat-cap-summary" id="tempat-cap-summary" style="display:none">
+            <i class="fas fa-users" aria-hidden="true"></i>
+            <span id="tempat-cap-text">Kapasitas gabungan: 0 orang</span>
+          </div>
         </div>
       </div>
       <div class="conflict-alert" id="conflict-alert" role="alert"></div>
@@ -1420,6 +1528,17 @@ console.log('[Firebase] module loaded.');
         <label class="form-label" for="menu-details">Detail / Isi Menu</label>
         <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
         <p class="form-hint">Pisahkan dengan koma. Akan tampil <strong>vertikal</strong> di pesan konfirmasi customer dan laporan tim operasional.</p>
+      </div>
+      <!-- Toggle ketersediaan menu - untuk halaman reservasi customer -->
+      <div class="payment-toggle-row" style="margin-top:8px">
+        <div>
+          <div class="ptr-label">Status Ketersediaan</div>
+          <div class="ptr-hint">Menu yang tidak tersedia tidak bisa dipesan di halaman reservasi customer</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="menu-available" checked/>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </label>
       </div>
     </div>
     <div class="modal-footer">
@@ -1634,16 +1753,25 @@ function _updateBillingPreview() {
   if (content) content.innerHTML = html;
 }
 
-/* ── _onAuthReady bootstrap queue ── */
+/* ── _onAuthReady bootstrap queue ──────────────────────────────
+   HANYA menyimpan user dan set _AUTH_PROCESSING.
+   TIDAK set _AUTH_HANDLER_RUNNING - guard itu tugas app.js.
+
+   Alur benar:
+     1. Firebase onAuthStateChanged → versi ini dipanggil
+        → simpan user, set _AUTH_PROCESSING = true
+     2. app.js (defer) load → override _onAuthReady dgn versi lengkap
+     3. Bridge (defer) → RESET _AUTH_PROCESSING, lalu panggil versi app.js
+        → tidak terblokir guard karena _AUTH_HANDLER_RUNNING tidak pernah di-set
+   ────────────────────────────────────────────────────────────── */
 window._onAuthReady = function (user) {
-  if (window._AUTH_HANDLER_RUNNING) { console.log('[boot] skip duplicate.'); return; }
-  window._AUTH_HANDLER_RUNNING = true;
-  window._AUTH_PROCESSING      = true;
-  window._pendingAuthUser      = user;
-  setTimeout(function () {
-    window._AUTH_HANDLER_RUNNING = false;
-    window._AUTH_PROCESSING      = false;
-  }, 30000);
+  if (window._AUTH_PROCESSING) {
+    console.log('[boot] auth queued, skip duplicate.');
+    return;
+  }
+  window._AUTH_PROCESSING = true;
+  window._pendingAuthUser = user;
+  console.log('[boot] user queued:', user ? user.email : 'null');
 };
 
 /* ── Midtrans config ── */
@@ -1742,16 +1870,22 @@ document.addEventListener('DOMContentLoaded', function () {
       setTimeout(function () { loading.style.display = 'none'; }, 400);
     }, 1300);
   }
-  /* Fallback ke landing jika auth tidak datang dalam 15 detik */
+  /* Fallback ke landing - diperpanjang ke 25 detik untuk koneksi lambat.
+     Juga cek _FBUSER: jika Firebase sudah punya user, JANGAN redirect ke landing
+     walaupun flags sudah clear (artinya app.js sedang load data). */
   setTimeout(function () {
     if (window._AUTH_PROCESSING || window._AUTH_HANDLER_RUNNING) return;
-    var shell  = document.getElementById('app-shell');
-    var appVis = shell && window.getComputedStyle(shell).display !== 'none';
+    if (window._FBUSER) return; /* user sudah login, tunggu app.js selesai */
+    var shell   = document.getElementById('app-shell');
+    var appVis  = shell && window.getComputedStyle(shell).display !== 'none';
     var hasActive = ['screen-wizard','screen-auth','screen-paywall'].some(function (id) {
       var el = document.getElementById(id); return el && el.classList.contains('active');
     });
-    if (!appVis && !hasActive) window.showScreen('landing');
-  }, 15000);
+    if (!appVis && !hasActive) {
+      console.log('[fallback] tidak ada screen aktif setelah 25 detik → landing');
+      window.showScreen('landing');
+    }
+  }, 25000);
 });
 
 /* Toast minimal sebelum app.js load */
@@ -1761,27 +1895,41 @@ window.showToast = window.showToast || function (msg, type) { console.log('[TOAS
 </script>
 
 <!-- app.js - defer, diload setelah HTML parse selesai -->
-<script defer src="./app.js?v=6.0" charset="utf-8"></script>
+<script defer src="./app.js?v=6.1" charset="utf-8"></script>
 
-<!-- BRIDGE: app.js siap - teruskan pending auth ke _onAuthReady
-     Reset kedua flag di .finally() tanpa terkecuali -->
+<!-- BRIDGE: app.js siap - teruskan pending auth ke _onAuthReady (versi app.js).
+     KRITIS: reset _AUTH_PROCESSING SEBELUM memanggil _onAuthReady,
+     bukan di .finally(). Ini mencegah race condition di mana _onAuthReady
+     (versi app.js) melihat flag masih true dan langsung return. -->
 <script defer>
 (function () {
+  /* Reset flag dulu SEBELUM panggil _onAuthReady versi app.js */
+  window._AUTH_HANDLER_RUNNING = false;
+  window._AUTH_PROCESSING      = false;
+
   if (typeof window._pendingAuthUser !== 'undefined') {
     var u = window._pendingAuthUser;
     delete window._pendingAuthUser;
+    console.log('[bridge] meneruskan user:', u ? u.email : 'null');
     if (typeof window._onAuthReady === 'function') {
-      Promise.resolve(window._onAuthReady(u))
-        .catch(function (err) { console.error('[bridge] _onAuthReady error:', err); })
-        .finally(function () {
-          window._AUTH_HANDLER_RUNNING = false;
-          window._AUTH_PROCESSING      = false;
-        });
+      /* Bungkus dalam try-catch + setTimeout(0) agar stack bersih */
+      setTimeout(function () {
+        try {
+          var result = window._onAuthReady(u);
+          if (result && typeof result.catch === 'function') {
+            result.catch(function (err) {
+              console.error('[bridge] _onAuthReady error:', err);
+            });
+          }
+        } catch (err) {
+          console.error('[bridge] _onAuthReady sync error:', err);
+        }
+      }, 0);
     }
   } else {
-    window._AUTH_HANDLER_RUNNING = false;
-    window._AUTH_PROCESSING      = false;
+    console.log('[bridge] tidak ada pending user');
   }
+
   window._appReady = true;
   document.dispatchEvent(new Event('app-js-ready'));
 })();
