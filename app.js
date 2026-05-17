@@ -5,20 +5,20 @@
    ───────────────────────────────────────────────────────────────
    CHANGELOG v6.1:
    · S.payment state + loadPaymentSettings + savePaymentSettings
-   · calcBilling(r) — subtotal/service/ppn/total/dpRequested
-   · buildConfMsg(r) — 3 versi: pending (tagihan), confirmed, selesai
-   · buildThanksMsg(r) — ucapan terima kasih
-   · buildDailyMsg() — detail menu vertikal dengan ↳ per baris
-   · openShareModal() — preview laporan sebelum kirim WA
-   · contactWA() — tombol "Hubungi" berubah fungsi per status
-   · saveRes() — UX: error summary di footer modal
-   · openAddRes/openEditRes — UX: saran DP + billing preview inline
-   · _renderCalendarSync — UX: show/hide #cal-empty
-   · showView — UX: show/hide fab-add-res
-   · applyAccountUI — UX: tanggal eksplisit di trial-banner-date
-   · loadSettingsForm — load payment settings
-   · showConflictUI — pesan konflik lebih human
-   · wzFinish — UX: post-wizard toast hint
+   · calcBilling(r) - subtotal/service/ppn/total/dpRequested
+   · buildConfMsg(r) - 3 versi: pending (tagihan), confirmed, selesai
+   · buildThanksMsg(r) - ucapan terima kasih
+   · buildDailyMsg() - detail menu vertikal dengan ↳ per baris
+   · openShareModal() - preview laporan sebelum kirim WA
+   · contactWA() - tombol "Hubungi" berubah fungsi per status
+   · saveRes() - UX: error summary di footer modal
+   · openAddRes/openEditRes - UX: saran DP + billing preview inline
+   · _renderCalendarSync - UX: show/hide #cal-empty
+   · showView - UX: show/hide fab-add-res
+   · applyAccountUI - UX: tanggal eksplisit di trial-banner-date
+   · loadSettingsForm - load payment settings
+   · showConflictUI - pesan konflik lebih human
+   · wzFinish - UX: post-wizard toast hint
    ═══════════════════════════════════════════════════════════════ */
 
 /* ──────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ var DEFAULT_CONF = [
   '',
   'Konfirmasi reservasi di *{bisnis}*:',
   '📅 *Tanggal:* {tanggal}',
-  '⏰ *Jam:* {jam} – {jam_selesai}',
+  '⏰ *Jam:* {jam} - {jam_selesai}',
   '📍 *Tempat:* {tempat}',
   '👥 *Jumlah:* {jumlah} orang',
   '',
@@ -85,7 +85,7 @@ var S = {
   ops:   { openTime:'09:00', closeTime:'21:00', slotInterval:30,
            defaultDuration:120, bufferTime:15, minAdvance:2 },
   msgs:  { confirm:DEFAULT_CONF, thanks:DEFAULT_THANKS },
-  /* State pembayaran — diload dari Firestore config/payment */
+  /* State pembayaran - diload dari Firestore config/payment */
   payment: {
     dpMode:'persen', dpPersen:30, dpNominal:0,
     serviceOn:false, servicePct:5,
@@ -152,7 +152,7 @@ function isReadOnly() { return !!window._READ_ONLY; }
 
 function guardWrite() {
   if (isReadOnly()) {
-    showToast('Mode baca saja — upgrade untuk melanjutkan.', 'warning', 3500);
+    showToast('Mode baca saja - upgrade untuk melanjutkan.', 'warning', 3500);
     return false;
   }
   return true;
@@ -197,7 +197,7 @@ function calcBilling(r) {
      pending   → tagihan + request DP + info rekening
      confirmed → konfirmasi DP diterima (3 versi per status)
      selesai   → ucapan terima kasih
-     batal     → (tidak dipanggil — tombol tidak tampil)
+     batal     → (tidak dipanggil - tombol tidak tampil)
 
    buildDailyMsg(): laporan harian tim operasional
      Detail menu vertikal dengan ↳ per baris
@@ -210,7 +210,7 @@ function _menuBlockWA(item, forReport) {
   var harga = md ? (parseFloat(md.price) || 0) : 0;
   var prefix = forReport ? '  • ' : '• ';
   var line = prefix + '*' + item.quantity + 'x ' + item.name + '*';
-  if (harga > 0) line += ' — Rp' + formatRp(harga) + '/porsi';
+  if (harga > 0) line += ' - Rp' + formatRp(harga) + '/porsi';
   if (det.length) {
     line += '\n' + det.map(function (d) {
       return (forReport ? '    ↳ ' : '  ↳ ') + d;
@@ -255,7 +255,7 @@ function buildConfMsg(r) {
     return 'Halo Kak *' + r.nama + '* 👋\n\n'
       + 'Reservasi kamu di *' + S.biz.name + '* menunggu konfirmasi pembayaran:\n\n'
       + '📅 *Tanggal:* ' + formatDateFull(r.date) + '\n'
-      + '⏰ *Jam:* ' + r.jam + ' – ' + endT + '\n'
+      + '⏰ *Jam:* ' + r.jam + ' - ' + endT + '\n'
       + '📍 *Tempat:* ' + r.tempat + '\n'
       + '👥 *Jumlah:* ' + r.jumlah + ' orang\n\n'
       + '🍽 *Pesanan:*\n' + menuBlock + '\n\n'
@@ -272,7 +272,7 @@ function buildConfMsg(r) {
     return 'Halo Kak *' + r.nama + '* 👋\n\n'
       + 'Konfirmasi reservasi di *' + S.biz.name + '*:\n\n'
       + '📅 *Tanggal:* ' + formatDateFull(r.date) + '\n'
-      + '⏰ *Jam:* ' + r.jam + ' – ' + endT + '\n'
+      + '⏰ *Jam:* ' + r.jam + ' - ' + endT + '\n'
       + '📍 *Tempat:* ' + r.tempat + '\n'
       + '👥 *Jumlah:* ' + r.jumlah + ' orang\n\n'
       + '🍽 *Pesanan:*\n' + menuBlock + '\n\n'
@@ -280,7 +280,7 @@ function buildConfMsg(r) {
       + 'Reservasi dikonfirmasi. Sampai jumpa! 😊';
   }
 
-  /* selesai — ucapan terima kasih */
+  /* selesai - ucapan terima kasih */
   return buildThanksMsg(r);
 }
 
@@ -291,7 +291,7 @@ function buildThanksMsg(r) {
     .replace(/{bisnis}/g, S.biz.name || '');
 }
 
-/* Laporan harian tim operasional — detail menu vertikal dengan ↳ */
+/* Laporan harian tim operasional - detail menu vertikal dengan ↳ */
 function buildDailyMsg(dateStr, res) {
   var SEP = '─'.repeat(24);
   var ST  = { pending:'⏳', confirmed:'✅', selesai:'🎉', batal:'❌' };
@@ -318,7 +318,7 @@ function buildDailyMsg(dateStr, res) {
     }
 
     var line = '*' + (i + 1) + '. ' + r.nama + '* ' + stIcon + '\n'
-      + '⏰ ' + r.jam + '–' + endT
+      + '⏰ ' + r.jam + '-' + endT
       + ' · 📍 ' + r.tempat
       + ' · 👥 ' + r.jumlah + ' org\n'
       + '🍽 *Pesanan:*\n' + menuLines;
@@ -353,7 +353,7 @@ function openShareModal() {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   PAYMENT SETTINGS — Firestore: users/{UID}/config/payment
+   PAYMENT SETTINGS - Firestore: users/{UID}/config/payment
    ────────────────────────────────────────────────────────────── */
 async function loadPaymentSettings() {
   var defaults = {
@@ -574,7 +574,7 @@ window.onPaymentSuccess = async function (planType, midtransResult) {
 };
 
 /* ──────────────────────────────────────────────────────────────
-   FIRESTORE — CONFIG HELPERS
+   FIRESTORE - CONFIG HELPERS
    ────────────────────────────────────────────────────────────── */
 async function saveBizFS() {
   DB.set(K.BIZ, S.biz); _showSync();
@@ -620,7 +620,7 @@ async function saveMsgsFS() {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   FIRESTORE — RESERVASI (lazy load per bulan)
+   FIRESTORE - RESERVASI (lazy load per bulan)
    ────────────────────────────────────────────────────────────── */
 async function _fetchMonthFS(mk) {
   if (S.loadedMonths.has(mk)) return false;
@@ -715,7 +715,7 @@ function loadStateLocal() {
   S.appear= Object.assign({accent:'orange',logo:'🍽️'}, DB.get(K.APPEAR,{}));
 }
 
-/* FIX #H — loadAllResForAnalysis */
+/* FIX #H - loadAllResForAnalysis */
 window.loadAllResForAnalysis = async function () {
   var btn = document.getElementById('anl-load-all-btn');
   if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Memuat...'; }
@@ -766,7 +766,7 @@ async function doSignOut() {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   _onAuthReady — ENTRY POINT UTAMA
+   _onAuthReady - ENTRY POINT UTAMA
    ────────────────────────────────────────────────────────────── */
 window._onAuthReady = async function (user) {
   if (window._FB_UNCONFIGURED) {
@@ -814,7 +814,7 @@ window._onAuthReady = async function (user) {
 
   applyAccent(S.appear.accent || 'orange', false);
   var biz = S.biz.name || 'Usaha Saya';
-  setText('cal-title',   'Dashboard — ' + biz);
+  setText('cal-title',   'Dashboard - ' + biz);
   setText('cal-sub',     'Selamat datang kembali! Kelola reservasi dengan mudah.');
   setText('sb-biz-name', biz);
 
@@ -912,20 +912,20 @@ function showView(name) {
   });
 
   setText('topbar-page', PAGE_NAMES[name]||name);
-  document.title = (PAGE_NAMES[name]||name) + ' — Proserva';
+  document.title = (PAGE_NAMES[name]||name) + ' - Proserva';
 
   var sb = document.getElementById('sidebar');
   if (sb && sb.classList.contains('open')) toggleSidebar();
 
-  /* Tombol topbar tambah reservasi — sembunyikan di view detail (FAB yang pakai) */
+  /* Tombol topbar tambah reservasi - sembunyikan di view detail (FAB yang pakai) */
   var addBtn = document.getElementById('btn-add-res');
   if (addBtn) addBtn.style.display = (isReadOnly()||name==='detail') ? 'none' : 'flex';
 
-  /* FAB — hanya tampil di view detail, tidak di view lain */
+  /* FAB - hanya tampil di view detail, tidak di view lain */
   var fab = document.getElementById('fab-add-res');
   if (fab) fab.style.display = (!isReadOnly() && name==='detail') ? 'flex' : 'none';
 
-  /* Tombol Muat Semua + hint lazy — hanya di analisis */
+  /* Tombol Muat Semua + hint lazy - hanya di analisis */
   var lBtn = document.getElementById('anl-load-all-btn');
   var hint = document.getElementById('anl-lazy-hint');
   if (lBtn) lBtn.style.display = name==='analysis' ? 'inline-flex' : 'none';
@@ -978,7 +978,7 @@ async function saveBranding() {
   S.biz.logo    = S.appear.logo || '🍽️';
   await saveBizFS();
   setText('sb-biz-name', S.biz.name);
-  setText('cal-title', 'Dashboard — ' + S.biz.name);
+  setText('cal-title', 'Dashboard - ' + S.biz.name);
   showToast('Branding berhasil disimpan!', 'success');
 }
 
@@ -1050,11 +1050,11 @@ function checkConflict(date,locName,jam,jumlah,durationOverride,excludeId) {
     var rStart=toMins(r.jam),rEnd=rStart+rDur+buffer;
     if(newStart<rEnd&&newEnd>rStart) return {
       ok:false,type:'hard_overlap',
-      msg:'Lokasi ini sudah dipesan oleh <strong>'+esc(r.nama)+'</strong> jam '+r.jam+'–'+minsToTime(rStart+rDur)+'. Coba pilih slot lain di bawah.',
+      msg:'Lokasi ini sudah dipesan oleh <strong>'+esc(r.nama)+'</strong> jam '+r.jam+'-'+minsToTime(rStart+rDur)+'. Coba pilih slot lain di bawah.',
       conflictWith:r
     };
   }
-  if(softWarn) return {ok:true,type:'soft_capacity',msg:'Kapasitas hampir penuh — tersisa '+(capacity-pax)+' orang.'};
+  if(softWarn) return {ok:true,type:'soft_capacity',msg:'Kapasitas hampir penuh - tersisa '+(capacity-pax)+' orang.'};
   return {ok:true,type:'none',msg:'Tersedia · Selesai estimasi '+minsToTime(newStart+duration)};
 }
 
@@ -1111,8 +1111,8 @@ function wzNext(step) {
   if(step===3) renderWzMenuList();
 }
 
-function renderWzLocList(){var el=document.getElementById('wz-loc-list');if(!el)return;if(!S.wizData.locs.length){el.innerHTML='<div class="wz-empty-hint">Belum ada lokasi — tambah minimal 1</div>';return;}el.innerHTML=S.wizData.locs.map(function(l,i){return'<div class="wz-list-item"><span><strong>'+esc(l.name)+'</strong> — '+l.capacity+' orang</span><button class="item-remove" onclick="wzRemove(\'loc\','+i+')"><i class="fas fa-times"></i></button></div>';}).join('');}
-function renderWzMenuList(){var el=document.getElementById('wz-menu-list');if(!el)return;el.innerHTML=S.wizData.menus.map(function(m,i){return'<div class="wz-list-item"><span><strong>'+esc(m.name)+'</strong> — Rp'+formatRp(m.price)+'</span><button class="item-remove" onclick="wzRemove(\'menu\','+i+')"><i class="fas fa-times"></i></button></div>';}).join('');}
+function renderWzLocList(){var el=document.getElementById('wz-loc-list');if(!el)return;if(!S.wizData.locs.length){el.innerHTML='<div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>';return;}el.innerHTML=S.wizData.locs.map(function(l,i){return'<div class="wz-list-item"><span><strong>'+esc(l.name)+'</strong> - '+l.capacity+' orang</span><button class="item-remove" onclick="wzRemove(\'loc\','+i+')"><i class="fas fa-times"></i></button></div>';}).join('');}
+function renderWzMenuList(){var el=document.getElementById('wz-menu-list');if(!el)return;el.innerHTML=S.wizData.menus.map(function(m,i){return'<div class="wz-list-item"><span><strong>'+esc(m.name)+'</strong> - Rp'+formatRp(m.price)+'</span><button class="item-remove" onclick="wzRemove(\'menu\','+i+')"><i class="fas fa-times"></i></button></div>';}).join('');}
 function wzRemove(type,idx){if(type==='loc'){S.wizData.locs.splice(idx,1);renderWzLocList();}else{S.wizData.menus.splice(idx,1);renderWzMenuList();}}
 function wzAddLoc(){var n=gval('wz-loc-name').trim(),c=parseInt(gval('wz-loc-cap'));if(!n||isNaN(c)||c<1){showToast('Isi nama dan kapasitas!','error');return;}if(S.wizData.locs.some(function(l){return l.name.toLowerCase()===n.toLowerCase();})){showToast('Nama sudah ada!','error');return;}S.wizData.locs.push({name:n,capacity:c});val('wz-loc-name','');val('wz-loc-cap','');renderWzLocList();}
 function wzAddMenu(){var n=gval('wz-menu-name').trim(),p=parseInt(gval('wz-menu-price'))||0;var d=gval('wz-menu-detail').split(',').map(function(s){return s.trim();}).filter(Boolean);if(!n){showToast('Isi nama menu!','error');return;}S.wizData.menus.push({name:n,price:p,details:d});val('wz-menu-name','');val('wz-menu-price','');val('wz-menu-detail','');renderWzMenuList();}
@@ -1130,7 +1130,7 @@ async function wzFinish() {
     var locTasks =S.wizData.locs.map(function(l){return saveLocFS(genId(),{name:l.name,capacity:l.capacity,minGuests:1,defaultDuration:'',bufferTime:'',openTime:'',closeTime:''}); });
     var menuTasks=S.wizData.menus.map(function(m){return saveMenuFS(genId(),{name:m.name,price:m.price,details:m.details});});
     await Promise.all(locTasks.concat(menuTasks));
-    setText('cal-title','Dashboard — '+S.biz.name);
+    setText('cal-title','Dashboard - '+S.biz.name);
     setText('sb-biz-name',S.biz.name);
     if(!window._NOTIF_STARTED){NOTIF.start();window._NOTIF_STARTED=true;}
     document.removeEventListener('click',closeNotifH);
@@ -1232,7 +1232,7 @@ async function selectDate(ds) {
   if(dv){dv.style.display='block';dv.classList.add('active-view');}
   document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
   setText('topbar-page','Detail Reservasi');
-  document.title='Detail Reservasi — Proserva';
+  document.title='Detail Reservasi - Proserva';
 
   /* UX: topbar btn sembunyi di detail, FAB yang tampil */
   var addBtn=document.getElementById('btn-add-res');
@@ -1318,11 +1318,11 @@ function buildResCard(r) {
 
   var footerHtml='';
   if(isReadOnly()){
-    /* UX #7: mode read-only — tombol tersembunyi, tampilkan badge + kunci */
+    /* UX #7: mode read-only - tombol tersembunyi, tampilkan badge + kunci */
     footerHtml='<div class="rc-footer"><span class="status-badge '+STATUS_BADGE[st]+'">'+STATUS_LABELS[st]+'</span>'+
       '<span style="font-size:.72rem;color:var(--ink-4);margin-left:auto"><i class="fas fa-lock"></i> Read Only</span></div>';
   } else {
-    /* Tombol Hubungi — berbeda per status */
+    /* Tombol Hubungi - berbeda per status */
     var hubungiBtn='';
     if (r.nomorHp && st !== 'batal') {
       var hubungiLabel='';
@@ -1351,7 +1351,7 @@ function buildResCard(r) {
     '<div class="rc-stripe '+STATUS_STRIPE[st]+'"></div>'+
     '<div class="rc-top"><div class="rc-name"><div class="rc-avatar" style="background:'+nameColor(r.nama||'?')+'">'+initials(r.nama||'?')+'</div><div class="rc-guest">'+esc(r.nama||'Tanpa Nama')+'</div></div>'+
     '<div class="rc-badges">'+
-    '<span class="badge badge-ac"><i class="far fa-clock"></i> '+esc(r.jam||'?')+'–'+endT+'</span>'+
+    '<span class="badge badge-ac"><i class="far fa-clock"></i> '+esc(r.jam||'?')+'-'+endT+'</span>'+
     '<span class="badge badge-gray"><i class="fas fa-map-pin"></i> '+esc(r.tempat||'?')+'</span>'+
     '<span class="badge badge-g"><i class="fas fa-users"></i> '+esc(r.jumlah||'?')+' org</span>'+
     '<span class="status-badge '+STATUS_BADGE[st]+'">'+STATUS_LABELS[st]+'</span>'+
@@ -1483,7 +1483,7 @@ function showConflictUI(result,date,loc,jam,pax,excludeId) {
     ca.innerHTML='<i class="fas fa-exclamation-triangle"></i> '+result.msg;
     if(ss) ss.classList.remove('show'); if(sb) sb.disabled=false; return;
   }
-  /* Hard conflict — pesan lebih human (UX #5) */
+  /* Hard conflict - pesan lebih human (UX #5) */
   ca.className='conflict-alert conflict-hard show';
   ca.innerHTML='<i class="fas fa-times-circle"></i> '+result.msg;
   if(sb) sb.disabled=true;
@@ -1536,7 +1536,7 @@ async function saveRes() {
 
   if(tempat&&jam&&jumlah&&valid){
     var cr=checkConflict(resDate,tempat,jam,jumlah,duration||null,editId||null);
-    if(!cr.ok&&cr.type!=='soft_capacity'){showErr('err-jam','Konflik jadwal — pilih jam atau lokasi lain');errMsgs.push('Jam (konflik)');valid=false;}
+    if(!cr.ok&&cr.type!=='soft_capacity'){showErr('err-jam','Konflik jadwal - pilih jam atau lokasi lain');errMsgs.push('Jam (konflik)');valid=false;}
   }
 
   var menus=[],usedN={},menuOk=true;
@@ -1617,7 +1617,7 @@ function addMenuRow(cId, menuName, qty) {
     return;
   }
   var opts=menus.map(function(m){
-    return'<option value="'+esc(m.name)+'"'+(m.name===menuName?' selected':'')+'>'+esc(m.name)+(m.price?' — Rp'+formatRp(m.price):'')+' </option>';
+    return'<option value="'+esc(m.name)+'"'+(m.name===menuName?' selected':'')+'>'+esc(m.name)+(m.price?' - Rp'+formatRp(m.price):'')+' </option>';
   }).join('');
   var div=document.createElement('div');
   div.className='menu-row';
@@ -1636,7 +1636,7 @@ function updateMrPrice(sel) {
   if(pr) pr.textContent=(m&&m.price?'Rp'+formatRp(m.price):'');
 }
 
-/* contactWA — tombol "Hubungi" memanggil fungsi ini, pesan sesuai status */
+/* contactWA - tombol "Hubungi" memanggil fungsi ini, pesan sesuai status */
 function contactWA(id) {
   var r=findRes(id);
   if(!r||!r.nomorHp){showToast('Nomor HP tidak ada','error');return;}
@@ -1650,7 +1650,7 @@ function contactWA(id) {
   openWA(r.nomorHp, buildConfMsg(r));
 }
 
-/* ═══ AKHIR PART 1 — sambung langsung dengan app_part2.js ═══ */
+/* ═══ AKHIR PART 1 - sambung langsung dengan app_part2.js ═══ */
 
 /* ──────────────────────────────────────────────────────────────
    MENUS & LOCATIONS
@@ -1712,7 +1712,7 @@ function renderLocsTable() {
   tbody.innerHTML=locs.map(function(l){
     var dur=l.defaultDuration?l.defaultDuration+'m':'Global ('+S.ops.defaultDuration+'m)';
     var buf=(l.bufferTime!==undefined&&l.bufferTime!=='')?l.bufferTime+'m':'Global ('+S.ops.bufferTime+'m)';
-    var jam=(l.openTime||S.ops.openTime||'09:00')+' – '+(l.closeTime||S.ops.closeTime||'21:00');
+    var jam=(l.openTime||S.ops.openTime||'09:00')+' - '+(l.closeTime||S.ops.closeTime||'21:00');
     var editBtn=isReadOnly()?''
       :'<button class="btn btn-info btn-sm" onclick="openLocModal(\''+l.id+'\')"><i class="fas fa-edit"></i></button>'+
         '<button class="btn btn-danger btn-sm" onclick="doDeleteLoc(\''+l.id+'\')"><i class="fas fa-trash-alt"></i></button>';
@@ -1895,7 +1895,7 @@ function doPrint() {
   }).join('');
   var html='<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><title>Reservasi '+formatDateDisp(S.date||'')+'</title>'+
     '<style>body{font-family:sans-serif;padding:20px;color:#18181b;max-width:900px;margin:0 auto}h1{font-size:1.3rem}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{border:1px solid #e4e4e7;border-radius:10px;padding:14px;break-inside:avoid}h3{margin:0 0 7px;font-size:.95rem}p,li{margin:3px 0;font-size:.85rem}ul{margin:4px 0;padding-left:16px}@media print{@page{margin:12mm}}</style>'+
-    '</head><body><h1>📋 Reservasi — '+esc(S.biz.name)+'</h1><p style="color:#71717a;margin-bottom:16px">'+formatDateFull(S.date||'')+' · '+res.length+' reservasi</p><div class="grid">'+items+'</div></body></html>';
+    '</head><body><h1>📋 Reservasi - '+esc(S.biz.name)+'</h1><p style="color:#71717a;margin-bottom:16px">'+formatDateFull(S.date||'')+' · '+res.length+' reservasi</p><div class="grid">'+items+'</div></body></html>';
   var w=window.open('','_blank','noopener');
   if(!w){showToast('Pop-up diblokir!','error');return;}
   w.document.write(html); w.document.close();
@@ -1970,7 +1970,7 @@ async function doImport() {
 
   showToast('Data berhasil diimport! ✅','success');
   closeModal('modal-export');
-  setText('cal-title','Dashboard — '+(S.biz.name||'Usaha Saya'));
+  setText('cal-title','Dashboard - '+(S.biz.name||'Usaha Saya'));
   setText('sb-biz-name',S.biz.name||'Usaha Saya');
   _renderCalendarSync();
   renderMenusTable(); renderLocsTable();
