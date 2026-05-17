@@ -490,43 +490,57 @@ function applyAccountUI(accountStatus) {
   var addResBtn      = document.getElementById('btn-add-res');
   var fab            = document.getElementById('fab-add-res');
   var shell          = document.getElementById('app-shell');
+  /* Tombol paywall - dikontrol di sini agar selalu sinkron dengan status */
+  var backBtn        = document.getElementById('paywall-back-btn');
+  var readonlyBtn    = document.getElementById('paywall-readonly-btn');
 
-  /* Reset */
+  /* Reset semua ke kondisi default */
   if (trialBanner)    trialBanner.style.display    = 'none';
   if (readonlyBanner) readonlyBanner.style.display  = 'none';
   if (upgradeBtn)     upgradeBtn.style.display      = 'none';
   if (addResBtn)      addResBtn.style.display       = 'flex';
   if (fab)            fab.style.display             = 'flex';
   if (shell)          shell.classList.remove('has-banner');
-  window._READ_ONLY = false;
+  if (backBtn)        backBtn.style.display         = 'none';
+  if (readonlyBtn)    readonlyBtn.style.display     = 'none';
+  window._READ_ONLY  = false;
+  window._IS_TRIAL   = false;
 
   if (accountStatus === 'active') {
     if (sbStatus) { sbStatus.className='sb-status active'; sbStatus.innerHTML='<i class="fas fa-check-circle"></i> Pro Aktif'; }
+
   } else if (accountStatus === 'trial') {
+    window._IS_TRIAL = true;
     var days = trialDaysLeft();
     if (sbStatus) { sbStatus.className='sb-status trial'; sbStatus.innerHTML='<i class="fas fa-clock"></i> Trial · '+days+' hari'; }
     if (trialBanner) {
       trialBanner.style.display = 'flex';
+      /* Teks pendek agar muat 1 baris di mobile */
       var txt = document.getElementById('trial-banner-text');
       if (txt) txt.textContent = days <= 1
-        ? 'Trial kamu berakhir hari ini! Segera upgrade.'
-        : 'Trial kamu berakhir dalam ' + days + ' hari.';
-      /* UX #6: tanggal eksplisit */
+        ? 'Trial berakhir hari ini!'
+        : 'Trial: ' + days + ' hari lagi';
+      /* UX #6: tanggal eksplisit di sebelah teks */
       var dateEl = document.getElementById('trial-banner-date');
       if (dateEl && _ACCOUNT && _ACCOUNT.trialEndsAt) {
         var endDate = new Date(_ACCOUNT.trialEndsAt);
-        dateEl.textContent = '(s/d ' + endDate.getDate() + ' ' + MONTHS_S[endDate.getMonth()] + ')';
+        dateEl.textContent = ' (s/d ' + endDate.getDate() + ' ' + MONTHS_S[endDate.getMonth()] + ')';
       }
       if (shell) shell.classList.add('has-banner');
     }
     if (upgradeBtn) upgradeBtn.style.display = 'flex';
+    /* Paywall: saat trial masih aktif, tampilkan tombol Kembali bukan Read Only */
+    if (backBtn)    backBtn.style.display    = 'flex';
+
   } else { /* expired */
     window._READ_ONLY = true;
     if (sbStatus) { sbStatus.className='sb-status expired'; sbStatus.innerHTML='<i class="fas fa-lock"></i> Trial Berakhir'; }
     if (readonlyBanner) { readonlyBanner.style.display='flex'; if (shell) shell.classList.add('has-banner'); }
-    if (upgradeBtn) upgradeBtn.style.display = 'flex';
-    if (addResBtn)  addResBtn.style.display  = 'none';
-    if (fab)        fab.style.display        = 'none';
+    if (upgradeBtn)  upgradeBtn.style.display  = 'flex';
+    if (addResBtn)   addResBtn.style.display   = 'none';
+    if (fab)         fab.style.display         = 'none';
+    /* Paywall: saat expired, tampilkan tombol Read Only bukan Kembali */
+    if (readonlyBtn) readonlyBtn.style.display = 'flex';
   }
   renderAccountStatusCard(accountStatus);
 }
@@ -827,7 +841,12 @@ window._onAuthReady = async function (user) {
   /* Reset flag SEBELUM routing */
   window._AUTH_PROCESSING=window._AUTH_HANDLER_RUNNING=false;
 
-  if (accountStatus === 'expired') { showScreen('paywall'); return; }
+  if (accountStatus === 'expired') {
+    /* Panggil applyAccountUI dulu agar tombol paywall diset sebelum screen tampil */
+    applyAccountUI(accountStatus);
+    showScreen('paywall');
+    return;
+  }
 
   if (!Object.keys(S.locs||{}).length) { showScreen('wizard'); return; }
 
@@ -1179,6 +1198,7 @@ function _renderCalendarSync() {
     if(!names[d])names[d]=[];
     if(names[d].length<2) names[d].push(r.nama||'?');
   });
+  /* Stat tamu - hanya dari bulan yang ditampilkan, bukan getAllRes() */
   var totalPax=monthRes.reduce(function(s,r){return s+(parseInt(r.jumlah)||0);},0);
   var totalDp =monthRes.reduce(function(s,r){return s+(parseInt(r.dp)||0);},0);
   var busiestDay='-';
