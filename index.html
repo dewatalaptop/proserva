@@ -9,8 +9,6 @@
 <meta name="theme-color" content="#ffffff"/>
 <meta name="description" content="Proserva - Sistem manajemen reservasi untuk restoran, café, dan agritourism."/>
 <title>Proserva - Reservation Engine</title>
-
-<!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Geist:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
@@ -19,18 +17,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 
 <!-- ═══════════════════════════════════════════════════════════════
-     FIREBASE MODULE  (type="module" - jalan sebelum defer scripts)
-     ─────────────────────────────────────────────────────────────
-     Yang dilakukan di sini:
-     · Init Firebase App, Auth, Firestore
-     · browserLocalPersistence  → session tidak hilang
-     · Export _FB dengan query tambahan untuk reservasi
+     FIREBASE MODULE
+     · browserLocalPersistence  - session tidak hilang tutup browser
      · Guard _AUTH_HANDLER_RUNNING di onAuthStateChanged
-     · Auth UI helpers (showAuthErr pakai span, bukan textContent)
+     · Auth UI helpers pakai querySelector('span') - icon tidak terhapus
+     · Export window._FB dengan query helpers untuk lazy load reservasi
      ═══════════════════════════════════════════════════════════════ -->
 <script type="module">
 
-/* ── Global error display ─────────────────────────────────── */
+/* ── Global error display ── */
 window.addEventListener('error', e => {
   if (window.__ERR_LOCK) return;
   window.__ERR_LOCK = true;
@@ -44,11 +39,9 @@ window.addEventListener('error', e => {
   (document.body || document.documentElement).appendChild(b);
   setTimeout(() => b.remove?.(), 8000);
 });
-window.addEventListener('unhandledrejection', e => {
-  console.error('[Unhandled Promise]', e?.reason);
-});
+window.addEventListener('unhandledrejection', e => { console.error('[Unhandled Promise]', e?.reason); });
 
-/* ── Firebase imports ──────────────────────────────────────── */
+/* ── Firebase imports ── */
 import { initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
 import {
@@ -63,7 +56,7 @@ import {
   serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
 
-/* ── Firebase config ───────────────────────────────────────── */
+/* ── Config ── */
 const firebaseConfig = {
   apiKey:            'AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw',
   authDomain:        'proserva-bisnisku.firebaseapp.com',
@@ -79,48 +72,38 @@ const isConfigured = Object.values(firebaseConfig)
 if (!isConfigured) {
   window._FB_UNCONFIGURED = true;
   setTimeout(() => { window._onAuthReady?.(null); }, 500);
-
 } else {
 
   const app  = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db   = getFirestore(app);
 
-  /* Session persistence - user tidak perlu login ulang setelah tutup browser */
   try { await setPersistence(auth, browserLocalPersistence); }
   catch (e) { console.warn('[Auth] Persistence warning:', e); }
 
-  /* ── REGISTER ─────────────────────────────────────────────── */
+  /* ── REGISTER ── */
   window.doRegister = async function () {
     const name  = document.getElementById('reg-name')?.value.trim()  || '';
     const email = document.getElementById('reg-email')?.value.trim() || '';
     const pass  = document.getElementById('reg-pass')?.value          || '';
     const pass2 = document.getElementById('reg-pass2')?.value         || '';
     const btn   = document.getElementById('btn-register');
-
     clearAuthErr();
     if (!name)           return showAuthErr('Nama wajib diisi.');
     if (!email)          return showAuthErr('Email wajib diisi.');
     if (pass.length < 6) return showAuthErr('Password minimal 6 karakter.');
     if (pass !== pass2)  return showAuthErr('Konfirmasi password tidak cocok.');
-
     setAuthLoading(btn, true, 'Mendaftar...');
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(cred.user, { displayName: name });
-
-      /* Buat dokumen akun + trial 14 hari */
       const now = Date.now();
       await setDoc(doc(db, 'users', cred.user.uid, 'config', 'account'), {
-        displayName:  name,
-        email:        email,
-        createdAt:    now,
-        trialEndsAt:  now + (14 * 24 * 60 * 60 * 1000),
-        status:       'trial',
-        plan:         'free',
-        paymentRef:   null
+        displayName: name, email,
+        createdAt: now,
+        trialEndsAt: now + (14 * 24 * 60 * 60 * 1000),
+        status: 'trial', plan: 'free', paymentRef: null
       });
-      /* onAuthStateChanged menangani navigasi selanjutnya */
     } catch (e) {
       setAuthLoading(btn, false, 'Daftar Sekarang');
       const msgs = {
@@ -132,16 +115,14 @@ if (!isConfigured) {
     }
   };
 
-  /* ── LOGIN ────────────────────────────────────────────────── */
+  /* ── LOGIN ── */
   window.doLogin = async function () {
     const email = document.getElementById('login-email')?.value.trim() || '';
     const pass  = document.getElementById('login-pass')?.value          || '';
     const btn   = document.getElementById('btn-login');
-
     clearAuthErr();
     if (!email) return showAuthErr('Email wajib diisi.');
     if (!pass)  return showAuthErr('Password wajib diisi.');
-
     setAuthLoading(btn, true, 'Masuk...');
     try {
       await signInWithEmailAndPassword(auth, email, pass);
@@ -158,7 +139,7 @@ if (!isConfigured) {
     }
   };
 
-  /* ── RESET PASSWORD ───────────────────────────────────────── */
+  /* ── RESET PASSWORD ── */
   window.doResetPassword = async function () {
     const email = (document.getElementById('reset-email')?.value
                 || document.getElementById('login-email')?.value || '').trim();
@@ -171,39 +152,24 @@ if (!isConfigured) {
     }
   };
 
-  /* ── Export _FB ke global ────────────────────────────────────
-     Sertakan query, where, orderBy, limit untuk lazy load reservasi
-     ─────────────────────────────────────────────────────────── */
+  /* ── Export _FB ke global - query helpers wajib ada untuk lazy load ── */
   window._FB = {
-    auth, db,
-    signOut, onAuthStateChanged,
-    /* doc-level */
+    auth, db, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, deleteDoc,
-    /* collection-level */
     collection, getDocs,
-    /* query helpers - dipakai lazy load reservasi per bulan */
     query, where, orderBy, limit,
     serverTimestamp
   };
-
   window._DONE_FS = true;
   console.log('[Firebase] ready ✓');
 
-  /* ── AUTH STATE LISTENER ──────────────────────────────────────
-     Guard _AUTH_HANDLER_RUNNING mencegah double-call saat Firebase
-     refresh token otomatis (~1 jam sekali). Jika handler sedang
-     berjalan (misalnya dari bridge script), listener ini skip.
-     ─────────────────────────────────────────────────────────── */
+  /* ── AUTH STATE LISTENER
+     Guard _AUTH_HANDLER_RUNNING mencegah double-call saat token refresh ── */
   onAuthStateChanged(auth, async (user) => {
     window._FBUSER   = user || null;
     window._FB_READY = true;
     console.log('[AUTH] state:', user?.email || 'signed out');
-
-    if (window._AUTH_HANDLER_RUNNING) {
-      console.log('[AUTH] handler running, skip duplicate.');
-      return;
-    }
-
+    if (window._AUTH_HANDLER_RUNNING) { console.log('[AUTH] skip duplicate.'); return; }
     if (typeof window._onAuthReady === 'function') {
       try { window._onAuthReady(user || null); }
       catch (err) { console.error('[AUTH] _onAuthReady error:', err); }
@@ -212,9 +178,7 @@ if (!isConfigured) {
 
 } /* end isConfigured */
 
-/* ── Auth UI helpers ───────────────────────────────────────────
-   Pakai querySelector('span') agar icon <i> tidak ikut terhapus
-   ─────────────────────────────────────────────────────────── */
+/* ── Auth UI helpers - pakai querySelector('span') agar icon tidak terhapus ── */
 window.showAuthErr = function (msg) {
   const el = document.getElementById('auth-error');
   if (!el) return;
@@ -228,7 +192,7 @@ window.showAuthSuccess = function (msg) {
   el.style.display = 'flex';
 };
 window.clearAuthErr = function () {
-  ['auth-error', 'auth-success'].forEach(id => {
+  ['auth-error','auth-success'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.querySelector('span').textContent = '';
@@ -238,26 +202,20 @@ window.clearAuthErr = function () {
 window.setAuthLoading = function (btn, on, label) {
   if (!btn) return;
   btn.disabled  = on;
-  btn.innerHTML = on
-    ? '<i class="fas fa-spinner fa-spin"></i> ' + label
-    : label;
+  btn.innerHTML = on ? '<i class="fas fa-spinner fa-spin"></i> ' + label : label;
 };
-
 console.log('[Firebase] module loaded.');
 </script>
-
 </head>
 <body>
 
-<!-- ══════════════════════════════════════
-     SCREEN: LOADING
-     ══════════════════════════════════════ -->
+<!-- ══════════════════════════
+     LOADING SCREEN
+     ══════════════════════════ -->
 <div id="screen-loading" class="screen active" aria-hidden="false">
   <div class="loading-inner">
     <div class="loading-logo">
-      <img
-        src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-        alt="Proserva"
+      <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva"
         onerror="this.parentNode.style.background='#e8630a';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:22px;font-weight:700\'>P</span>'"/>
     </div>
     <div class="loading-brand">Proserva</div>
@@ -266,16 +224,14 @@ console.log('[Firebase] module loaded.');
   </div>
 </div>
 
-<!-- ══════════════════════════════════════
-     SCREEN: LANDING
-     ══════════════════════════════════════ -->
+<!-- ══════════════════════════
+     LANDING PAGE
+     ══════════════════════════ -->
 <div id="screen-landing" class="screen" aria-hidden="true">
-
   <nav class="land-nav">
     <div class="land-nav-left">
       <div class="land-nav-logo">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="Proserva" onerror="this.style.display='none'"/>
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva" onerror="this.style.display='none'"/>
       </div>
       <span class="land-nav-brand">Proserva</span>
     </div>
@@ -292,27 +248,12 @@ console.log('[Firebase] module loaded.');
       <div class="hero-grid"></div>
     </div>
     <div class="land-hero-content">
-      <div class="hero-badge">
-        <span class="hero-badge-dot"></span>
-        Platform Reservasi untuk Bisnis Indonesia
-      </div>
-      <h1 class="hero-h1">
-        Kelola Reservasi<br/>
-        <span class="hero-accent">Lebih Cerdas,</span><br/>
-        Lebih Efisien
-      </h1>
-      <p class="hero-sub">
-        Sistem manajemen reservasi berbasis cloud untuk restoran, café, dan agritourism.
-        Tersimpan aman, real-time, bisa diakses dari mana saja.
-      </p>
+      <div class="hero-badge"><span class="hero-badge-dot"></span>Platform Reservasi untuk Bisnis Indonesia</div>
+      <h1 class="hero-h1">Kelola Reservasi<br/><span class="hero-accent">Lebih Cerdas,</span><br/>Lebih Efisien</h1>
+      <p class="hero-sub">Sistem manajemen reservasi berbasis cloud untuk restoran, café, dan agritourism. Tersimpan aman, real-time, bisa diakses dari mana saja.</p>
       <div class="hero-actions">
-        <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')">
-          <i class="fas fa-rocket"></i> Mulai Trial 14 Hari Gratis
-        </button>
-        <button type="button" class="hero-btn-ghost"
-          onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">
-          Lihat Fitur <i class="fas fa-arrow-down"></i>
-        </button>
+        <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')"><i class="fas fa-rocket"></i> Mulai Trial 14 Hari Gratis</button>
+        <button type="button" class="hero-btn-ghost" onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">Lihat Fitur <i class="fas fa-arrow-down"></i></button>
       </div>
       <div class="hero-trust">
         <div class="hero-trust-item"><i class="fas fa-check"></i> Tanpa kartu kredit</div>
@@ -322,7 +263,6 @@ console.log('[Firebase] module loaded.');
         <div class="hero-trust-item"><i class="fas fa-check"></i> Data cloud aman</div>
       </div>
     </div>
-
     <div class="hero-mockup">
       <div class="mockup-window">
         <div class="mockup-titlebar">
@@ -347,35 +287,23 @@ console.log('[Firebase] module loaded.');
             </div>
             <div class="mockup-cal">
               <div class="mockup-cal-row">
-                <div class="mockup-cal-day"></div>
-                <div class="mockup-cal-day has-res"></div>
-                <div class="mockup-cal-day"></div>
-                <div class="mockup-cal-day has-res busy"></div>
-                <div class="mockup-cal-day"></div>
-                <div class="mockup-cal-day today"></div>
+                <div class="mockup-cal-day"></div><div class="mockup-cal-day has-res"></div>
+                <div class="mockup-cal-day"></div><div class="mockup-cal-day has-res busy"></div>
+                <div class="mockup-cal-day"></div><div class="mockup-cal-day today"></div>
                 <div class="mockup-cal-day has-res"></div>
               </div>
               <div class="mockup-cal-row">
-                <div class="mockup-cal-day has-res"></div>
-                <div class="mockup-cal-day"></div>
-                <div class="mockup-cal-day has-res busy"></div>
-                <div class="mockup-cal-day"></div>
-                <div class="mockup-cal-day"></div>
-                <div class="mockup-cal-day has-res"></div>
+                <div class="mockup-cal-day has-res"></div><div class="mockup-cal-day"></div>
+                <div class="mockup-cal-day has-res busy"></div><div class="mockup-cal-day"></div>
+                <div class="mockup-cal-day"></div><div class="mockup-cal-day has-res"></div>
                 <div class="mockup-cal-day"></div>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="mockup-float mockup-float-1">
-        <i class="fas fa-calendar-check" style="color:#e8630a"></i>
-        <span>12 Reservasi Hari Ini</span>
-      </div>
-      <div class="mockup-float mockup-float-2">
-        <i class="fas fa-users" style="color:#059669"></i>
-        <span>48 Tamu Bulan Ini</span>
-      </div>
+      <div class="mockup-float mockup-float-1"><i class="fas fa-calendar-check" style="color:#e8630a"></i><span>12 Reservasi Hari Ini</span></div>
+      <div class="mockup-float mockup-float-2"><i class="fas fa-users" style="color:#059669"></i><span>48 Tamu Bulan Ini</span></div>
     </div>
   </section>
 
@@ -385,36 +313,12 @@ console.log('[Firebase] module loaded.');
       <h2 class="land-sect-title">Semua yang kamu butuhkan<br/>dalam satu platform</h2>
     </div>
     <div class="land-feat-grid">
-      <div class="land-feat-card">
-        <div class="lfc-icon" style="--ic:#3b82f6;--ic-bg:#eff6ff"><i class="fas fa-calendar-alt"></i></div>
-        <div class="lfc-title">Kalender Visual</div>
-        <div class="lfc-desc">Lihat semua reservasi dalam tampilan kalender interaktif. Deteksi hari sibuk seketika dengan indikator warna real-time.</div>
-      </div>
-      <div class="land-feat-card">
-        <div class="lfc-icon" style="--ic:#10b981;--ic-bg:#f0fdf4"><i class="fas fa-map-marker-alt"></i></div>
-        <div class="lfc-title">Manajemen Lokasi & Slot</div>
-        <div class="lfc-desc">Kelola gazebo, meja, atau area dengan kapasitas dan jadwal masing-masing. Deteksi konflik otomatis.</div>
-      </div>
-      <div class="land-feat-card">
-        <div class="lfc-icon" style="--ic:#f59e0b;--ic-bg:#fffbeb"><i class="fas fa-book-open"></i></div>
-        <div class="lfc-title">Menu & Paket</div>
-        <div class="lfc-desc">Atur paket menu dengan harga dan detail bahan. Terintegrasi langsung ke form reservasi.</div>
-      </div>
-      <div class="land-feat-card">
-        <div class="lfc-icon" style="--ic:#25d366;--ic-bg:#f0fdf4"><i class="fab fa-whatsapp"></i></div>
-        <div class="lfc-title">Integrasi WhatsApp</div>
-        <div class="lfc-desc">Kirim konfirmasi dan ucapan terima kasih langsung via WhatsApp dengan satu klik.</div>
-      </div>
-      <div class="land-feat-card">
-        <div class="lfc-icon" style="--ic:#8b5cf6;--ic-bg:#f5f3ff"><i class="fas fa-chart-line"></i></div>
-        <div class="lfc-title">Analisis Bisnis</div>
-        <div class="lfc-desc">Chart reservasi, menu terlaris, pelanggan setia, dan insight otomatis untuk keputusan lebih cerdas.</div>
-      </div>
-      <div class="land-feat-card">
-        <div class="lfc-icon" style="--ic:#0ea5e9;--ic-bg:#f0f9ff"><i class="fas fa-cloud"></i></div>
-        <div class="lfc-title">Cloud Real-Time</div>
-        <div class="lfc-desc">Data tersinkron via Firebase. Buka di HP, laptop, atau tablet - selalu up-to-date dan aman.</div>
-      </div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#3b82f6;--ic-bg:#eff6ff"><i class="fas fa-calendar-alt"></i></div><div class="lfc-title">Kalender Visual</div><div class="lfc-desc">Lihat semua reservasi dalam tampilan kalender interaktif. Deteksi hari sibuk seketika dengan indikator warna real-time.</div></div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#10b981;--ic-bg:#f0fdf4"><i class="fas fa-map-marker-alt"></i></div><div class="lfc-title">Manajemen Lokasi &amp; Slot</div><div class="lfc-desc">Kelola gazebo, meja, atau area dengan kapasitas dan jadwal masing-masing. Deteksi konflik otomatis.</div></div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#f59e0b;--ic-bg:#fffbeb"><i class="fas fa-book-open"></i></div><div class="lfc-title">Menu &amp; Paket</div><div class="lfc-desc">Atur paket menu dengan harga dan detail. Tampil vertikal di pesan konfirmasi dan laporan tim operasional.</div></div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#25d366;--ic-bg:#f0fdf4"><i class="fab fa-whatsapp"></i></div><div class="lfc-title">Integrasi WhatsApp</div><div class="lfc-desc">Kirim tagihan, konfirmasi DP, dan laporan harian tim langsung via WhatsApp dengan satu klik.</div></div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#8b5cf6;--ic-bg:#f5f3ff"><i class="fas fa-chart-line"></i></div><div class="lfc-title">Analisis Bisnis</div><div class="lfc-desc">Chart reservasi, menu terlaris, pelanggan setia, dan insight otomatis untuk keputusan lebih cerdas.</div></div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#0ea5e9;--ic-bg:#f0f9ff"><i class="fas fa-cloud"></i></div><div class="lfc-title">Cloud Real-Time</div><div class="lfc-desc">Data tersinkron via Firebase. Buka di HP, laptop, atau tablet - selalu up-to-date dan aman.</div></div>
     </div>
   </section>
 
@@ -442,14 +346,12 @@ console.log('[Firebase] module loaded.');
       <div class="pricing-card pricing-card-featured">
         <div class="pricing-badge-wrap"><div class="pricing-badge">Paling Populer</div></div>
         <div class="pricing-name">Pro Bulanan</div>
-        <div class="pricing-price">
-          <span class="pricing-currency">Rp</span><span class="pricing-amount">149.000</span>
-        </div>
+        <div class="pricing-price"><span class="pricing-currency">Rp</span><span class="pricing-amount">149.000</span></div>
         <div class="pricing-period">per bulan</div>
         <ul class="pricing-features">
           <li><i class="fas fa-check"></i> Semua fitur trial</li>
           <li><i class="fas fa-check"></i> Unlimited reservasi</li>
-          <li><i class="fas fa-check"></i> Backup & export data</li>
+          <li><i class="fas fa-check"></i> Backup &amp; export data</li>
           <li><i class="fas fa-check"></i> Broadcast promo WA</li>
           <li><i class="fas fa-check"></i> Prioritas support</li>
         </ul>
@@ -458,9 +360,7 @@ console.log('[Firebase] module loaded.');
       <div class="pricing-card">
         <div class="pricing-badge-wrap"><div class="pricing-badge pricing-badge-green">Hemat 22%</div></div>
         <div class="pricing-name">Pro Tahunan</div>
-        <div class="pricing-price">
-          <span class="pricing-currency">Rp</span><span class="pricing-amount">1.399.000</span>
-        </div>
+        <div class="pricing-price"><span class="pricing-currency">Rp</span><span class="pricing-amount">1.399.000</span></div>
         <div class="pricing-period">per tahun · setara Rp116rb/bln</div>
         <ul class="pricing-features">
           <li><i class="fas fa-check"></i> Semua fitur Pro Bulanan</li>
@@ -477,28 +377,24 @@ console.log('[Firebase] module loaded.');
   <footer class="land-footer">
     <div class="land-footer-inner">
       <div class="land-footer-logo">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="Proserva" onerror="this.style.display='none'"/>
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva" onerror="this.style.display='none'"/>
         <span>Proserva</span>
       </div>
-      <div class="land-footer-copy">&copy; 2025 Proserva &middot; Reservation Engine v5.5</div>
+      <div class="land-footer-copy">&copy; 2025 Proserva &middot; Reservation Engine v6.0</div>
     </div>
   </footer>
 </div><!-- /screen-landing -->
 
-<!-- ══════════════════════════════════════
-     SCREEN: AUTH
-     ══════════════════════════════════════ -->
+<!-- ══════════════════════════
+     AUTH SCREEN
+     ══════════════════════════ -->
 <div id="screen-auth" class="screen" aria-hidden="true">
   <div class="auth-split">
-
-    <!-- Kiri - branding -->
     <div class="auth-left">
       <div class="auth-left-inner">
         <div class="auth-brand">
           <div class="auth-brand-logo">
-            <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-              alt="Proserva" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
+            <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
           </div>
           <span class="auth-brand-name">Proserva</span>
         </div>
@@ -507,37 +403,29 @@ console.log('[Firebase] module loaded.');
           <div class="alp-item"><i class="fas fa-check-circle"></i><span>Trial gratis 14 hari, tanpa kartu kredit</span></div>
           <div class="alp-item"><i class="fas fa-check-circle"></i><span>Setup bisnis dalam 2 menit</span></div>
           <div class="alp-item"><i class="fas fa-check-circle"></i><span>Data tersimpan aman di cloud Firebase</span></div>
-          <div class="alp-item"><i class="fas fa-check-circle"></i><span>Konfirmasi &amp; broadcast via WhatsApp</span></div>
+          <div class="alp-item"><i class="fas fa-check-circle"></i><span>Tagihan, konfirmasi &amp; laporan via WhatsApp</span></div>
         </div>
       </div>
-      <div class="auth-left-deco">
-        <div class="ald-orb ald-orb-1"></div>
-        <div class="ald-orb ald-orb-2"></div>
-      </div>
+      <div class="auth-left-deco"><div class="ald-orb ald-orb-1"></div><div class="ald-orb ald-orb-2"></div></div>
     </div>
 
-    <!-- Kanan - form -->
     <div class="auth-right">
       <button type="button" class="auth-back-home" onclick="window.showScreen('landing')">
         <i class="fas fa-arrow-left"></i> Kembali
       </button>
-
       <div class="auth-tabs">
         <button type="button" class="auth-tab active" id="tab-login"    onclick="showAuthTab('login')">Masuk</button>
         <button type="button" class="auth-tab"        id="tab-register" onclick="showAuthTab('register')">Daftar</button>
       </div>
-
-      <!-- Feedback - <span> terpisah agar icon tidak terhapus -->
-      <div class="auth-error" id="auth-error" style="display:none" role="alert">
-        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
-        <span></span>
+      <!-- Span terpisah dari icon agar clearAuthErr() tidak menghapus icon -->
+      <div class="auth-error"   id="auth-error"   style="display:none" role="alert">
+        <i class="fas fa-exclamation-circle" aria-hidden="true"></i><span></span>
       </div>
       <div class="auth-success" id="auth-success" style="display:none" role="status">
-        <i class="fas fa-check-circle" aria-hidden="true"></i>
-        <span></span>
+        <i class="fas fa-check-circle" aria-hidden="true"></i><span></span>
       </div>
 
-      <!-- Login -->
+      <!-- Form Login -->
       <div id="form-login" class="auth-form active">
         <div class="auth-form-title">Selamat datang kembali</div>
         <div class="auth-form-sub">Masuk untuk melanjutkan ke dashboard</div>
@@ -545,8 +433,7 @@ console.log('[Firebase] module loaded.');
           <label class="af-label" for="login-email">Email</label>
           <div class="af-input-wrap">
             <i class="fas fa-envelope" aria-hidden="true"></i>
-            <input class="af-input" id="login-email" type="email"
-              placeholder="nama@email.com" autocomplete="email"
+            <input class="af-input" id="login-email" type="email" placeholder="nama@email.com" autocomplete="email"
               onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"/>
           </div>
         </div>
@@ -557,22 +444,18 @@ console.log('[Firebase] module loaded.');
           </div>
           <div class="af-input-wrap">
             <i class="fas fa-lock" aria-hidden="true"></i>
-            <input class="af-input" id="login-pass" type="password"
-              placeholder="Masukkan password" autocomplete="current-password"
-              onkeydown="if(event.key==='Enter')window.doLogin?.()"/>
+            <input class="af-input" id="login-pass" type="password" placeholder="Masukkan password"
+              autocomplete="current-password" onkeydown="if(event.key==='Enter')window.doLogin?.()"/>
             <button type="button" class="af-eye" onclick="togglePass('login-pass',this)" aria-label="Tampilkan password">
               <i class="fas fa-eye"></i>
             </button>
           </div>
         </div>
         <button type="button" class="af-btn" id="btn-login" onclick="window.doLogin?.()">Masuk</button>
-        <div class="af-switch">
-          Belum punya akun?
-          <button type="button" onclick="showAuthTab('register')">Daftar gratis</button>
-        </div>
+        <div class="af-switch">Belum punya akun? <button type="button" onclick="showAuthTab('register')">Daftar gratis</button></div>
       </div>
 
-      <!-- Register -->
+      <!-- Form Register -->
       <div id="form-register" class="auth-form">
         <div class="auth-form-title">Buat akun baru</div>
         <div class="auth-form-sub">Trial gratis 14 hari, tanpa kartu kredit</div>
@@ -580,8 +463,7 @@ console.log('[Firebase] module loaded.');
           <label class="af-label" for="reg-name">Nama Lengkap</label>
           <div class="af-input-wrap">
             <i class="fas fa-user" aria-hidden="true"></i>
-            <input class="af-input" id="reg-name" type="text"
-              placeholder="Nama lengkap Anda" autocomplete="name"
+            <input class="af-input" id="reg-name" type="text" placeholder="Nama lengkap Anda" autocomplete="name"
               onkeydown="if(event.key==='Enter')document.getElementById('reg-email').focus()"/>
           </div>
         </div>
@@ -589,8 +471,7 @@ console.log('[Firebase] module loaded.');
           <label class="af-label" for="reg-email">Email</label>
           <div class="af-input-wrap">
             <i class="fas fa-envelope" aria-hidden="true"></i>
-            <input class="af-input" id="reg-email" type="email"
-              placeholder="nama@email.com" autocomplete="email"
+            <input class="af-input" id="reg-email" type="email" placeholder="nama@email.com" autocomplete="email"
               onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()"/>
           </div>
         </div>
@@ -598,9 +479,8 @@ console.log('[Firebase] module loaded.');
           <label class="af-label" for="reg-pass">Password</label>
           <div class="af-input-wrap">
             <i class="fas fa-lock" aria-hidden="true"></i>
-            <input class="af-input" id="reg-pass" type="password"
-              placeholder="Minimal 6 karakter" autocomplete="new-password"
-              onkeydown="if(event.key==='Enter')document.getElementById('reg-pass2').focus()"/>
+            <input class="af-input" id="reg-pass" type="password" placeholder="Minimal 6 karakter"
+              autocomplete="new-password" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass2').focus()"/>
             <button type="button" class="af-eye" onclick="togglePass('reg-pass',this)" aria-label="Tampilkan password">
               <i class="fas fa-eye"></i>
             </button>
@@ -610,27 +490,19 @@ console.log('[Firebase] module loaded.');
           <label class="af-label" for="reg-pass2">Konfirmasi Password</label>
           <div class="af-input-wrap">
             <i class="fas fa-lock" aria-hidden="true"></i>
-            <input class="af-input" id="reg-pass2" type="password"
-              placeholder="Ulangi password" autocomplete="new-password"
-              onkeydown="if(event.key==='Enter')window.doRegister?.()"/>
+            <input class="af-input" id="reg-pass2" type="password" placeholder="Ulangi password"
+              autocomplete="new-password" onkeydown="if(event.key==='Enter')window.doRegister?.()"/>
             <button type="button" class="af-eye" onclick="togglePass('reg-pass2',this)" aria-label="Tampilkan password">
               <i class="fas fa-eye"></i>
             </button>
           </div>
         </div>
-        <div class="af-tos">
-          Dengan mendaftar, kamu menyetujui
-          <a href="#" onclick="return false">Syarat &amp; Ketentuan</a> dan
-          <a href="#" onclick="return false">Kebijakan Privasi</a> Proserva.
-        </div>
+        <div class="af-tos">Dengan mendaftar, kamu menyetujui <a href="#" onclick="return false">Syarat &amp; Ketentuan</a> dan <a href="#" onclick="return false">Kebijakan Privasi</a> Proserva.</div>
         <button type="button" class="af-btn" id="btn-register" onclick="window.doRegister?.()">Daftar Sekarang</button>
-        <div class="af-switch">
-          Sudah punya akun?
-          <button type="button" onclick="showAuthTab('login')">Masuk</button>
-        </div>
+        <div class="af-switch">Sudah punya akun? <button type="button" onclick="showAuthTab('login')">Masuk</button></div>
       </div>
 
-      <!-- Reset Password -->
+      <!-- Form Reset Password -->
       <div id="form-reset" class="auth-form">
         <div class="auth-form-title">Reset Password</div>
         <div class="auth-form-sub">Kami akan kirim link reset ke email kamu</div>
@@ -638,8 +510,7 @@ console.log('[Firebase] module loaded.');
           <label class="af-label" for="reset-email">Email</label>
           <div class="af-input-wrap">
             <i class="fas fa-envelope" aria-hidden="true"></i>
-            <input class="af-input" id="reset-email" type="email"
-              placeholder="nama@email.com"
+            <input class="af-input" id="reset-email" type="email" placeholder="nama@email.com"
               onkeydown="if(event.key==='Enter')window.doResetPassword?.()"/>
           </div>
         </div>
@@ -647,27 +518,22 @@ console.log('[Firebase] module loaded.');
           <i class="fas fa-paper-plane"></i> Kirim Link Reset
         </button>
         <div class="af-switch">
-          <button type="button" onclick="showAuthTab('login')">
-            <i class="fas fa-arrow-left"></i> Kembali ke Login
-          </button>
+          <button type="button" onclick="showAuthTab('login')"><i class="fas fa-arrow-left"></i> Kembali ke Login</button>
         </div>
       </div>
-
     </div><!-- /auth-right -->
   </div><!-- /auth-split -->
 </div><!-- /screen-auth -->
 
-<!-- ══════════════════════════════════════
-     SCREEN: PAYWALL
-     ══════════════════════════════════════ -->
+<!-- ══════════════════════════
+     PAYWALL SCREEN
+     ══════════════════════════ -->
 <div id="screen-paywall" class="screen" aria-hidden="true">
   <div class="paywall-wrap">
     <div class="paywall-card">
       <div class="paywall-icon"><i class="fas fa-lock" aria-hidden="true"></i></div>
       <h2 class="paywall-title">Trial Kamu Telah Berakhir</h2>
-      <p class="paywall-sub">
-        Data kamu aman dan tersimpan. Pilih paket untuk melanjutkan akses penuh ke Proserva.
-      </p>
+      <p class="paywall-sub">Data kamu aman dan tersimpan. Pilih paket untuk melanjutkan akses penuh ke Proserva.</p>
       <div class="paywall-notice">
         <i class="fas fa-info-circle" aria-hidden="true"></i>
         Kamu bisa tetap <strong>melihat data</strong> tanpa mengedit.
@@ -676,11 +542,7 @@ console.log('[Firebase] module loaded.');
       <div class="paywall-plans">
         <div class="pp-card">
           <div class="pp-name">Pro Bulanan</div>
-          <div class="pp-price">
-            <span class="pp-rp">Rp</span>
-            <span class="pp-amount">149.000</span>
-            <span class="pp-period">/bulan</span>
-          </div>
+          <div class="pp-price"><span class="pp-rp">Rp</span><span class="pp-amount">149.000</span><span class="pp-period">/bulan</span></div>
           <button type="button" class="pp-btn" id="btn-pay-monthly" onclick="initiatePayment('monthly')">
             <i class="fas fa-credit-card"></i> Bayar Sekarang
           </button>
@@ -688,11 +550,7 @@ console.log('[Firebase] module loaded.');
         <div class="pp-card pp-card-featured">
           <div class="pp-badge">Hemat 22%</div>
           <div class="pp-name">Pro Tahunan</div>
-          <div class="pp-price">
-            <span class="pp-rp">Rp</span>
-            <span class="pp-amount">1.399.000</span>
-            <span class="pp-period">/tahun</span>
-          </div>
+          <div class="pp-price"><span class="pp-rp">Rp</span><span class="pp-amount">1.399.000</span><span class="pp-period">/tahun</span></div>
           <div class="pp-note">Setara Rp116.583/bulan</div>
           <button type="button" class="pp-btn pp-btn-primary" id="btn-pay-yearly" onclick="initiatePayment('yearly')">
             <i class="fas fa-crown"></i> Pilih Tahunan
@@ -700,11 +558,6 @@ console.log('[Firebase] module loaded.');
         </div>
       </div>
       <div class="paywall-actions">
-        <!--
-          enterReadOnlyMode hanya ada di sini.
-          Data sudah ter-load oleh _onAuthReady sebelum redirect ke paywall.
-          Jadi kalender tidak akan kosong saat masuk read-only mode.
-        -->
         <button type="button" class="paywall-readonly-btn" onclick="enterReadOnlyMode()">
           <i class="fas fa-eye"></i> Lihat Data (Mode Baca Saja)
         </button>
@@ -716,27 +569,21 @@ console.log('[Firebase] module loaded.');
   </div>
 </div><!-- /screen-paywall -->
 
-<!-- ══════════════════════════════════════
-     SCREEN: WIZARD (Setup Bisnis)
-     ══════════════════════════════════════ -->
+<!-- ══════════════════════════
+     WIZARD SCREEN
+     ══════════════════════════ -->
 <div id="screen-wizard" class="screen" aria-hidden="true">
-  <div class="wz-bg">
-    <div class="wz-orb wz-orb-1"></div>
-    <div class="wz-orb wz-orb-2"></div>
-  </div>
+  <div class="wz-bg"><div class="wz-orb wz-orb-1"></div><div class="wz-orb wz-orb-2"></div></div>
 
   <!-- Step 1: Info Bisnis -->
   <div class="wizard-step active" id="wz-1">
     <div class="wizard-card">
       <div class="wz-logo">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
       </div>
       <div class="wz-steps">
-        <div class="wz-step-dot active">1</div>
-        <div class="wz-step-line"></div>
-        <div class="wz-step-dot">2</div>
-        <div class="wz-step-line"></div>
+        <div class="wz-step-dot active">1</div><div class="wz-step-line"></div>
+        <div class="wz-step-dot">2</div><div class="wz-step-line"></div>
         <div class="wz-step-dot">3</div>
       </div>
       <div class="wz-eyebrow">Langkah 1 dari 3</div>
@@ -746,8 +593,7 @@ console.log('[Firebase] module loaded.');
         <label for="wz-biz-name">Nama Usaha <span class="req">*</span></label>
         <div class="wz-input-wrap">
           <i class="fas fa-store" aria-hidden="true"></i>
-          <input class="wz-input" id="wz-biz-name" type="text"
-            placeholder="Contoh: Warung Sawah Indah"
+          <input class="wz-input" id="wz-biz-name" type="text" placeholder="Contoh: Warung Sawah Indah"
             onkeydown="if(event.key==='Enter')window.wzNext?.(2)"/>
         </div>
       </div>
@@ -775,14 +621,11 @@ console.log('[Firebase] module loaded.');
   <div class="wizard-step" id="wz-2">
     <div class="wizard-card wizard-card-wide">
       <div class="wz-logo">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
       </div>
       <div class="wz-steps">
-        <div class="wz-step-dot done"><i class="fas fa-check" aria-hidden="true"></i></div>
-        <div class="wz-step-line done"></div>
-        <div class="wz-step-dot active">2</div>
-        <div class="wz-step-line"></div>
+        <div class="wz-step-dot done"><i class="fas fa-check" aria-hidden="true"></i></div><div class="wz-step-line done"></div>
+        <div class="wz-step-dot active">2</div><div class="wz-step-line"></div>
         <div class="wz-step-dot">3</div>
       </div>
       <div class="wz-eyebrow">Langkah 2 dari 3</div>
@@ -794,14 +637,12 @@ console.log('[Firebase] module loaded.');
       <div class="wz-inline">
         <div class="wz-input-wrap">
           <i class="fas fa-map-pin" aria-hidden="true"></i>
-          <input class="wz-input" id="wz-loc-name" type="text"
-            placeholder="Nama (Gazebo A, VIP Room...)"
+          <input class="wz-input" id="wz-loc-name" type="text" placeholder="Nama (Gazebo A, VIP Room...)"
             onkeydown="if(event.key==='Enter')document.getElementById('wz-loc-cap').focus()"/>
         </div>
         <div class="wz-input-wrap sm">
           <i class="fas fa-users" aria-hidden="true"></i>
-          <input class="wz-input" id="wz-loc-cap" type="number" min="1"
-            placeholder="Kapasitas"
+          <input class="wz-input" id="wz-loc-cap" type="number" min="1" placeholder="Kapasitas"
             onkeydown="if(event.key==='Enter')window.wzAddLoc?.()"/>
         </div>
         <button type="button" class="wz-btn-add" onclick="window.wzAddLoc?.()">
@@ -824,14 +665,11 @@ console.log('[Firebase] module loaded.');
   <div class="wizard-step" id="wz-3">
     <div class="wizard-card wizard-card-wide">
       <div class="wz-logo">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="" onerror="this.parentNode.style.background='#e8630a';this.style.display='none'"/>
       </div>
       <div class="wz-steps">
-        <div class="wz-step-dot done"><i class="fas fa-check" aria-hidden="true"></i></div>
-        <div class="wz-step-line done"></div>
-        <div class="wz-step-dot done"><i class="fas fa-check" aria-hidden="true"></i></div>
-        <div class="wz-step-line done"></div>
+        <div class="wz-step-dot done"><i class="fas fa-check" aria-hidden="true"></i></div><div class="wz-step-line done"></div>
+        <div class="wz-step-dot done"><i class="fas fa-check" aria-hidden="true"></i></div><div class="wz-step-line done"></div>
         <div class="wz-step-dot active">3</div>
       </div>
       <div class="wz-eyebrow">Langkah 3 dari 3</div>
@@ -841,22 +679,19 @@ console.log('[Firebase] module loaded.');
       <div class="wz-field">
         <div class="wz-input-wrap">
           <i class="fas fa-bowl-food" aria-hidden="true"></i>
-          <input class="wz-input" id="wz-menu-name" type="text"
-            placeholder="Nama paket (Paket Keluarga...)"
+          <input class="wz-input" id="wz-menu-name" type="text" placeholder="Nama paket (Paket Keluarga...)"
             onkeydown="if(event.key==='Enter')document.getElementById('wz-menu-price').focus()"/>
         </div>
       </div>
       <div class="wz-form-row2">
         <div class="wz-input-wrap">
           <span class="wz-rp">Rp</span>
-          <input class="wz-input" id="wz-menu-price" type="number" min="0"
-            placeholder="Harga" style="padding-left:36px"
-            onkeydown="if(event.key==='Enter')document.getElementById('wz-menu-detail').focus()"/>
+          <input class="wz-input" id="wz-menu-price" type="number" min="0" placeholder="Harga"
+            style="padding-left:36px" onkeydown="if(event.key==='Enter')document.getElementById('wz-menu-detail').focus()"/>
         </div>
         <div class="wz-input-wrap">
           <i class="fas fa-list" aria-hidden="true"></i>
-          <input class="wz-input" id="wz-menu-detail" type="text"
-            placeholder="Detail (pisahkan koma)"
+          <input class="wz-input" id="wz-menu-detail" type="text" placeholder="Detail (pisahkan koma)"
             onkeydown="if(event.key==='Enter')window.wzAddMenu?.()"/>
         </div>
       </div>
@@ -876,16 +711,17 @@ console.log('[Firebase] module loaded.');
   </div>
 </div><!-- /screen-wizard -->
 
-<!-- ══════════════════════════════════════
+<!-- ═══════════════════════════════════════════════════
+     SAMBUNGAN: Lanjutkan dengan index_part2.html
+     Paste Part 2 langsung di bawah baris ini
+     ═══════════════════════════════════════════════════ -->
+
+<!-- ══════════════════════════════════════════════════════
      APP SHELL
-     ══════════════════════════════════════ -->
+     ══════════════════════════════════════════════════════ -->
 <div id="app-shell" style="display:none" aria-hidden="true">
 
-  <!--
-    Banner: hanya satu yang tampil pada satu waktu.
-    Dikelola oleh applyAccountUI() di app.js.
-    has-banner class pada app-shell diset bersamaan.
-  -->
+  <!-- Banners - hanya satu yang tampil, dikontrol applyAccountUI() -->
   <div id="readonly-banner" style="display:none" role="status">
     <i class="fas fa-lock" aria-hidden="true"></i>
     <span>Mode Baca Saja - Trial telah berakhir.</span>
@@ -893,16 +729,16 @@ console.log('[Firebase] module loaded.');
       <i class="fas fa-crown"></i> Aktifkan Sekarang
     </button>
   </div>
-
   <div id="trial-banner" style="display:none" role="status">
     <i class="fas fa-clock" aria-hidden="true"></i>
     <span id="trial-banner-text">Trial kamu berakhir dalam X hari.</span>
+    <!-- UX #6: tanggal eksplisit mengurangi anxiety user -->
+    <span id="trial-banner-date" style="opacity:.8;font-size:.75rem;margin-left:4px"></span>
     <button type="button" onclick="window.showScreen('paywall')">
-      <i class="fas fa-crown"></i> Upgrade Sekarang
+      <i class="fas fa-crown"></i> Upgrade
     </button>
     <button type="button" class="tb-close" aria-label="Tutup banner"
-      onclick="document.getElementById('trial-banner').style.display='none';
-               document.getElementById('app-shell').classList.remove('has-banner')">
+      onclick="this.closest('#trial-banner').style.display='none';document.getElementById('app-shell').classList.remove('has-banner')">
       <i class="fas fa-times"></i>
     </button>
   </div>
@@ -911,8 +747,7 @@ console.log('[Firebase] module loaded.');
   <aside id="sidebar" role="navigation" aria-label="Navigasi utama">
     <div class="brand">
       <div class="brand-icon">
-        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png"
-          alt="Proserva"
+        <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva"
           onerror="this.parentNode.style.background='#e8630a';this.style.display='none';this.parentNode.innerHTML='<span style=\'color:#fff;font-size:14px;font-weight:700\'>P</span>'"/>
       </div>
       <div>
@@ -920,8 +755,6 @@ console.log('[Firebase] module loaded.');
         <div class="brand-sub">Reservation Engine</div>
       </div>
     </div>
-
-    <!-- Info user -->
     <div class="sidebar-user">
       <div class="sidebar-user-avatar-fallback" id="sb-avatar-fallback" aria-hidden="true">?</div>
       <div class="sidebar-user-info">
@@ -929,57 +762,27 @@ console.log('[Firebase] module loaded.');
         <div class="sidebar-user-email" id="sb-user-email">-</div>
       </div>
     </div>
-
-    <!-- Status akun (trial/aktif/expired) -->
     <div id="sb-account-status" class="sb-status" role="status"></div>
-
-    <!-- Nama bisnis -->
     <div class="sidebar-biz" id="sb-biz-name">-</div>
-
-    <!-- Nav items -->
     <nav class="sidebar-nav">
       <div class="nav-group">Utama</div>
-      <div class="nav-item active" data-view="calendar" onclick="showView('calendar')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-calendar-alt" aria-hidden="true"></i></span>
-        <span class="nav-label">Kalender</span>
-      </div>
-      <div class="nav-item" data-view="customers" onclick="showView('customers')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-users" aria-hidden="true"></i></span>
-        <span class="nav-label">Pelanggan</span>
-      </div>
-      <div class="nav-item" data-view="analysis" onclick="showView('analysis')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-chart-line" aria-hidden="true"></i></span>
-        <span class="nav-label">Analisis</span>
-      </div>
-      <div class="nav-item" data-view="broadcast" onclick="showView('broadcast')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-bullhorn" aria-hidden="true"></i></span>
-        <span class="nav-label">Broadcast</span>
-      </div>
-
+      <div class="nav-item active" data-view="calendar"  onclick="showView('calendar')"  role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-calendar-alt" aria-hidden="true"></i></span><span class="nav-label">Kalender</span></div>
+      <div class="nav-item"        data-view="customers" onclick="showView('customers')" role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-users" aria-hidden="true"></i></span><span class="nav-label">Pelanggan</span></div>
+      <div class="nav-item"        data-view="analysis"  onclick="showView('analysis')"  role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-chart-line" aria-hidden="true"></i></span><span class="nav-label">Analisis</span></div>
+      <div class="nav-item"        data-view="broadcast" onclick="showView('broadcast')" role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-bullhorn" aria-hidden="true"></i></span><span class="nav-label">Broadcast</span></div>
       <div class="nav-group" style="margin-top:12px">Pengaturan</div>
-      <div class="nav-item" data-view="menus" onclick="showView('menus')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-book-open" aria-hidden="true"></i></span>
-        <span class="nav-label">Menu &amp; Paket</span>
-      </div>
-      <div class="nav-item" data-view="locations" onclick="showView('locations')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-map-marker-alt" aria-hidden="true"></i></span>
-        <span class="nav-label">Lokasi</span>
-      </div>
-      <div class="nav-item" data-view="settings" onclick="showView('settings')" role="button" tabindex="0">
-        <span class="nav-icon"><i class="fas fa-sliders" aria-hidden="true"></i></span>
-        <span class="nav-label">Pengaturan</span>
-      </div>
+      <div class="nav-item" data-view="menus"     onclick="showView('menus')"     role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-book-open" aria-hidden="true"></i></span><span class="nav-label">Menu &amp; Paket</span></div>
+      <div class="nav-item" data-view="locations" onclick="showView('locations')" role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-map-marker-alt" aria-hidden="true"></i></span><span class="nav-label">Lokasi</span></div>
+      <div class="nav-item" data-view="settings"  onclick="showView('settings')"  role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-sliders" aria-hidden="true"></i></span><span class="nav-label">Pengaturan</span></div>
     </nav>
-
     <div class="sidebar-footer">
-      <button type="button" class="btn-upgrade" id="sb-upgrade-btn"
-        onclick="window.showScreen('paywall')" style="display:none">
+      <button type="button" class="btn-upgrade" id="sb-upgrade-btn" onclick="window.showScreen('paywall')" style="display:none">
         <i class="fas fa-crown"></i> Upgrade ke Pro
       </button>
       <button type="button" class="btn-signout" onclick="doSignOut()">
         <i class="fas fa-sign-out-alt"></i> Keluar
       </button>
-      <div class="sidebar-ver">Proserva v5.5 &middot; Firebase</div>
+      <div class="sidebar-ver">Proserva v6.0 &middot; Firebase</div>
     </div>
   </aside>
 
@@ -992,10 +795,7 @@ console.log('[Firebase] module loaded.');
       <span class="topbar-page" id="topbar-page">Kalender</span>
     </div>
     <div class="topbar-actions">
-      <!-- Notifikasi -->
-      <div class="tb-btn icon-only" id="notif-btn"
-        onclick="toggleNotif(event)" role="button" tabindex="0"
-        aria-label="Notifikasi" style="position:relative">
+      <div class="tb-btn icon-only" id="notif-btn" onclick="toggleNotif(event)" role="button" tabindex="0" aria-label="Notifikasi" style="position:relative">
         <i class="fas fa-bell" aria-hidden="true"></i>
         <span class="notif-dot" id="notif-dot" style="display:none" aria-hidden="true"></span>
         <div id="notif-dd" role="dialog" aria-label="Pengingat Terima Kasih">
@@ -1003,84 +803,63 @@ console.log('[Firebase] module loaded.');
           <div id="notif-list"><div class="nd-empty">Semua sudah beres!</div></div>
         </div>
       </div>
-      <!-- Export -->
       <button type="button" class="tb-btn" onclick="handleExport()">
-        <i class="fas fa-upload" aria-hidden="true"></i>
-        <span class="btn-label">Export</span>
+        <i class="fas fa-upload" aria-hidden="true"></i><span class="btn-label">Export</span>
       </button>
-      <!-- Tambah Reservasi -->
       <button type="button" class="tb-btn tb-btn-accent" id="btn-add-res" onclick="openAddRes()">
-        <i class="fas fa-plus" aria-hidden="true"></i>
-        <span class="btn-label">Reservasi Baru</span>
+        <i class="fas fa-plus" aria-hidden="true"></i><span class="btn-label">Reservasi Baru</span>
       </button>
     </div>
   </header>
 
-  <!-- Content Area -->
+  <!-- ═══════════════════════════════
+       CONTENT AREA
+       ═══════════════════════════════ -->
   <main id="content" role="main">
 
-    <!-- ── VIEW: Kalender ───────────────────────────────────── -->
+    <!-- VIEW: Kalender -->
     <section id="view-calendar" class="view active-view">
       <div class="view-header">
         <div>
           <h1 class="view-title" id="cal-title">Dashboard Reservasi</h1>
-          <p class="view-sub"  id="cal-sub">Kelola semua reservasi dengan mudah</p>
+          <p class="view-sub"   id="cal-sub">Kelola semua reservasi dengan mudah</p>
         </div>
         <div class="cal-nav">
-          <button type="button" class="cal-arrow" onclick="navMonth(-1)" aria-label="Bulan sebelumnya">
-            <i class="fas fa-chevron-left" aria-hidden="true"></i>
-          </button>
+          <button type="button" class="cal-arrow" onclick="navMonth(-1)" aria-label="Bulan sebelumnya"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
           <span class="cal-month" id="cal-month-label">-</span>
-          <button type="button" class="cal-arrow" onclick="navMonth(1)" aria-label="Bulan berikutnya">
-            <i class="fas fa-chevron-right" aria-hidden="true"></i>
-          </button>
+          <button type="button" class="cal-arrow" onclick="navMonth(1)"  aria-label="Bulan berikutnya"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
           <button type="button" class="btn-today" onclick="goToday()">Hari Ini</button>
         </div>
       </div>
-
-      <!-- Stats row -->
       <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-icon si-ac"><i class="fas fa-calendar-check" aria-hidden="true"></i></div>
-          <div class="stat-val" id="st-total">0</div>
-          <div class="stat-lbl">Reservasi Bulan Ini</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon si-g"><i class="fas fa-users" aria-hidden="true"></i></div>
-          <div class="stat-val" id="st-pax">0</div>
-          <div class="stat-lbl">Total Tamu</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon si-b"><i class="fas fa-money-bill-wave" aria-hidden="true"></i></div>
-          <div class="stat-val" id="st-dp">Rp0</div>
-          <div class="stat-lbl">Omzet DP</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon si-y"><i class="fas fa-fire" aria-hidden="true"></i></div>
-          <div class="stat-val" id="st-busy">-</div>
-          <div class="stat-lbl">Hari Tersibuk</div>
-        </div>
+        <div class="stat-card"><div class="stat-icon si-ac"><i class="fas fa-calendar-check" aria-hidden="true"></i></div><div class="stat-val" id="st-total">0</div><div class="stat-lbl">Reservasi Bulan Ini</div></div>
+        <div class="stat-card"><div class="stat-icon si-g"><i class="fas fa-users" aria-hidden="true"></i></div><div class="stat-val" id="st-pax">0</div><div class="stat-lbl">Total Tamu</div></div>
+        <div class="stat-card"><div class="stat-icon si-b"><i class="fas fa-money-bill-wave" aria-hidden="true"></i></div><div class="stat-val" id="st-dp">Rp0</div><div class="stat-lbl">Omzet DP</div></div>
+        <div class="stat-card"><div class="stat-icon si-y"><i class="fas fa-fire" aria-hidden="true"></i></div><div class="stat-val" id="st-busy">-</div><div class="stat-lbl">Hari Tersibuk</div></div>
       </div>
-
-      <!-- Kalender grid -->
       <div class="cal-card">
         <div class="cal-weekdays" aria-hidden="true">
-          <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div>
-          <div>Kam</div><div>Jum</div><div>Sab</div>
+          <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
         </div>
-        <!--
-          cal-loading: tampil saat fetch bulan baru dari Firestore (lazy load)
-          cal-days   : grid tanggal, diisi oleh renderCalendar()
-        -->
+        <!-- UX #2: loading state saat fetch Firestore per bulan -->
         <div id="cal-loading" class="cal-loading" style="display:none" aria-live="polite">
           <div class="cal-loading-spinner"></div>
-          <span>Memuat data...</span>
+          <span>Memuat data bulan ini...</span>
         </div>
         <div class="cal-grid" id="cal-days" aria-label="Kalender reservasi"></div>
+        <!-- UX #1: empty state dengan CTA jelas, bukan kalender kosong -->
+        <div id="cal-empty" class="cal-empty-state" style="display:none">
+          <div class="ces-icon">📅</div>
+          <div class="ces-title">Belum ada reservasi bulan ini</div>
+          <div class="ces-sub">Klik tanggal mana saja untuk mulai tambah reservasi pertama kamu</div>
+          <button type="button" class="ces-btn" onclick="openAddRes()">
+            <i class="fas fa-plus"></i> Tambah Reservasi Sekarang
+          </button>
+        </div>
       </div>
     </section>
 
-    <!-- ── VIEW: Detail Tanggal ─────────────────────────────── -->
+    <!-- VIEW: Detail Tanggal -->
     <div id="view-detail" class="view">
       <div class="detail-header">
         <button type="button" class="back-btn" onclick="backToCal()">
@@ -1092,12 +871,11 @@ console.log('[Firebase] module loaded.');
         <div class="detail-actions">
           <div class="search-wrap">
             <i class="fas fa-search" aria-hidden="true"></i>
-            <input class="search-input" id="detail-search"
-              type="search" placeholder="Cari reservasi..."
-              oninput="filterDetail(this.value)" style="min-width:170px"
-              aria-label="Cari reservasi"/>
+            <input class="search-input" id="detail-search" type="search" placeholder="Cari reservasi..."
+              oninput="filterDetail(this.value)" style="min-width:170px" aria-label="Cari reservasi"/>
           </div>
-          <button type="button" class="icon-btn" onclick="shareWA('day')" title="Share ke WhatsApp">
+          <!-- UX: share membuka modal preview dulu, bukan langsung WA -->
+          <button type="button" class="icon-btn" onclick="openShareModal()" title="Bagikan laporan ke WhatsApp">
             <i class="fab fa-whatsapp" aria-hidden="true"></i>
           </button>
           <button type="button" class="icon-btn" onclick="showPrintOpts()" title="Cetak">
@@ -1108,144 +886,103 @@ console.log('[Firebase] module loaded.');
           </button>
         </div>
       </div>
-
-      <!-- Availability bar per lokasi -->
       <div id="avail-bar" class="avail-bar" aria-label="Ketersediaan lokasi"></div>
-
-      <!--
-        detail-loading: tampil saat data hari ini sedang diambil
-        detail-list   : kartu-kartu reservasi
-      -->
+      <!-- UX #2: loading state detail -->
       <div id="detail-loading" class="detail-loading" style="display:none" aria-live="polite">
         <div class="cal-loading-spinner"></div>
         <span>Memuat reservasi...</span>
       </div>
       <div id="detail-list" class="res-grid" aria-live="polite"></div>
+      <!-- UX #3: FAB tombol tambah - mudah dijangkau di mobile -->
+      <button type="button" class="fab-add-res" id="fab-add-res" onclick="openAddRes()" aria-label="Tambah Reservasi">
+        <i class="fas fa-plus" aria-hidden="true"></i>
+      </button>
     </div>
 
-    <!-- ── VIEW: Menu & Paket ───────────────────────────────── -->
+    <!-- VIEW: Menu & Paket -->
     <div id="view-menus" class="view">
       <div class="view-header">
-        <div>
-          <h1 class="view-title">Menu &amp; Paket</h1>
-          <p class="view-sub">Kelola semua paket yang tersedia</p>
-        </div>
+        <div><h1 class="view-title">Menu &amp; Paket</h1><p class="view-sub">Kelola semua paket yang tersedia</p></div>
         <button type="button" class="btn btn-accent" onclick="openMenuModal()">
           <i class="fas fa-plus" aria-hidden="true"></i> Tambah Menu
         </button>
       </div>
-      <div class="data-card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead>
-              <tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr>
-            </thead>
-            <tbody id="menus-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="data-card"><div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Nama Menu</th><th>Harga</th><th>Detail</th><th>Aksi</th></tr></thead>
+          <tbody id="menus-tbody"></tbody>
+        </table>
+      </div></div>
     </div>
 
-    <!-- ── VIEW: Lokasi ─────────────────────────────────────── -->
+    <!-- VIEW: Lokasi -->
     <div id="view-locations" class="view">
       <div class="view-header">
-        <div>
-          <h1 class="view-title">Manajemen Lokasi</h1>
-          <p class="view-sub">Atur tempat duduk, gazebo, atau area reservasi</p>
-        </div>
+        <div><h1 class="view-title">Manajemen Lokasi</h1><p class="view-sub">Atur tempat duduk, gazebo, atau area reservasi</p></div>
         <button type="button" class="btn btn-accent" onclick="openLocModal()">
           <i class="fas fa-plus" aria-hidden="true"></i> Tambah Lokasi
         </button>
       </div>
-      <div class="data-card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Nama</th><th>Kapasitas</th><th>Min. Tamu</th>
-                <th>Durasi Default</th><th>Buffer</th><th>Jam Operasional</th><th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="locations-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="data-card"><div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Nama</th><th>Kapasitas</th><th>Min. Tamu</th><th>Durasi Default</th><th>Buffer</th><th>Jam Operasional</th><th>Aksi</th></tr></thead>
+          <tbody id="locations-tbody"></tbody>
+        </table>
+      </div></div>
     </div>
 
-    <!-- ── VIEW: Pelanggan ──────────────────────────────────── -->
+    <!-- VIEW: Pelanggan -->
     <div id="view-customers" class="view">
       <div class="view-header">
-        <div>
-          <h1 class="view-title">Data Pelanggan</h1>
-          <p class="view-sub">Semua tamu yang pernah melakukan reservasi</p>
-        </div>
+        <div><h1 class="view-title">Data Pelanggan</h1><p class="view-sub">Semua tamu yang pernah melakukan reservasi</p></div>
         <div class="search-wrap">
           <i class="fas fa-search" aria-hidden="true"></i>
-          <input class="search-input" id="cust-search" type="search"
-            placeholder="Cari nama atau HP..."
-            oninput="filterCustomers(this.value)"
-            aria-label="Cari pelanggan"/>
+          <input class="search-input" id="cust-search" type="search" placeholder="Cari nama atau HP..."
+            oninput="filterCustomers(this.value)" aria-label="Cari pelanggan"/>
         </div>
       </div>
-      <div class="data-card">
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Nama</th><th>Nomor HP</th>
-                <th>Total Kunjungan</th><th>Terakhir Visit</th><th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="customers-tbody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="data-card"><div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Nama</th><th>Nomor HP</th><th>Total Kunjungan</th><th>Terakhir Visit</th><th>Aksi</th></tr></thead>
+          <tbody id="customers-tbody"></tbody>
+        </table>
+      </div></div>
     </div>
 
-    <!-- ── VIEW: Analisis ───────────────────────────────────── -->
+    <!-- VIEW: Analisis -->
     <div id="view-analysis" class="view">
       <div class="view-header">
-        <div>
-          <h1 class="view-title">Analisis Bisnis</h1>
-          <p class="view-sub">Wawasan mendalam performa reservasi Anda</p>
-        </div>
+        <div><h1 class="view-title">Analisis Bisnis</h1><p class="view-sub">Wawasan mendalam performa reservasi Anda</p></div>
         <div style="display:flex;gap:7px;align-items:center">
           <select class="form-select-sm" id="anl-year"  onchange="runAnalysis()" aria-label="Pilih tahun"></select>
           <select class="form-select-sm" id="anl-month" style="width:155px" onchange="runAnalysis()" aria-label="Pilih bulan"></select>
-          <!--
-            Tombol load-all: memuat semua bulan dari Firestore untuk analisis lengkap.
-            Akan dikontrol visibility-nya oleh app.js sesuai konteks.
-          -->
           <button type="button" class="btn btn-ghost btn-sm" id="anl-load-all-btn"
             onclick="loadAllResForAnalysis()" style="display:none"
             title="Muat semua data dari cloud untuk analisis lengkap">
-            <i class="fas fa-cloud-download-alt"></i>
+            <i class="fas fa-cloud-download-alt" aria-hidden="true"></i>
             <span class="btn-label">Muat Semua</span>
           </button>
         </div>
+      </div>
+      <!-- UX #8: hint lazy load yang jelas -->
+      <div id="anl-lazy-hint" class="anl-lazy-hint" style="display:none">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+        Data analisis berdasarkan bulan yang sudah dibuka.
+        Klik <strong>Muat Semua</strong> untuk analisis lengkap dari semua periode.
       </div>
       <div class="anl-stats" id="anl-stats"></div>
       <div class="chart-card"><canvas id="anl-chart"></canvas></div>
       <div class="insight-card" id="anl-insight"></div>
       <div class="anl-bottom">
-        <div class="data-card">
-          <div class="data-card-head"><i class="fas fa-crown" aria-hidden="true"></i> Pelanggan Setia</div>
-          <ul class="rank-list" id="anl-frequent"></ul>
-        </div>
-        <div class="data-card">
-          <div class="data-card-head"><i class="fas fa-fire" aria-hidden="true"></i> Menu Terlaris</div>
-          <ul class="rank-list" id="anl-menus-rank"></ul>
-        </div>
+        <div class="data-card"><div class="data-card-head"><i class="fas fa-crown" aria-hidden="true"></i> Pelanggan Setia</div><ul class="rank-list" id="anl-frequent"></ul></div>
+        <div class="data-card"><div class="data-card-head"><i class="fas fa-fire" aria-hidden="true"></i> Menu Terlaris</div><ul class="rank-list" id="anl-menus-rank"></ul></div>
       </div>
     </div>
 
-    <!-- ── VIEW: Broadcast ──────────────────────────────────── -->
+    <!-- VIEW: Broadcast -->
     <div id="view-broadcast" class="view">
       <div class="view-header">
-        <div>
-          <h1 class="view-title">Broadcast Promo</h1>
-          <p class="view-sub">Kirim pesan promosi ke pelanggan via WhatsApp</p>
-        </div>
+        <div><h1 class="view-title">Broadcast Promo</h1><p class="view-sub">Kirim pesan promosi ke pelanggan via WhatsApp</p></div>
       </div>
       <div class="bc-layout">
         <div class="data-card" style="margin-bottom:0">
@@ -1253,9 +990,7 @@ console.log('[Firebase] module loaded.');
           <div class="bc-body">
             <div class="form-group">
               <label class="form-label" for="bc-msg">Template Pesan</label>
-              <textarea class="form-textarea" id="bc-msg"
-                placeholder="Halo Kak! Ada promo spesial untukmu hari ini 🎉"
-                style="min-height:130px"></textarea>
+              <textarea class="form-textarea" id="bc-msg" placeholder="Halo Kak! Ada promo spesial untukmu hari ini 🎉" style="min-height:130px"></textarea>
               <p class="form-hint">Kata "kak" akan diganti otomatis dengan nama pelanggan.</p>
             </div>
             <button type="button" class="btn btn-accent" style="width:100%" onclick="saveBcMsg()">
@@ -1268,9 +1003,7 @@ console.log('[Firebase] module loaded.');
             <span><i class="fas fa-users" aria-hidden="true"></i> Daftar Penerima</span>
             <div class="search-wrap" style="width:160px">
               <i class="fas fa-search" aria-hidden="true"></i>
-              <input class="search-input" id="bc-search" type="search"
-                placeholder="Cari..." oninput="filterBc(this.value)"
-                style="min-width:0" aria-label="Cari penerima"/>
+              <input class="search-input" id="bc-search" type="search" placeholder="Cari..." oninput="filterBc(this.value)" style="min-width:0" aria-label="Cari penerima"/>
             </div>
           </div>
           <div class="bc-list-body" id="bc-list"></div>
@@ -1278,55 +1011,34 @@ console.log('[Firebase] module loaded.');
       </div>
     </div>
 
-    <!-- ── VIEW: Pengaturan ──────────────────────────────────── -->
+    <!-- VIEW: Pengaturan -->
     <div id="view-settings" class="view">
       <div class="view-header">
-        <div>
-          <h1 class="view-title">Pengaturan</h1>
-          <p class="view-sub">Kustomisasi operasional bisnis Anda</p>
-        </div>
+        <div><h1 class="view-title">Pengaturan</h1><p class="view-sub">Kustomisasi operasional bisnis Anda</p></div>
       </div>
       <div class="settings-layout">
-        <!-- Settings nav -->
         <div class="settings-nav" role="tablist">
-          <div class="settings-nav-item active" role="tab"
-            onclick="showSettingsSection('branding',this)">
-            <i class="fas fa-palette" aria-hidden="true"></i> Branding
-          </div>
-          <div class="settings-nav-item" role="tab"
-            onclick="showSettingsSection('operational',this)">
-            <i class="fas fa-clock" aria-hidden="true"></i> Operasional
-          </div>
-          <div class="settings-nav-item" role="tab"
-            onclick="showSettingsSection('messages',this)">
-            <i class="fab fa-whatsapp" aria-hidden="true"></i> Pesan WA
-          </div>
-          <div class="settings-nav-item" role="tab"
-            onclick="showSettingsSection('account',this)">
-            <i class="fas fa-user-circle" aria-hidden="true"></i> Akun &amp; Billing
-          </div>
+          <div class="settings-nav-item active" role="tab" onclick="showSettingsSection('branding',this)"><i class="fas fa-palette" aria-hidden="true"></i> Branding</div>
+          <div class="settings-nav-item" role="tab" onclick="showSettingsSection('operational',this)"><i class="fas fa-clock" aria-hidden="true"></i> Operasional</div>
+          <div class="settings-nav-item" role="tab" onclick="showSettingsSection('messages',this)"><i class="fab fa-whatsapp" aria-hidden="true"></i> Pesan WA</div>
+          <!-- Tab Pembayaran (baru) -->
+          <div class="settings-nav-item" role="tab" onclick="showSettingsSection('payment',this)"><i class="fas fa-receipt" aria-hidden="true"></i> Pembayaran</div>
+          <div class="settings-nav-item" role="tab" onclick="showSettingsSection('account',this)"><i class="fas fa-user-circle" aria-hidden="true"></i> Akun &amp; Billing</div>
         </div>
 
-        <!-- Settings sections -->
         <div>
-          <!-- Branding -->
+          <!-- ── Branding ── -->
           <div class="settings-section active" id="sec-branding">
             <div class="settings-card">
-              <div class="settings-card-title">
-                <i class="fas fa-store" aria-hidden="true"></i> Identitas Bisnis
-              </div>
+              <div class="settings-card-title"><i class="fas fa-store" aria-hidden="true"></i> Identitas Bisnis</div>
               <div class="form-row">
                 <div class="form-group">
                   <label class="form-label" for="set-biz-name">Nama Usaha</label>
-                  <div class="input-wrap">
-                    <i class="fas fa-store" aria-hidden="true"></i>
-                    <input class="form-input" id="set-biz-name" type="text" placeholder="Nama bisnis Anda"/>
-                  </div>
+                  <div class="input-wrap"><i class="fas fa-store" aria-hidden="true"></i><input class="form-input" id="set-biz-name" type="text" placeholder="Nama bisnis Anda"/></div>
                 </div>
                 <div class="form-group">
                   <label class="form-label" for="set-biz-type">Tipe Usaha</label>
-                  <div class="input-wrap">
-                    <i class="fas fa-tag" aria-hidden="true"></i>
+                  <div class="input-wrap"><i class="fas fa-tag" aria-hidden="true"></i>
                     <select class="form-select" id="set-biz-type">
                       <option value="restoran">🍽️ Restoran / Warung</option>
                       <option value="cafe">☕ Café / Coffee Shop</option>
@@ -1339,15 +1051,8 @@ console.log('[Firebase] module loaded.');
               </div>
               <div class="form-group">
                 <label class="form-label" for="set-tagline">Tagline / Slogan</label>
-                <div class="input-wrap">
-                  <i class="fas fa-quote-left" aria-hidden="true"></i>
-                  <input class="form-input" id="set-tagline" type="text" placeholder="Tempat makan terbaik di kota..."/>
-                </div>
+                <div class="input-wrap"><i class="fas fa-quote-left" aria-hidden="true"></i><input class="form-input" id="set-tagline" type="text" placeholder="Tempat makan terbaik di kota..."/></div>
               </div>
-              <!--
-                Accent grid: diisi buildAccentGrid() di app.js.
-                Elemen ini wajib ada agar FIX #J (accent picker tidak tampil) teratasi.
-              -->
               <div class="form-group">
                 <label class="form-label" style="margin-bottom:10px">Warna Tema</label>
                 <div class="accent-grid" id="accent-grid" role="radiogroup" aria-label="Pilih warna tema"></div>
@@ -1362,62 +1067,23 @@ console.log('[Firebase] module loaded.');
             </div>
           </div>
 
-          <!-- Operasional -->
+          <!-- ── Operasional ── -->
           <div class="settings-section" id="sec-operational">
             <div class="settings-card">
-              <div class="settings-card-title">
-                <i class="fas fa-clock" aria-hidden="true"></i> Jam &amp; Slot Operasional
+              <div class="settings-card-title"><i class="fas fa-clock" aria-hidden="true"></i> Jam &amp; Slot Operasional</div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-label" for="set-open">Jam Buka Default</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="set-open" type="time" value="09:00"/></div></div>
+                <div class="form-group"><label class="form-label" for="set-close">Jam Tutup Default</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="set-close" type="time" value="21:00"/></div></div>
               </div>
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label" for="set-open">Jam Buka Default</label>
-                  <div class="input-wrap">
-                    <i class="far fa-clock" aria-hidden="true"></i>
-                    <input class="form-input" id="set-open" type="time" value="09:00"/>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="set-close">Jam Tutup Default</label>
-                  <div class="input-wrap">
-                    <i class="far fa-clock" aria-hidden="true"></i>
-                    <input class="form-input" id="set-close" type="time" value="21:00"/>
-                  </div>
-                </div>
+                <div class="form-group"><label class="form-label" for="set-slot-interval">Interval Slot (menit)</label><div class="input-wrap"><i class="fas fa-stopwatch" aria-hidden="true"></i><select class="form-select" id="set-slot-interval"><option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">60 menit</option></select></div></div>
+                <div class="form-group"><label class="form-label" for="set-duration">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/></div></div>
               </div>
               <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label" for="set-slot-interval">Interval Slot (menit)</label>
-                  <div class="input-wrap">
-                    <i class="fas fa-stopwatch" aria-hidden="true"></i>
-                    <select class="form-select" id="set-slot-interval">
-                      <option value="15">15 menit</option>
-                      <option value="30" selected>30 menit</option>
-                      <option value="60">60 menit</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="set-duration">Durasi Default (menit)</label>
-                  <div class="input-wrap">
-                    <i class="fas fa-hourglass-half" aria-hidden="true"></i>
-                    <input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/>
-                  </div>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label" for="set-buffer">Buffer Antar Reservasi (menit)</label>
-                  <div class="input-wrap">
-                    <i class="fas fa-pause" aria-hidden="true"></i>
-                    <input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/>
-                  </div>
-                </div>
+                <div class="form-group"><label class="form-label" for="set-buffer">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause" aria-hidden="true"></i><input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/></div></div>
                 <div class="form-group">
                   <label class="form-label" for="set-min-advance">Minimal Booking Sebelum (jam)</label>
-                  <div class="input-wrap">
-                    <i class="fas fa-bell" aria-hidden="true"></i>
-                    <input class="form-input" id="set-min-advance" type="number" min="0" value="2"/>
-                  </div>
+                  <div class="input-wrap"><i class="fas fa-bell" aria-hidden="true"></i><input class="form-input" id="set-min-advance" type="number" min="0" value="2"/></div>
                   <p class="form-hint">Tamu tidak bisa booking kurang dari X jam dari sekarang.</p>
                 </div>
               </div>
@@ -1427,20 +1093,19 @@ console.log('[Firebase] module loaded.');
             </div>
           </div>
 
-          <!-- Pesan WA -->
+          <!-- ── Pesan WA ── -->
           <div class="settings-section" id="sec-messages">
             <div class="settings-card">
-              <div class="settings-card-title">
-                <i class="fab fa-whatsapp" aria-hidden="true"></i> Template Pesan WhatsApp
-              </div>
+              <div class="settings-card-title"><i class="fab fa-whatsapp" aria-hidden="true"></i> Template Pesan WhatsApp</div>
               <div class="form-group">
-                <label class="form-label" for="set-wa-confirm">Pesan Konfirmasi Reservasi</label>
+                <label class="form-label" for="set-wa-confirm">Pesan Konfirmasi (Status Confirmed)</label>
                 <textarea class="form-textarea" id="set-wa-confirm" style="min-height:130px"></textarea>
-                <p class="form-hint">Variabel: {nama}, {tanggal}, {jam}, {tempat}, {jumlah}, {menu}, {dp}, {bisnis}</p>
+                <p class="form-hint">Variabel: {nama}, {bisnis}, {tanggal}, {jam}, {jam_selesai}, {tempat}, {jumlah}, {menu}, {dp}, {tipe_dp}</p>
               </div>
               <div class="form-group">
                 <label class="form-label" for="set-wa-thanks">Pesan Terima Kasih (setelah kunjungan)</label>
                 <textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"></textarea>
+                <p class="form-hint">Variabel: {nama}, {bisnis}</p>
               </div>
               <button type="button" class="btn btn-accent" onclick="saveMessages()">
                 <i class="fas fa-save" aria-hidden="true"></i> Simpan Template
@@ -1448,84 +1113,155 @@ console.log('[Firebase] module loaded.');
             </div>
           </div>
 
-          <!-- Akun & Billing -->
-          <div class="settings-section" id="sec-account">
+          <!-- ── PEMBAYARAN (tab baru) ── -->
+          <div class="settings-section" id="sec-payment">
             <div class="settings-card">
-              <div class="settings-card-title">
-                <i class="fas fa-user-circle" aria-hidden="true"></i> Informasi Akun
+              <div class="settings-card-title"><i class="fas fa-receipt" aria-hidden="true"></i> Pengaturan DP</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="set-dp-mode">Mode DP</label>
+                  <div class="input-wrap"><i class="fas fa-percentage" aria-hidden="true"></i>
+                    <select class="form-select" id="set-dp-mode" onchange="onDpModeChange()">
+                      <option value="persen">Persentase (%)</option>
+                      <option value="nominal">Nominal Tetap (Rp)</option>
+                    </select>
+                  </div>
+                  <p class="form-hint">Mode nominal bisa di-override per reservasi di form tambah/edit.</p>
+                </div>
+                <div class="form-group" id="dp-persen-group">
+                  <label class="form-label" for="set-dp-persen">Persentase DP (%)</label>
+                  <div class="input-wrap"><span class="ip">%</span><input class="form-input" id="set-dp-persen" type="number" min="0" max="100" value="30" placeholder="30"/></div>
+                </div>
+                <div class="form-group" id="dp-nominal-group" style="display:none">
+                  <label class="form-label" for="set-dp-nominal">Nominal DP (Rp)</label>
+                  <div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="set-dp-nominal" type="number" min="0" value="0" placeholder="100000"/></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-percent" aria-hidden="true"></i> Pajak &amp; Biaya Servis</div>
+
+              <!-- PPN Toggle -->
+              <div class="payment-toggle-row">
+                <div>
+                  <div class="ptr-label">PPN</div>
+                  <div class="ptr-hint">Dihitung dari subtotal menu saja (tidak termasuk service)</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="set-ppn-on" onchange="onPpnToggle()"/>
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+              </div>
+              <div id="ppn-detail" class="payment-detail-row" style="display:none">
+                <label class="form-label" for="set-ppn-pct">Persentase PPN (%)</label>
+                <div class="input-wrap" style="max-width:160px">
+                  <span class="ip">%</span>
+                  <input class="form-input" id="set-ppn-pct" type="number" min="0" max="100" step="0.1" value="11" placeholder="11"/>
+                </div>
+              </div>
+
+              <!-- Service Charge Toggle -->
+              <div class="payment-toggle-row" style="margin-top:16px">
+                <div>
+                  <div class="ptr-label">Service Charge</div>
+                  <div class="ptr-hint">Dihitung dari subtotal menu saja</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="set-service-on" onchange="onServiceToggle()"/>
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                </label>
+              </div>
+              <div id="service-detail" class="payment-detail-row" style="display:none">
+                <label class="form-label" for="set-service-pct">Persentase Service (%)</label>
+                <div class="input-wrap" style="max-width:160px">
+                  <span class="ip">%</span>
+                  <input class="form-input" id="set-service-pct" type="number" min="0" max="100" step="0.1" value="5" placeholder="5"/>
+                </div>
+              </div>
+
+              <!-- Preview kalkulasi live -->
+              <div class="billing-preview" id="billing-preview" style="display:none">
+                <div class="bp-title"><i class="fas fa-calculator" aria-hidden="true"></i> Preview (contoh subtotal Rp500.000)</div>
+                <div id="billing-preview-content"></div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-university" aria-hidden="true"></i> Info Rekening Pembayaran</div>
+              <p style="font-size:.84rem;color:var(--ink-3);margin-bottom:14px">
+                Informasi ini muncul di pesan tagihan ke customer saat status reservasi <em>Pending</em>.
+              </p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="set-bank-name">Nama Bank</label>
+                  <div class="input-wrap"><i class="fas fa-landmark" aria-hidden="true"></i><input class="form-input" id="set-bank-name" type="text" placeholder="BCA, Mandiri, BRI..."/></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="set-bank-no">Nomor Rekening</label>
+                  <div class="input-wrap"><i class="fas fa-hashtag" aria-hidden="true"></i><input class="form-input" id="set-bank-no" type="text" placeholder="1234567890"/></div>
+                </div>
               </div>
               <div class="form-group">
+                <label class="form-label" for="set-bank-owner">Atas Nama</label>
+                <div class="input-wrap"><i class="fas fa-user" aria-hidden="true"></i><input class="form-input" id="set-bank-owner" type="text" placeholder="Nama pemilik rekening"/></div>
+              </div>
+              <button type="button" class="btn btn-accent" onclick="savePaymentSettings()">
+                <i class="fas fa-save" aria-hidden="true"></i> Simpan Pengaturan Pembayaran
+              </button>
+            </div>
+          </div><!-- /sec-payment -->
+
+          <!-- ── Akun & Billing ── -->
+          <div class="settings-section" id="sec-account">
+            <div class="settings-card">
+              <div class="settings-card-title"><i class="fas fa-user-circle" aria-hidden="true"></i> Informasi Akun</div>
+              <div class="form-group">
                 <label class="form-label" for="set-account-email">Email</label>
-                <div class="input-wrap">
-                  <i class="fas fa-envelope" aria-hidden="true"></i>
-                  <input class="form-input" id="set-account-email"
-                    type="email" readonly
-                    style="background:var(--bg-2);cursor:default"
-                    aria-readonly="true"/>
+                <div class="input-wrap"><i class="fas fa-envelope" aria-hidden="true"></i>
+                  <input class="form-input" id="set-account-email" type="email" readonly style="background:var(--bg-2);cursor:default" aria-readonly="true"/>
                 </div>
               </div>
               <div class="account-status-card" id="account-status-display" aria-live="polite"></div>
             </div>
             <div class="settings-card" id="billing-section">
-              <div class="settings-card-title">
-                <i class="fas fa-crown" aria-hidden="true"></i> Paket &amp; Berlangganan
-              </div>
-              <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:16px">
-                Pilih paket berlangganan untuk melanjutkan akses penuh setelah trial berakhir.
-              </p>
+              <div class="settings-card-title"><i class="fas fa-crown" aria-hidden="true"></i> Paket &amp; Berlangganan</div>
+              <p style="color:var(--ink-3);font-size:.875rem;margin-bottom:16px">Pilih paket berlangganan untuk melanjutkan akses penuh setelah trial berakhir.</p>
               <div class="billing-plans">
                 <div class="bp-item">
-                  <div class="bp-info">
-                    <div class="bp-name">Pro Bulanan</div>
-                    <div class="bp-price">Rp 149.000 / bulan</div>
-                  </div>
-                  <button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('monthly')">
-                    <i class="fas fa-credit-card" aria-hidden="true"></i> Bayar
-                  </button>
+                  <div class="bp-info"><div class="bp-name">Pro Bulanan</div><div class="bp-price">Rp 149.000 / bulan</div></div>
+                  <button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('monthly')"><i class="fas fa-credit-card" aria-hidden="true"></i> Bayar</button>
                 </div>
                 <div class="bp-item bp-item-featured">
                   <div class="bp-badge">Hemat 22%</div>
-                  <div class="bp-info">
-                    <div class="bp-name">Pro Tahunan</div>
-                    <div class="bp-price">Rp 1.399.000 / tahun</div>
-                  </div>
-                  <button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('yearly')">
-                    <i class="fas fa-crown" aria-hidden="true"></i> Bayar
-                  </button>
+                  <div class="bp-info"><div class="bp-name">Pro Tahunan</div><div class="bp-price">Rp 1.399.000 / tahun</div></div>
+                  <button type="button" class="btn btn-accent btn-sm" onclick="initiatePayment('yearly')"><i class="fas fa-crown" aria-hidden="true"></i> Bayar</button>
                 </div>
               </div>
             </div>
           </div>
+
         </div><!-- /settings sections -->
       </div><!-- /settings-layout -->
     </div><!-- /view-settings -->
 
-  </main>
+  </main><!-- /content -->
 </div><!-- /app-shell -->
 
-<!-- Sync indicator -->
-<div id="sync-indicator" role="status" aria-live="polite">
-  <i class="fas fa-cloud-upload-alt" aria-hidden="true"></i> Tersimpan
-</div>
-
-<!-- Toast container -->
+<div id="sync-indicator" role="status" aria-live="polite"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i> Tersimpan</div>
 <div id="toast-container" aria-live="assertive" aria-atomic="true"></div>
-
-<!-- Sidebar overlay (mobile) -->
 <div id="sidebar-overlay" onclick="toggleSidebar()" aria-hidden="true"></div>
 
-<!-- ══════════════════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════
      MODALS
-     ══════════════════════════════════════════════════════════════ -->
+     ══════════════════════════════════════════════════════ -->
 
 <!-- Modal Reservasi -->
 <div class="modal-overlay" id="modal-res" role="dialog" aria-modal="true" aria-labelledby="res-modal-title">
   <div class="modal modal-lg">
     <div class="modal-head">
       <h3 id="res-modal-title"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Tambah Reservasi</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-res')" aria-label="Tutup">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
+      <button type="button" class="modal-close" onclick="closeModal('modal-res')" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="res-edit-id"/>
@@ -1533,14 +1269,9 @@ console.log('[Firebase] module loaded.');
         <div class="form-group">
           <label class="form-label" for="res-date">Tanggal <span class="req">*</span></label>
           <div style="display:flex;gap:6px;align-items:flex-end">
-            <div class="input-wrap" style="flex:1">
-              <i class="fas fa-calendar-alt" aria-hidden="true"></i>
-              <input class="form-input" id="res-date" type="date" onchange="onResFieldChange()"/>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm"
-              onclick="val('res-date',todayStr());onResFieldChange()">Hari Ini</button>
-            <button type="button" class="btn btn-ghost btn-sm"
-              onclick="val('res-date',tomorrowStr());onResFieldChange()">Besok</button>
+            <div class="input-wrap" style="flex:1"><i class="fas fa-calendar-alt" aria-hidden="true"></i><input class="form-input" id="res-date" type="date" onchange="onResFieldChange()"/></div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="val('res-date',todayStr());onResFieldChange()">Hari Ini</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="val('res-date',tomorrowStr());onResFieldChange()">Besok</button>
           </div>
           <div class="form-error" id="err-date" role="alert"></div>
         </div>
@@ -1549,76 +1280,54 @@ console.log('[Firebase] module loaded.');
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="res-nama">Nama Tamu <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-user" aria-hidden="true"></i>
-            <input class="form-input" id="res-nama" type="text" placeholder="Nama lengkap"/>
-          </div>
+          <div class="input-wrap"><i class="fas fa-user" aria-hidden="true"></i><input class="form-input" id="res-nama" type="text" placeholder="Nama lengkap"/></div>
           <div class="form-error" id="err-nama" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="res-hp">Nomor HP</label>
-          <div class="input-wrap">
-            <i class="fas fa-phone" aria-hidden="true"></i>
-            <input class="form-input" id="res-hp" type="tel" placeholder="081234567890"/>
+          <div class="input-wrap"><i class="fas fa-phone" aria-hidden="true"></i>
+            <!-- UX #12: placeholder format yang jelas -->
+            <input class="form-input" id="res-hp" type="tel" placeholder="08xx-xxxx-xxxx"/>
           </div>
+          <p class="form-hint">Format apapun diterima (081x, +62x, dsb.)</p>
           <div class="form-error" id="err-hp" role="alert"></div>
         </div>
       </div>
       <div class="form-row form-row-3">
         <div class="form-group">
           <label class="form-label" for="res-jam">Jam <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="far fa-clock" aria-hidden="true"></i>
-            <input class="form-input" id="res-jam" type="time" oninput="onResFieldChange()"/>
-          </div>
+          <div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="res-jam" type="time" oninput="onResFieldChange()"/></div>
           <div class="form-error" id="err-jam" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="res-jumlah">Jumlah Tamu <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-users" aria-hidden="true"></i>
-            <input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10" oninput="onResFieldChange()"/>
-          </div>
+          <div class="input-wrap"><i class="fas fa-users" aria-hidden="true"></i><input class="form-input" id="res-jumlah" type="number" min="1" placeholder="10" oninput="onResFieldChange()"/></div>
           <div class="form-error" id="err-jumlah" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="res-tempat">Lokasi <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-map-pin" aria-hidden="true"></i>
-            <select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select>
-          </div>
+          <div class="input-wrap"><i class="fas fa-map-pin" aria-hidden="true"></i><select class="form-select" id="res-tempat" onchange="onResFieldChange()"></select></div>
           <div class="form-error" id="err-tempat" role="alert"></div>
           <div class="form-hint" id="res-cap-hint"></div>
         </div>
       </div>
-
-      <!-- Conflict alert -->
       <div class="conflict-alert" id="conflict-alert" role="alert"></div>
-      <!-- Slot suggestions -->
       <div class="slot-suggester" id="slot-suggester">
-        <div class="slot-title">
-          <i class="fas fa-lightbulb" style="color:var(--ac);margin-right:5px" aria-hidden="true"></i>
-          Slot &amp; Lokasi Tersedia
-        </div>
+        <div class="slot-title"><i class="fas fa-lightbulb" style="color:var(--ac);margin-right:5px" aria-hidden="true"></i> Slot &amp; Lokasi Tersedia</div>
         <div id="slot-content"></div>
       </div>
-
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="res-duration">Durasi Reservasi (menit)</label>
           <div class="dur-wrap">
-            <div class="input-wrap dur-input">
-              <i class="fas fa-hourglass-half" aria-hidden="true"></i>
-              <input class="form-input" id="res-duration" type="number" min="30" step="15" placeholder="Default lokasi"/>
-            </div>
+            <div class="input-wrap dur-input"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="res-duration" type="number" min="30" step="15" placeholder="Default lokasi"/></div>
             <span class="dur-unit">menit</span>
           </div>
           <p class="form-hint" id="res-dur-hint"></p>
         </div>
         <div class="form-group">
           <label class="form-label" for="res-status">Status Reservasi</label>
-          <div class="input-wrap">
-            <i class="fas fa-circle-dot" aria-hidden="true"></i>
+          <div class="input-wrap"><i class="fas fa-circle-dot" aria-hidden="true"></i>
             <select class="form-select" id="res-status">
               <option value="pending">⏳ Pending</option>
               <option value="confirmed">✅ Confirmed</option>
@@ -1630,16 +1339,14 @@ console.log('[Firebase] module loaded.');
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="res-dp">DP (Rp)</label>
-          <div class="input-wrap">
-            <span class="ip">Rp</span>
-            <input class="form-input" id="res-dp" type="number" min="0" value="0"/>
-          </div>
+          <label class="form-label" for="res-dp">DP Diterima (Rp)</label>
+          <div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="res-dp" type="number" min="0" value="0"/></div>
+          <!-- UX: saran DP dari pengaturan pembayaran -->
+          <p class="form-hint" id="res-dp-hint"></p>
         </div>
         <div class="form-group">
           <label class="form-label" for="res-tipe-dp">Metode Pembayaran DP</label>
-          <div class="input-wrap">
-            <i class="fas fa-credit-card" aria-hidden="true"></i>
+          <div class="input-wrap"><i class="fas fa-credit-card" aria-hidden="true"></i>
             <select class="form-select" id="res-tipe-dp">
               <option value="">- Tanpa DP -</option>
               <option>Cash</option>
@@ -1660,12 +1367,18 @@ console.log('[Firebase] module loaded.');
           <i class="fas fa-plus" aria-hidden="true"></i> Tambah Paket
         </button>
       </div>
+      <!-- UX #9: billing preview inline di modal reservasi -->
+      <div class="billing-inline" id="res-billing-preview" style="display:none">
+        <div class="bip-title"><i class="fas fa-receipt" aria-hidden="true"></i> Estimasi Tagihan</div>
+        <div id="res-billing-content"></div>
+      </div>
       <div class="form-group">
         <label class="form-label" for="res-tambahan">Catatan / Request Tambahan</label>
-        <textarea class="form-textarea" id="res-tambahan"
-          placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan..."></textarea>
+        <textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan..."></textarea>
       </div>
     </div>
+    <!-- UX #9: error summary di footer agar tidak terlewat -->
+    <div class="modal-error-summary" id="modal-err-summary" style="display:none" role="alert"></div>
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-res')">Batal</button>
       <button type="button" class="btn btn-accent" id="btn-save-res" onclick="saveRes()">
@@ -1680,40 +1393,30 @@ console.log('[Firebase] module loaded.');
   <div class="modal">
     <div class="modal-head">
       <h3 id="menu-modal-title"><i class="fas fa-utensils" aria-hidden="true"></i> Tambah Menu</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-menu')" aria-label="Tutup">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
+      <button type="button" class="modal-close" onclick="closeModal('modal-menu')" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="menu-edit-id"/>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="menu-name">Nama Menu <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-bowl-food" aria-hidden="true"></i>
-            <input class="form-input" id="menu-name" type="text" placeholder="Paket Keluarga"/>
-          </div>
+          <div class="input-wrap"><i class="fas fa-bowl-food" aria-hidden="true"></i><input class="form-input" id="menu-name" type="text" placeholder="Paket Keluarga"/></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="menu-price">Harga (Rp)</label>
-          <div class="input-wrap">
-            <span class="ip">Rp</span>
-            <input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/>
-          </div>
+          <div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div>
+          <p class="form-hint">Isi 0 jika gratis - tetap tampil di tagihan dan laporan.</p>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label" for="menu-details">Detail / Isi Menu</label>
-        <textarea class="form-textarea" id="menu-details"
-          placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
-        <p class="form-hint">Pisahkan dengan koma. Akan ditampilkan di kartu reservasi.</p>
+        <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
+        <p class="form-hint">Pisahkan dengan koma. Akan tampil <strong>vertikal</strong> di pesan konfirmasi customer dan laporan tim operasional.</p>
       </div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-menu')">Batal</button>
-      <button type="button" class="btn btn-accent" onclick="saveMenu()">
-        <i class="fas fa-save" aria-hidden="true"></i> Simpan
-      </button>
+      <button type="button" class="btn btn-accent" onclick="saveMenu()"><i class="fas fa-save" aria-hidden="true"></i> Simpan</button>
     </div>
   </div>
 </div>
@@ -1723,78 +1426,30 @@ console.log('[Firebase] module loaded.');
   <div class="modal modal-lg">
     <div class="modal-head">
       <h3 id="loc-modal-title"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Tambah Lokasi</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-loc')" aria-label="Tutup">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
+      <button type="button" class="modal-close" onclick="closeModal('modal-loc')" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="loc-edit-id"/>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="loc-name">Nama Lokasi <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-map-pin" aria-hidden="true"></i>
-            <input class="form-input" id="loc-name" type="text" placeholder="Gazebo A, Meja 1, VIP Room..."/>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="loc-capacity">Kapasitas Maksimum <span class="req">*</span></label>
-          <div class="input-wrap">
-            <i class="fas fa-users" aria-hidden="true"></i>
-            <input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/>
-          </div>
-        </div>
+        <div class="form-group"><label class="form-label" for="loc-name">Nama Lokasi <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-map-pin" aria-hidden="true"></i><input class="form-input" id="loc-name" type="text" placeholder="Gazebo A, Meja 1, VIP Room..."/></div></div>
+        <div class="form-group"><label class="form-label" for="loc-capacity">Kapasitas Maksimum <span class="req">*</span></label><div class="input-wrap"><i class="fas fa-users" aria-hidden="true"></i><input class="form-input" id="loc-capacity" type="number" min="1" placeholder="20"/></div></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="loc-min">Minimum Tamu</label>
-          <div class="input-wrap">
-            <i class="fas fa-user-check" aria-hidden="true"></i>
-            <input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="loc-duration">Durasi Default (menit)</label>
-          <div class="input-wrap">
-            <i class="fas fa-hourglass-half" aria-hidden="true"></i>
-            <input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/>
-          </div>
-          <p class="form-hint">Kosongkan untuk pakai pengaturan global.</p>
-        </div>
+        <div class="form-group"><label class="form-label" for="loc-min">Minimum Tamu</label><div class="input-wrap"><i class="fas fa-user-check" aria-hidden="true"></i><input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/></div></div>
+        <div class="form-group"><label class="form-label" for="loc-duration">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/></div><p class="form-hint">Kosongkan untuk pakai pengaturan global.</p></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="loc-buffer">Buffer Antar Reservasi (menit)</label>
-          <div class="input-wrap">
-            <i class="fas fa-pause" aria-hidden="true"></i>
-            <input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="loc-open">Jam Buka Lokasi Ini</label>
-          <div class="input-wrap">
-            <i class="far fa-clock" aria-hidden="true"></i>
-            <input class="form-input" id="loc-open" type="time"/>
-          </div>
-          <p class="form-hint">Kosongkan untuk pakai jam global.</p>
-        </div>
+        <div class="form-group"><label class="form-label" for="loc-buffer">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause" aria-hidden="true"></i><input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/></div></div>
+        <div class="form-group"><label class="form-label" for="loc-open">Jam Buka Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="loc-open" type="time"/></div><p class="form-hint">Kosongkan untuk pakai jam global.</p></div>
       </div>
       <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="loc-close">Jam Tutup Lokasi Ini</label>
-          <div class="input-wrap">
-            <i class="far fa-clock" aria-hidden="true"></i>
-            <input class="form-input" id="loc-close" type="time"/>
-          </div>
-        </div>
+        <div class="form-group"><label class="form-label" for="loc-close">Jam Tutup Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="loc-close" type="time"/></div></div>
         <div></div>
       </div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-loc')">Batal</button>
-      <button type="button" class="btn btn-accent" onclick="saveLoc()">
-        <i class="fas fa-save" aria-hidden="true"></i> Simpan
-      </button>
+      <button type="button" class="btn btn-accent" onclick="saveLoc()"><i class="fas fa-save" aria-hidden="true"></i> Simpan</button>
     </div>
   </div>
 </div>
@@ -1804,9 +1459,7 @@ console.log('[Firebase] module loaded.');
   <div class="modal">
     <div class="modal-head">
       <h3><i class="fas fa-print" aria-hidden="true"></i> Opsi Cetak</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-print')" aria-label="Tutup">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
+      <button type="button" class="modal-close" onclick="closeModal('modal-print')" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
       <p class="form-hint" style="margin-bottom:13px">Pilih kolom yang ingin ditampilkan:</p>
@@ -1819,76 +1472,83 @@ console.log('[Firebase] module loaded.');
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-print')">Batal</button>
-      <button type="button" class="btn btn-accent" onclick="doPrint()">
-        <i class="fas fa-print" aria-hidden="true"></i> Cetak
-      </button>
+      <button type="button" class="btn btn-accent" onclick="doPrint()"><i class="fas fa-print" aria-hidden="true"></i> Cetak</button>
     </div>
   </div>
 </div>
 
-<!-- Modal Export / Import -->
+<!-- Modal Export/Import -->
 <div class="modal-overlay" id="modal-export" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-head">
       <h3><i class="fas fa-upload" aria-hidden="true"></i> Export &amp; Backup</h3>
-      <button type="button" class="modal-close" onclick="closeModal('modal-export')" aria-label="Tutup">
-        <i class="fas fa-times" aria-hidden="true"></i>
-      </button>
+      <button type="button" class="modal-close" onclick="closeModal('modal-export')" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
     </div>
     <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label" for="export-out">Kode Backup</label>
-        <textarea class="form-textarea code-area" id="export-out"
-          readonly placeholder="Klik Export untuk generate kode..."></textarea>
-        <p class="form-hint">Salin kode ini untuk backup atau pindah device.</p>
-      </div>
+      <div class="form-group"><label class="form-label" for="export-out">Kode Backup</label><textarea class="form-textarea code-area" id="export-out" readonly placeholder="Klik Export untuk generate kode..."></textarea><p class="form-hint">Salin kode ini untuk backup atau pindah device.</p></div>
       <div class="modal-divider"><span>atau import data</span></div>
-      <div class="form-group">
-        <label class="form-label" for="import-in">Import dari Backup</label>
-        <textarea class="form-textarea code-area" id="import-in"
-          placeholder="Tempel kode backup di sini..."></textarea>
-      </div>
+      <div class="form-group"><label class="form-label" for="import-in">Import dari Backup</label><textarea class="form-textarea code-area" id="import-in" placeholder="Tempel kode backup di sini..."></textarea></div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
-      <button type="button" class="btn btn-secondary" onclick="doImport()">
-        <i class="fas fa-download" aria-hidden="true"></i> Import
+      <button type="button" class="btn btn-secondary" onclick="doImport()"><i class="fas fa-download" aria-hidden="true"></i> Import</button>
+      <button type="button" class="btn btn-accent" onclick="copyExport()"><i class="fas fa-copy" aria-hidden="true"></i> Salin Kode</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     MODAL SHARE LAPORAN HARIAN
+     Preview teks sebelum kirim ke WA - scroll di mobile
+     ══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-share" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <h3 id="share-modal-title"><i class="fab fa-whatsapp" aria-hidden="true"></i> Laporan Harian Tim</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-share')" aria-label="Tutup"><i class="fas fa-times" aria-hidden="true"></i></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.84rem;color:var(--ink-3);margin-bottom:12px">
+        Preview laporan yang akan dikirim ke grup operasional. Scroll untuk lihat semua, edit jika perlu.
+      </p>
+      <textarea class="form-textarea share-preview-area" id="share-preview-text"
+        aria-label="Preview laporan harian" style="min-height:320px;font-family:var(--font-mono);font-size:.82rem;line-height:1.6"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-share')">Tutup</button>
+      <button type="button" class="btn btn-secondary" onclick="copyShareText()">
+        <i class="fas fa-copy" aria-hidden="true"></i> Salin Teks
       </button>
-      <button type="button" class="btn btn-accent" onclick="copyExport()">
-        <i class="fas fa-copy" aria-hidden="true"></i> Salin Kode
+      <button type="button" class="btn btn-wa" onclick="sendShareToWA()">
+        <i class="fab fa-whatsapp" aria-hidden="true"></i> Kirim ke WhatsApp
       </button>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════════
-     BOOT GUARD  (inline script, tidak defer - jalan sebelum semua)
-     ──────────────────────────────────────────────────────────────
-     Yang dilakukan:
-     · showScreen() - satu definisi, dipakai HTML & app.js (FIX #9)
-     · showAuthTab(), showResetForm(), togglePass()
-     · _onAuthReady bootstrap queue + _AUTH_HANDLER_RUNNING guard (FIX #4)
-     · enterReadOnlyMode() - hanya dari paywall (FIX #1 #7)
-     · initiatePayment() - Midtrans Snap
-     · Fallback timer landing (15 detik)
-     · Reset kedua flag di semua jalur (FIX #6 #10)
-     ══════════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════
+     BOOT GUARD
+     · showScreen()    - satu definisi global
+     · showAuthTab()   - router auth form
+     · togglePass()    - show/hide password
+     · onDpModeChange, onPpnToggle, onServiceToggle - settings payment UI
+     · _onAuthReady    - queue user sampai app.js siap
+     · initiatePayment - Midtrans Snap
+     · enterReadOnlyMode - hanya dipanggil dari paywall
+     · copyShareText / sendShareToWA - modal share
+     ══════════════════════════════════════════════════════ -->
 <script>
 (function () {
 'use strict';
 
-/* ── showScreen ─────────────────────────────────────────────────
-   Satu-satunya definisi. app.js pakai var showScreen = window.showScreen
-   ─────────────────────────────────────────────────────────── */
+/* ── showScreen - satu-satunya definisi, app.js pakai alias ── */
 window.showScreen = function (name) {
   try {
     var IDS = ['screen-loading','screen-landing','screen-auth','screen-wizard','screen-paywall'];
     IDS.forEach(function (id) {
       var el = document.getElementById(id);
       if (!el) return;
-      el.style.display = 'none';
-      el.classList.remove('active');
-      el.setAttribute('aria-hidden', 'true');
+      el.style.display = 'none'; el.classList.remove('active'); el.setAttribute('aria-hidden','true');
     });
     var shell = document.getElementById('app-shell');
     if (name === 'app') {
@@ -1896,107 +1556,115 @@ window.showScreen = function (name) {
       document.body.style.overflow = '';
     } else {
       if (shell) { shell.style.display = 'none'; shell.setAttribute('aria-hidden','true'); }
-      var MAP = {
-        loading: 'screen-loading', landing: 'screen-landing',
-        auth:    'screen-auth',    wizard:  'screen-wizard',
-        paywall: 'screen-paywall'
-      };
+      var MAP = { loading:'screen-loading', landing:'screen-landing', auth:'screen-auth', wizard:'screen-wizard', paywall:'screen-paywall' };
       var tgt = MAP[name] ? document.getElementById(MAP[name]) : null;
-      if (tgt) {
-        tgt.style.display = 'flex';
-        tgt.classList.add('active');
-        tgt.setAttribute('aria-hidden','false');
-      }
+      if (tgt) { tgt.style.display='flex'; tgt.classList.add('active'); tgt.setAttribute('aria-hidden','false'); }
       document.body.style.overflow = (name==='landing'||name==='wizard') ? 'auto' : 'hidden';
     }
   } catch(e) { console.error('[showScreen]', e); }
 };
 
-/* ── showAuthTab ─────────────────────────────────────────────── */
+/* ── showAuthTab ── */
 window.showAuthTab = function (tab) {
   window.showScreen('auth');
   ['login','register','reset'].forEach(function (t) {
-    var f = document.getElementById('form-' + t);
-    var b = document.getElementById('tab-' + t);
-    if (f) f.classList.toggle('active', t === tab);
-    if (b) b.classList.toggle('active', t === tab);
+    var f = document.getElementById('form-'+t), b = document.getElementById('tab-'+t);
+    if (f) f.classList.toggle('active', t===tab);
+    if (b) b.classList.toggle('active', t===tab);
   });
   if (typeof window.clearAuthErr === 'function') window.clearAuthErr();
 };
 window.showResetForm = function () { window.showAuthTab('reset'); };
 
-/* ── togglePass ─────────────────────────────────────────────── */
+/* ── togglePass ── */
 window.togglePass = function (id, btn) {
-  var inp = document.getElementById(id);
-  if (!inp) return;
-  var show = inp.type === 'password';
-  inp.type = show ? 'text' : 'password';
-  var ic = btn.querySelector('i');
-  if (ic) ic.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+  var inp = document.getElementById(id); if (!inp) return;
+  var show = inp.type === 'password'; inp.type = show ? 'text' : 'password';
+  var ic = btn.querySelector('i'); if (ic) ic.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
 };
 
-/* ── _onAuthReady bootstrap queue ────────────────────────────────
-   Boot guard versi awal - hanya queue user sampai app.js siap.
-   Setelah app.js load, bridge script memanggil versi app.js.
-   Guard _AUTH_HANDLER_RUNNING mencegah double-call (FIX #4).
-   ─────────────────────────────────────────────────────────── */
+/* ── Settings payment toggles (live preview kalkulasi) ── */
+window.onDpModeChange = function () {
+  var mode = document.getElementById('set-dp-mode')?.value || 'persen';
+  var pg = document.getElementById('dp-persen-group');
+  var ng = document.getElementById('dp-nominal-group');
+  if (pg) pg.style.display = mode === 'persen'  ? '' : 'none';
+  if (ng) ng.style.display = mode === 'nominal' ? '' : 'none';
+};
+window.onPpnToggle = function () {
+  var on = document.getElementById('set-ppn-on')?.checked;
+  var d  = document.getElementById('ppn-detail');
+  if (d) d.style.display = on ? '' : 'none';
+  _updateBillingPreview();
+};
+window.onServiceToggle = function () {
+  var on = document.getElementById('set-service-on')?.checked;
+  var d  = document.getElementById('service-detail');
+  if (d) d.style.display = on ? '' : 'none';
+  _updateBillingPreview();
+};
+
+function _updateBillingPreview() {
+  var ppnOn     = document.getElementById('set-ppn-on')?.checked;
+  var serviceOn = document.getElementById('set-service-on')?.checked;
+  var preview   = document.getElementById('billing-preview');
+  if (!preview) return;
+  if (!ppnOn && !serviceOn) { preview.style.display = 'none'; return; }
+  preview.style.display = '';
+  var ppnPct = parseFloat(document.getElementById('set-ppn-pct')?.value     || 11);
+  var svcPct = parseFloat(document.getElementById('set-service-pct')?.value || 5);
+  var sub = 500000;
+  var svc = serviceOn ? Math.round(sub * svcPct / 100) : 0;
+  var ppn = ppnOn     ? Math.round(sub * ppnPct / 100) : 0;
+  var tot = sub + svc + ppn;
+  var fmt = function(n){ return n.toLocaleString('id-ID'); };
+  var html = '<div class="bpv-row"><span>Subtotal</span><span>Rp '+fmt(sub)+'</span></div>';
+  if (serviceOn) html += '<div class="bpv-row"><span>Service ('+svcPct+'%)</span><span>Rp '+fmt(svc)+'</span></div>';
+  if (ppnOn)     html += '<div class="bpv-row"><span>PPN ('+ppnPct+'%)</span><span>Rp '+fmt(ppn)+'</span></div>';
+  html += '<div class="bpv-row bpv-total"><span>Total</span><span>Rp '+fmt(tot)+'</span></div>';
+  var content = document.getElementById('billing-preview-content');
+  if (content) content.innerHTML = html;
+}
+
+/* ── _onAuthReady bootstrap queue ── */
 window._onAuthReady = function (user) {
-  if (window._AUTH_HANDLER_RUNNING) {
-    console.log('[boot] _onAuthReady: handler running, skip.');
-    return;
-  }
+  if (window._AUTH_HANDLER_RUNNING) { console.log('[boot] skip duplicate.'); return; }
   window._AUTH_HANDLER_RUNNING = true;
   window._AUTH_PROCESSING      = true;
   window._pendingAuthUser      = user;
-  /* Safety: reset otomatis setelah 30 detik jika ada hang */
   setTimeout(function () {
     window._AUTH_HANDLER_RUNNING = false;
     window._AUTH_PROCESSING      = false;
   }, 30000);
 };
 
-/* ── Midtrans config ─────────────────────────────────────────── */
+/* ── Midtrans config ── */
 window.MIDTRANS_CONFIG = {
   CLIENT_KEY:  'SB-Mid-client-XXXXXXXXXXXXXXXX',
   SNAP_URL:    'https://app.sandbox.midtrans.com/snap/snap.js',
-  /* Ganti saat production:
-  CLIENT_KEY:  'Mid-client-XXXXXXXXXXXXXXXX',
-  SNAP_URL:    'https://app.midtrans.com/snap/snap.js',
-  */
   BACKEND_URL: 'https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/createPayment'
 };
 
-/* ── initiatePayment ─────────────────────────────────────────── */
+/* ── initiatePayment ── */
 window.initiatePayment = async function (planType) {
-  if (!window._FBUSER) {
-    window.showToast?.('Kamu harus login terlebih dahulu.', 'error');
-    return;
-  }
+  if (!window._FBUSER) { window.showToast?.('Kamu harus login terlebih dahulu.', 'error'); return; }
   var btnId = planType === 'monthly' ? 'btn-pay-monthly' : 'btn-pay-yearly';
   var btn   = document.getElementById(btnId);
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...'; }
   try {
     var resp = await fetch(window.MIDTRANS_CONFIG.BACKEND_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uid:    window._FBUSER.uid,
-        email:  window._FBUSER.email,
-        plan:   planType,
-        amount: planType === 'monthly' ? 149000 : 1399000
-      })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: window._FBUSER.uid, email: window._FBUSER.email, plan: planType, amount: planType === 'monthly' ? 149000 : 1399000 })
     });
     if (!resp.ok) throw new Error('Backend error ' + resp.status);
     var data = await resp.json();
     if (!data.snap_token) throw new Error('Snap token tidak diterima.');
-
     if (!window.snap) {
       await new Promise(function (res, rej) {
         var s = document.createElement('script');
         s.src = window.MIDTRANS_CONFIG.SNAP_URL;
         s.setAttribute('data-client-key', window.MIDTRANS_CONFIG.CLIENT_KEY);
-        s.onload = res; s.onerror = rej;
-        document.head.appendChild(s);
+        s.onload = res; s.onerror = rej; document.head.appendChild(s);
       });
     }
     window.snap.pay(data.snap_token, {
@@ -2018,100 +1686,96 @@ window.initiatePayment = async function (planType) {
   }
 };
 
-/* ── enterReadOnlyMode ───────────────────────────────────────────
-   Hanya dipanggil dari tombol paywall (status sudah expired).
-   Data sudah ter-load _onAuthReady → kalender tidak kosong (FIX #7).
-   ─────────────────────────────────────────────────────────── */
+/* ── enterReadOnlyMode - hanya dari tombol paywall ── */
 window.enterReadOnlyMode = function () {
   window._READ_ONLY = true;
   window.showScreen('app');
-
   var rb    = document.getElementById('readonly-banner');
   var tb    = document.getElementById('trial-banner');
   var shell = document.getElementById('app-shell');
   var addBtn = document.getElementById('btn-add-res');
-
-  if (rb)     rb.style.display = 'flex';
-  if (tb)     tb.style.display = 'none';
+  var fab    = document.getElementById('fab-add-res');
+  if (rb)     rb.style.display    = 'flex';
+  if (tb)     tb.style.display    = 'none';
   if (shell)  shell.classList.add('has-banner');
   if (addBtn) addBtn.style.display = 'none';
-
-  /* Render kalender dengan data yang sudah ada di S.res */
+  if (fab)    fab.style.display    = 'none';
+  /* Render kalender - data sudah ada dari _onAuthReady sebelum redirect ke paywall */
   if (typeof window.renderCalendar === 'function') window.renderCalendar();
 };
 
-/* ── DOMContentLoaded ────────────────────────────────────────── */
+/* ── copyShareText & sendShareToWA - dipanggil dari modal share ── */
+window.copyShareText = function () {
+  var el = document.getElementById('share-preview-text');
+  if (!el || !el.value) { window.showToast?.('Tidak ada teks', 'error'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(el.value)
+      .then(function () { window.showToast?.('Teks laporan disalin! 📋', 'success'); })
+      .catch(function () { el.select(); document.execCommand('copy'); window.showToast?.('Disalin!', 'success'); });
+  } else {
+    el.select(); document.execCommand('copy'); window.showToast?.('Disalin!', 'success');
+  }
+};
+window.sendShareToWA = function () {
+  var el = document.getElementById('share-preview-text');
+  if (!el || !el.value) return;
+  var url = 'https://wa.me/?text=' + encodeURIComponent(el.value);
+  var win = window.open(url, '_blank', 'noopener');
+  if (!win) location.href = url;
+};
+
+/* ── DOMContentLoaded ── */
 document.addEventListener('DOMContentLoaded', function () {
   document.documentElement.classList.add('dom-ready');
-
-  /* Fade out loading screen */
   var loading = document.getElementById('screen-loading');
   if (loading) {
     setTimeout(function () {
-      loading.style.opacity      = '0';
-      loading.style.pointerEvents = 'none';
+      loading.style.opacity = '0'; loading.style.pointerEvents = 'none';
       setTimeout(function () { loading.style.display = 'none'; }, 400);
     }, 1300);
   }
-
-  /* Fallback ke landing jika tidak ada aktivitas auth dalam 15 detik */
+  /* Fallback ke landing jika auth tidak datang dalam 15 detik */
   setTimeout(function () {
     if (window._AUTH_PROCESSING || window._AUTH_HANDLER_RUNNING) return;
-    var shell = document.getElementById('app-shell');
+    var shell  = document.getElementById('app-shell');
     var appVis = shell && window.getComputedStyle(shell).display !== 'none';
     var hasActive = ['screen-wizard','screen-auth','screen-paywall'].some(function (id) {
-      var el = document.getElementById(id);
-      return el && el.classList.contains('active');
+      var el = document.getElementById(id); return el && el.classList.contains('active');
     });
     if (!appVis && !hasActive) window.showScreen('landing');
   }, 15000);
 });
 
-/* ── Toast minimal (sebelum app.js load) ─────────────────────── */
-window.showToast = window.showToast || function (msg, type) {
-  console.log('[TOAST]', type || 'info', msg);
-};
+/* Toast minimal sebelum app.js load */
+window.showToast = window.showToast || function (msg, type) { console.log('[TOAST]', type || 'info', msg); };
 
 })();
 </script>
 
 <!-- app.js - defer, diload setelah HTML parse selesai -->
-<script defer src="./app.js?v=5.5" charset="utf-8"></script>
+<script defer src="./app.js?v=6.0" charset="utf-8"></script>
 
-<!-- ══════════════════════════════════════════════════════════════
-     BRIDGE: app.js siap - teruskan pending auth ke _onAuthReady
-     ──────────────────────────────────────────────────────────────
-     Dijalankan setelah app.js (defer + urutan).
-     FIX #4  : guard _AUTH_HANDLER_RUNNING sebelum panggil handler
-     FIX #6  : reset kedua flag di .finally() tanpa terkecuali
-     FIX #10 : tidak ada jalur yang melewati reset flag
-     ══════════════════════════════════════════════════════════════ -->
+<!-- BRIDGE: app.js siap - teruskan pending auth ke _onAuthReady
+     Reset kedua flag di .finally() tanpa terkecuali -->
 <script defer>
 (function () {
-
   if (typeof window._pendingAuthUser !== 'undefined') {
     var u = window._pendingAuthUser;
     delete window._pendingAuthUser;
-
     if (typeof window._onAuthReady === 'function') {
       Promise.resolve(window._onAuthReady(u))
-        .catch(function (err) {
-          console.error('[bridge] _onAuthReady error:', err);
-        })
+        .catch(function (err) { console.error('[bridge] _onAuthReady error:', err); })
         .finally(function () {
           window._AUTH_HANDLER_RUNNING = false;
           window._AUTH_PROCESSING      = false;
         });
     }
   } else {
-    /* Tidak ada pending - reset flag agar fallback timer berjalan normal */
     window._AUTH_HANDLER_RUNNING = false;
     window._AUTH_PROCESSING      = false;
   }
-
   window._appReady = true;
   document.dispatchEvent(new Event('app-js-ready'));
-
 })();
 </script>
 
