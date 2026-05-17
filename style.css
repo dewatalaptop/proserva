@@ -523,6 +523,14 @@ button { cursor: pointer }
 .paywall-readonly-btn:hover { border-color: var(--ac); color: var(--ac) }
 .paywall-signout-btn { display: flex; align-items: center; gap: 7px; padding: 9px 18px; background: none; border: none; color: var(--ink-4); font-size: .82rem; font-weight: 600; transition: var(--t) }
 .paywall-signout-btn:hover { color: var(--danger) }
+/* Tombol kembali ke dashboard - tampil saat status masih trial */
+.paywall-back-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: var(--r-sm); font-size: .82rem; font-weight: 600;
+  background: var(--bg-2); border: 1.5px solid var(--border-2);
+  color: var(--ink-2); transition: var(--t);
+}
+.paywall-back-btn:hover { border-color: var(--ac); color: var(--ac); background: var(--ac-dim) }
 
 /* ══════════════════════════════════════════════════════════════
    WIZARD
@@ -641,12 +649,13 @@ button { cursor: pointer }
   position: fixed;
   top: var(--topbar-h);
   left: 0; right: 0;
-  height: var(--banner-h);
+  min-height: var(--banner-h);  /* min-height bukan height agar tidak clip jika wrap */
   z-index: 390;
-  align-items: center; justify-content: center; gap: 10px;
-  padding: 0 20px;
+  align-items: center; justify-content: center; gap: 8px;
+  padding: 6px 16px;
   font-size: .82rem; font-weight: 600;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;  /* paksa 1 baris - konten sudah diperpendek */
+  overflow: hidden;
 }
 #trial-banner {
   background: rgba(234,88,12,.96);
@@ -670,9 +679,27 @@ button { cursor: pointer }
 }
 #trial-banner .tb-close {
   background: none; color: #fff; opacity: .6; padding: 4px 6px;
-  font-size: .75rem; border: none;
+  font-size: .75rem; border: none; flex-shrink: 0;
 }
 #trial-banner .tb-close:hover { opacity: 1 }
+
+/* Wrapper teks+tanggal - flex:1 agar tombol tidak terdorong keluar */
+#trial-banner .tb-text-wrap {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* Tombol upgrade di banner - lebih compact dari button default */
+#trial-banner .tb-upgrade {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 12px; border-radius: 99px; font-size: .75rem; font-weight: 700;
+  background: rgba(255,255,255,.25); color: #fff; border: 1px solid rgba(255,255,255,.4);
+  white-space: nowrap; flex-shrink: 0; transition: var(--ts);
+}
+#trial-banner .tb-upgrade:hover {
+  background: rgba(255,255,255,.4); transform: translateY(-1px);
+}
 
 /* ── Sidebar ────────────────────────────────────────────────────
    FIX CSS#2: Satu definisi #sidebar.
@@ -1361,6 +1388,15 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
   /* Content tetap dari topbar saja; has-banner offset hanya di padding-top */
   #app-shell.has-banner #content {
     padding-top: calc(var(--topbar-h) + var(--banner-h));
+  }
+
+  /* Banner mobile: font lebih kecil agar muat */
+  #trial-banner, #readonly-banner {
+    font-size: .78rem; gap: 6px; padding: 5px 12px;
+  }
+  /* Label "Upgrade" disembunyikan di mobile kecil - icon crown cukup */
+  @media (max-width: 400px) {
+    #trial-banner .tb-upgrade-label { display: none }
   }
 
   .view          { padding: 18px 14px 40px }
