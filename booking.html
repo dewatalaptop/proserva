@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <style>
-/* ── CSS Variables - accent disuntikkan JS setelah baca S.biz.accent ── */
+/* ── CSS Variables — accent disuntikkan JS setelah baca S.biz.accent ── */
 :root {
   --ac:#ea580c; --ac-h:#c2410c; --ac-dim:rgba(234,88,12,.08);
   --ac-glow:rgba(234,88,12,.22); --ac-border:rgba(234,88,12,.22);
@@ -353,7 +353,7 @@ input, select, textarea { font-family:var(--font) }
     <span style="color:var(--ink-4);font-size:.84rem">Memuat informasi restoran...</span>
   </div>
 
-  <!-- Konten utama - disuntikkan JS -->
+  <!-- Konten utama — disuntikkan JS -->
   <div id="bk-main" style="display:none"></div>
 
   <!-- Error state -->
@@ -397,7 +397,7 @@ const B = {
   /* Form state */
   selDate:  null,
   selSlot:  null,
-  selLocs:  [],    /* array nama - untuk mode meja bisa >1 */
+  selLocs:  [],    /* array nama — untuk mode meja bisa >1 */
   menuQty:  {},    /* { menuName: qty } */
   jumlah:   0,
   nama:     '',
@@ -453,7 +453,7 @@ async function loadBizData(uid) {
 
   /* Terapkan accent tema */
   document.documentElement.setAttribute('data-accent', B.biz.accent || B.biz.locMode || 'orange');
-  document.title = 'Reservasi - ' + (B.biz.name||'Restoran');
+  document.title = 'Reservasi — ' + (B.biz.name||'Restoran');
 }
 
 /* ── Load reservasi bulan tertentu untuk cek availability ── */
@@ -543,7 +543,7 @@ function renderHeader() {
     <div class="bk-biz-name">${esc(b.name||'Reservasi Online')}</div>
     ${b.tagline ? `<div class="bk-biz-tagline">${esc(b.tagline)}</div>` : ''}
     <div class="bk-biz-meta">
-      <span><i class="fas fa-clock"></i> ${esc(B.ops.openTime||'09:00')} - ${esc(B.ops.closeTime||'21:00')}</span>
+      <span><i class="fas fa-clock"></i> ${esc(B.ops.openTime||'09:00')} – ${esc(B.ops.closeTime||'21:00')}</span>
       <span><i class="fas fa-map-marker-alt"></i> ${esc(b.type||'Restoran')}</span>
     </div>
   </div>`;
@@ -806,7 +806,7 @@ function renderTamuForm() {
 }
 
 function renderConfirmSection() {
-  /* Placeholder - diisi saat submit berhasil */
+  /* Placeholder — diisi saat submit berhasil */
   return '<div id="bk-success-wrap"></div>';
 }
 
@@ -846,7 +846,7 @@ function bindEvents() {
   bindFormEvents();
 }
 function bindFormEvents() {
-  /* input events sudah inline via oninput - tidak perlu bind ulang */
+  /* input events sudah inline via oninput — tidak perlu bind ulang */
 }
 
 /* ── Global event handlers (dipanggil dari inline onclick) ── */
