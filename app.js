@@ -863,6 +863,8 @@ window._onAuthReady = async function (user) {
   requestAnimationFrame(async function(){
     applyAccountUI(accountStatus);
     await _renderCalendarWithLoad();
+    /* Init UX enhancements */
+    _initKeyboardShortcuts();
   });
 };
 
@@ -1003,6 +1005,8 @@ function loadSettingsForm() {
   /* Booking link */
   var linkEl = document.getElementById('booking-link-url');
   if (linkEl) linkEl.value = getBookingURL();
+  /* WA preview - setelah template dimuat */
+  setTimeout(function(){ updateWAPreview('confirm'); updateWAPreview('thanks'); }, 50);
 }
 
 async function saveBranding() {
@@ -1064,6 +1068,205 @@ function toMins(t)        { if(!t)return 0;var p=t.split(':');return parseInt(p[
 function minsToTime(m)    { return pad2(Math.floor(m/60))+':'+pad2(m%60); }
 function getEffectiveDuration(loc){ return(loc&&loc.defaultDuration?parseInt(loc.defaultDuration):0)||S.ops.defaultDuration||120; }
 function getEffectiveBuffer(loc)  { var b=loc&&loc.bufferTime!==undefined&&loc.bufferTime!==''?parseInt(loc.bufferTime):-1;return b>=0?b:(S.ops.bufferTime||15); }
+
+/* ──────────────────────────────────────────────────────────────
+   INFO POPOVER - tombol ⓘ
+   ────────────────────────────────────────────────────────────── */
+function showInfo(btn, text) {
+  var pop = document.getElementById('info-popover');
+  var cnt = document.getElementById('info-popover-content');
+  if (!pop || !cnt) return;
+  cnt.innerHTML = text.replace(/\n/g,'<br>');
+  pop.style.display = 'block';
+  var rect = btn.getBoundingClientRect();
+  var left = Math.min(rect.left, window.innerWidth - 300);
+  pop.style.left = Math.max(12, left) + 'px';
+  pop.style.top  = (rect.bottom + 10 + window.scrollY) + 'px';
+  setTimeout(function(){ pop.classList.add('show'); }, 10);
+  setTimeout(function(){
+    document.addEventListener('click', _closeInfoOnOutside, { once:true, capture:true });
+  }, 50);
+}
+function hideInfo() {
+  var pop = document.getElementById('info-popover');
+  if (!pop) return;
+  pop.classList.remove('show');
+  setTimeout(function(){ pop.style.display = 'none'; }, 180);
+}
+function _closeInfoOnOutside(e) {
+  var pop = document.getElementById('info-popover');
+  if (pop && !pop.contains(e.target)) hideInfo();
+}
+window.showInfo = showInfo;
+window.hideInfo = hideInfo;
+
+/* ──────────────────────────────────────────────────────────────
+   MODAL KONFIRMASI HAPUS CUSTOM
+   ────────────────────────────────────────────────────────────── */
+function confirmDelete(title, bodyHTML, onConfirmFn) {
+  var el      = document.getElementById('modal-confirm-delete');
+  var titleEl = document.getElementById('confirm-delete-title');
+  var bodyEl  = document.getElementById('confirm-delete-body');
+  var btn     = document.getElementById('confirm-delete-btn');
+  if (!el || !btn) { if (confirm(title)) onConfirmFn(); return; }
+  if (titleEl) titleEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i> ' + title;
+  if (bodyEl)  bodyEl.innerHTML  = bodyHTML;
+  var newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  document.getElementById('confirm-delete-btn').onclick = function() {
+    closeModal('modal-confirm-delete'); onConfirmFn();
+  };
+  openModal('modal-confirm-delete');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   WA PREVIEW LIVE - Settings Pesan WA
+   ────────────────────────────────────────────────────────────── */
+var _WA_SAMPLE = {
+  nama:'Budi Santoso', tanggal:'Sabtu, 25 Mei 2026',
+  jam:'13:00', jam_selesai:'15:00', tempat:'Gazebo A', jumlah:'8',
+  menu:'• Paket Keluarga (2x)\n  ↳ Nasi Putih\n  ↳ Ayam Bakar',
+  dp:'Rp 300.000', tipe_dp:'Transfer BCA'
+};
+
+function updateWAPreview(type) {
+  var taId   = type === 'confirm' ? 'set-wa-confirm' : 'set-wa-thanks';
+  var prevId = type === 'confirm' ? 'wa-preview-confirm-text' : 'wa-preview-thanks-text';
+  var ta     = document.getElementById(taId);
+  var prevEl = document.getElementById(prevId);
+  if (!ta || !prevEl) return;
+  var s = _WA_SAMPLE;
+  var out = ta.value
+    .replace(/\{nama\}/g,       s.nama)
+    .replace(/\{bisnis\}/g,     S.biz.name||'Dolan Sawah')
+    .replace(/\{tanggal\}/g,    s.tanggal)
+    .replace(/\{jam\}/g,        s.jam)
+    .replace(/\{jam_selesai\}/g,s.jam_selesai)
+    .replace(/\{tempat\}/g,     s.tempat)
+    .replace(/\{jumlah\}/g,     s.jumlah)
+    .replace(/\{menu\}/g,       s.menu)
+    .replace(/\{dp\}/g,         s.dp)
+    .replace(/\{tipe_dp\}/g,    s.tipe_dp);
+  prevEl.innerHTML = esc(out)
+    .replace(/\*(.*?)\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+}
+window.updateWAPreview = updateWAPreview;
+
+/* ──────────────────────────────────────────────────────────────
+   EXPORT CSV
+   ────────────────────────────────────────────────────────────── */
+function handleExportCSV() {
+  var scope  = document.querySelector('input[name="csv-scope"]:checked');
+  var useAll = scope && scope.value === 'all';
+  var data   = useAll ? getAllRes() : getResMonth(S.year, S.month);
+  if (!data.length) { showToast('Tidak ada data untuk di-export','warning'); return; }
+  var headers = ['ID','Tanggal','Nama','Nomor HP','Jam','Jumlah Tamu','Tempat','Menu','DP','Metode DP','Status','Catatan','Sumber','Dibuat'];
+  var rows = data.map(function(r){
+    var tempats = normTempat(r.tempat).join(' + ');
+    var menus   = Array.isArray(r.menus)?r.menus.map(function(m){return m.quantity+'x '+m.name;}).join('; '):'';
+    var created = r.createdAt?new Date(r.createdAt).toLocaleString('id-ID'):'';
+    return [r.id||'',r.date||'',r.nama||'',r.nomorHp||'',r.jam||'',
+      r.jumlah||'',tempats,menus,r.dp||0,r.tipeDp||'',
+      r.status||'',r.tambahan||'',r.source||'operator',created
+    ].map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(',');
+  });
+  var csv  = '\uFEFF'+headers.join(',')+'\n'+rows.join('\n');
+  var blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href   = url;
+  a.download = 'reservasi_'+(useAll?'semua':MONTHS_S[S.month]+S.year)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('CSV berhasil di-download! 📊','success');
+  closeModal('modal-export');
+}
+window.handleExportCSV = handleExportCSV;
+
+/* ──────────────────────────────────────────────────────────────
+   SIDEBAR - MINI TODAY SUMMARY
+   ────────────────────────────────────────────────────────────── */
+function _updateSbToday() {
+  var el    = document.getElementById('sb-today');
+  var stats = document.getElementById('sb-today-stats');
+  if (!el||!stats) return;
+  var res = getResDate(todayStr()).filter(function(r){return r.status!=='batal';});
+  if (!res.length) { el.style.display='none'; return; }
+  var pax  = res.reduce(function(s,r){return s+(parseInt(r.jumlah)||0);},0);
+  var nowM = new Date().getHours()*60+new Date().getMinutes();
+  var next = res.filter(function(r){return toMins(r.jam||'00:00')>=nowM;})
+               .sort(function(a,b){return toMins(a.jam)-toMins(b.jam);})[0];
+  stats.innerHTML = res.length+' reservasi · '+pax+' tamu'
+    +(next?'<br><span style="font-size:.72rem;color:var(--ac)">'+esc(next.jam)+' - '+esc(next.nama||'?')+'</span>':'');
+  el.style.display = 'block';
+}
+
+/* ──────────────────────────────────────────────────────────────
+   SHORTCUT KEYBOARD - N, ←, →, Esc
+   ────────────────────────────────────────────────────────────── */
+function _initKeyboardShortcuts() {
+  document.addEventListener('keydown', function(e) {
+    var tag = document.activeElement ? document.activeElement.tagName : '';
+    if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+    var modalOpen = document.querySelector('.modal-overlay.active');
+    if (e.key === 'Escape') {
+      if (modalOpen) { var cb=modalOpen.querySelector('.modal-close'); if(cb) cb.click(); }
+      else hideInfo();
+      return;
+    }
+    if (modalOpen) return;
+    if (e.key==='n'||e.key==='N') { e.preventDefault(); openAddRes(); }
+    else if (e.key==='ArrowLeft')  { e.preventDefault(); navMonth(-1); }
+    else if (e.key==='ArrowRight') { e.preventDefault(); navMonth(1);  }
+  });
+}
+
+/* ──────────────────────────────────────────────────────────────
+   VALIDASI REAL-TIME FORM RESERVASI
+   ────────────────────────────────────────────────────────────── */
+function _initResFormValidation() {
+  var hpEl = document.getElementById('res-hp');
+  if (hpEl) hpEl.addEventListener('input', function(){
+    _setFieldHint(this,'res-hp', !this.value.trim() ? null
+      : validPhone(this.value.trim())
+        ? {type:'ok',  msg:'✅ Format valid'}
+        : {type:'warn',msg:'⚠️ Contoh: 0812-3456-7890 atau +62xxx'});
+  });
+  var jmlEl = document.getElementById('res-jumlah');
+  if (jmlEl) jmlEl.addEventListener('input', function(){
+    if (isTableMode()) { _updateCapSummary(); return; }
+    var loc=getLocByName(gval('res-tempat')); if(!loc) return;
+    var pax=parseInt(this.value)||0, cap=parseInt(loc.capacity)||0, mn=parseInt(loc.minGuests)||1;
+    _setFieldHint(this,'res-jumlah', !pax ? null
+      : pax<mn ? {type:'warn',msg:'⚠️ Minimum '+mn+' tamu untuk lokasi ini'}
+      : pax>cap ? {type:'err', msg:'❌ Kapasitas maks. '+cap+' orang'}
+      : {type:'ok',msg:'✅ Sesuai kapasitas'});
+  });
+  var jamEl = document.getElementById('res-jam');
+  if (jamEl) jamEl.addEventListener('input', function(){
+    if (gval('res-edit-id')) return;
+    var dt  = new Date((gval('res-date')||todayStr())+'T'+this.value).getTime();
+    var min = (S.ops.minAdvance||0)*3600000;
+    _setFieldHint(this,'res-jam', !this.value ? null
+      : (dt-Date.now()<min)
+        ? {type:'warn',msg:'⚠️ Minimal booking '+(S.ops.minAdvance||0)+' jam sebelumnya'}
+        : null);
+  });
+}
+
+function _setFieldHint(inputEl, fieldId, result) {
+  var parent = typeof inputEl==='string'
+    ? document.getElementById(inputEl)?.parentNode
+    : inputEl.closest('.form-group')||inputEl.parentNode;
+  if (!parent) return;
+  var old = parent.querySelector('.field-hint-ok,.field-hint-warn,.field-hint-err');
+  if (old) old.remove();
+  if (!result) return;
+  var cls = result.type==='ok'?'field-hint-ok':result.type==='warn'?'field-hint-warn':'field-hint-err';
+  var hint = document.createElement('div');
+  hint.className = cls; hint.innerHTML = result.msg;
+  parent.appendChild(hint);
+}
 
 /* ──────────────────────────────────────────────────────────────
    NORM TEMPAT - backward compat: data lama bisa string, baru array
@@ -1429,21 +1632,72 @@ function _renderCalendarSync() {
 
   if (!calEl) return;
   var today=new Date(),html='';
+  var todayDs=buildDs(today.getFullYear(),today.getMonth()+1,today.getDate());
+  var curMonthKey=buildDs(y,m+1,1).substring(0,7);
+  var todayMonthKey=todayDs.substring(0,7);
+
   for(var i=0;i<first;i++) html+='<div class="cal-day empty"></div>';
   for(var d=1;d<=days;d++){
     var ds=buildDs(y,m+1,d);
-    var isToday=today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d;
+    var isToday=ds===todayDs;
+    var isPast=ds<todayDs;
+    var isClosed=isDateClosed(ds);
     var cnt=counts[d]||0,nms=names[d]||[];
     var avail=cnt>0?getDateAvailability(ds):'free';
     var ac=avail==='full'?'avail-full':avail==='busy'?'avail-busy':'avail-free';
-    html+='<div class="cal-day'+(isToday?' today':'')+'" onclick="selectDate(\''+ds+'\')">'+
+
+    /* Kelas tambahan untuk state */
+    var extraCls='';
+    if(isClosed) extraCls+=' cal-day-closed';
+    if(isPast)   extraCls+=' cal-day-past';
+
+    /* Angka reservasi dengan warna gradual - hanya jika ada reservasi */
+    var pillHtml='';
+    if(cnt){
+      var pillCls=avail==='full'?'cal-pill-full':avail==='busy'?'cal-pill-busy':'cal-pill-free';
+      pillHtml='<div class="cal-res-pill '+pillCls+'">'+cnt+'</div>';
+    }
+
+    /* Indikator tutup */
+    var closedHtml=isClosed?'<div class="cal-closed-x"><i class="fas fa-times"></i></div>':'';
+
+    html+='<div class="cal-day'+(isToday?' today':'')+extraCls+'" onclick="selectDate(\''+ds+'\')"'+
+      (isClosed?' title="Tutup'+(S.closedDates.find(function(cd){return cd.date===ds;})?.reason?' - '+S.closedDates.find(function(cd){return cd.date===ds;}).reason:'')+'"':'')+'>'+
       '<div class="cal-day-num">'+d+'</div>'+
       (cnt?'<div class="cal-avail '+ac+'"></div>':'')+
-      (cnt?'<div class="cal-res-pill"><i class="fas fa-calendar-check"></i> '+cnt+'</div>':'')+
+      pillHtml+
+      closedHtml+
       nms.map(function(n){return'<div class="cal-mini">'+esc(n)+'</div>';}).join('')+
       '</div>';
   }
   calEl.innerHTML=html;
+
+  /* Empty state kontekstual */
+  if(emptyEl){
+    if(monthRes.length===0){
+      var isPastMonth=curMonthKey<todayMonthKey;
+      var isFutureMonth=curMonthKey>todayMonthKey;
+      var emptyIcon=isPastMonth?'📂':isFutureMonth?'📅':'📋';
+      var emptyTitle=isPastMonth?'Tidak ada reservasi bulan ini':
+                     isFutureMonth?'Belum ada reservasi untuk '+MONTHS[m]:
+                     'Belum ada reservasi bulan ini';
+      var emptySub=isPastMonth?'Tidak ada data tercatat untuk periode ini.':
+                   isFutureMonth?'Bagikan link reservasi ke customer untuk mulai menerima pesanan.':
+                   'Tambah reservasi manual atau bagikan link booking ke customer.';
+      emptyEl.innerHTML='<div class="ces-icon">'+emptyIcon+'</div>'+
+        '<div class="ces-title">'+emptyTitle+'</div>'+
+        '<div class="ces-sub">'+emptySub+'</div>'+
+        (isPastMonth?'':
+          '<button type="button" class="ces-btn" onclick="openAddRes()">'+
+          '<i class="fas fa-plus"></i> Tambah Reservasi Sekarang</button>');
+      emptyEl.style.display='flex';
+    } else {
+      emptyEl.style.display='none';
+    }
+  }
+
+  /* Update sb-today di sidebar */
+  _updateSbToday();
 }
 
 async function navMonth(d) {
@@ -1671,6 +1925,8 @@ function openAddRes() {
   if(mc) mc.innerHTML='';
   addMenuRow('res-menus-container');
   openModal('modal-res');
+  /* Init validasi realtime setelah modal terbuka */
+  requestAnimationFrame(_initResFormValidation);
 }
 
 function openEditRes(id) {
@@ -1966,12 +2222,20 @@ async function quickStatus(id,newStatus) {
 
 async function delRes(id) {
   if(!guardWrite()) return;
-  var r=findRes(id);
-  if(!confirm('Hapus reservasi untuk '+(r?r.nama:'ini')+'?')) return;
-  await deleteResFS(r||{id:id,date:S.date||todayStr()});
-  showToast('Reservasi dihapus','info');
-  if(S.date){renderDetail(getResDate(S.date));renderAvailBar(S.date);}
-  _renderCalendarSync();
+  var r=findRes(id); if(!r) return;
+  var tempats=normTempat(r.tempat).join(', ');
+  var bodyHTML='<div class="confirm-del-detail">'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-user"></i><span>'+esc(r.nama||'-')+'</span></div>'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-calendar"></i><span>'+esc(r.date||'-')+' · '+esc(r.jam||'-')+'</span></div>'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-map-pin"></i><span>'+esc(tempats||'-')+'</span></div>'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-users"></i><span>'+esc(r.jumlah||'-')+' orang</span></div>'
+    +'</div><div class="confirm-del-warn"><i class="fas fa-exclamation-circle"></i> Aksi ini tidak bisa dibatalkan.</div>';
+  confirmDelete('Hapus Reservasi?', bodyHTML, async function(){
+    await deleteResFS(r||{id:id,date:S.date||todayStr()});
+    showToast('Reservasi dihapus','info');
+    if(S.date){renderDetail(getResDate(S.date));renderAvailBar(S.date);}
+    _renderCalendarSync();
+  });
 }
 
 function populateLocSelect(selId,selV) {
@@ -2098,10 +2362,15 @@ async function saveMenu() {
 
 async function doDeleteMenu(id) {
   if(!guardWrite()) return;
-  var n=S.menus[id]?S.menus[id].name:'menu ini';
-  if(!confirm('Hapus menu "'+n+'"?')) return;
-  await deleteMenuFS(id); renderMenusTable();
-  showToast('Menu dihapus','info');
+  var m=S.menus[id]; if(!m) return;
+  var bodyHTML='<div class="confirm-del-detail">'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-utensils"></i><span>'+esc(m.name)+'</span></div>'
+    +(m.price?'<div class="confirm-del-detail-row"><i class="fas fa-tag"></i><span>Rp '+formatRp(m.price)+'</span></div>':'')
+    +'</div><div class="confirm-del-warn"><i class="fas fa-exclamation-circle"></i> Aksi ini tidak bisa dibatalkan.</div>';
+  confirmDelete('Hapus Menu?', bodyHTML, async function(){
+    await deleteMenuFS(id); renderMenusTable();
+    showToast('Menu "'+m.name+'" dihapus','info');
+  });
 }
 
 function renderLocsTable() {
@@ -2157,9 +2426,15 @@ async function saveLoc() {
 
 async function doDeleteLoc(id) {
   if(!guardWrite()) return;
-  if(!confirm('Hapus lokasi "'+(S.locs[id]?S.locs[id].name:'ini')+'"?')) return;
-  await deleteLocFS(id); renderLocsTable();
-  showToast('Lokasi dihapus','info');
+  var l=S.locs[id]; if(!l) return;
+  var bodyHTML='<div class="confirm-del-detail">'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-map-pin"></i><span>'+esc(l.name)+'</span></div>'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-users"></i><span>Kapasitas '+esc(l.capacity)+' orang</span></div>'
+    +'</div><div class="confirm-del-warn"><i class="fas fa-exclamation-circle"></i> Reservasi yang sudah ada tidak akan ikut terhapus.</div>';
+  confirmDelete('Hapus Lokasi?', bodyHTML, async function(){
+    await deleteLocFS(id); renderLocsTable();
+    showToast('Lokasi "'+l.name+'" dihapus','info');
+  });
 }
 
 /* ──────────────────────────────────────────────────────────────
