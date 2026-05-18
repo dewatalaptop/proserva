@@ -790,6 +790,23 @@ console.log('[Firebase] module loaded.');
     </div>
     <div id="sb-account-status" class="sb-status" role="status"></div>
     <div class="sidebar-biz" id="sb-biz-name">-</div>
+
+    <!-- Tombol Link Reservasi - satu klik salin, selalu terlihat -->
+    <button type="button" class="sb-booking-link-btn" id="sb-booking-link-btn"
+      onclick="copyBookingLink()" title="Salin link halaman reservasi customer">
+      <i class="fas fa-link" aria-hidden="true"></i>
+      <span>Salin Link Reservasi</span>
+      <i class="fas fa-copy sb-booking-copy-icon" aria-hidden="true"></i>
+    </button>
+
+    <!-- Mini summary hari ini -->
+    <div class="sb-today" id="sb-today" style="display:none"
+      onclick="goToday();setTimeout(function(){selectDate(todayStr())},100)"
+      role="button" tabindex="0">
+      <div class="sb-today-label"><i class="fas fa-calendar-day"></i> Hari Ini</div>
+      <div class="sb-today-stats" id="sb-today-stats">-</div>
+    </div>
+
     <nav class="sidebar-nav">
       <div class="nav-group">Utama</div>
       <div class="nav-item active" data-view="calendar"  onclick="showView('calendar')"  role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-calendar-alt" aria-hidden="true"></i></span><span class="nav-label">Kalender</span></div>
@@ -1127,15 +1144,35 @@ console.log('[Firebase] module loaded.');
                 <div class="form-group"><label class="form-label" for="set-close">Jam Tutup Default</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="set-close" type="time" value="21:00"/></div></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-label" for="set-slot-interval">Interval Slot (menit)</label><div class="input-wrap"><i class="fas fa-stopwatch" aria-hidden="true"></i><select class="form-select" id="set-slot-interval"><option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">60 menit</option></select></div></div>
-                <div class="form-group"><label class="form-label" for="set-duration">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/></div></div>
+                <div class="form-group">
+                  <div class="form-label-row">
+                    <label class="form-label" for="set-slot-interval">Interval Slot (menit)</label>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Jarak antar pilihan waktu yang tersedia. Contoh: interval 30 menit berarti customer bisa pilih 09:00, 09:30, 10:00, dan seterusnya. Interval lebih kecil memberi lebih banyak pilihan, tapi lebih sulit dikelola.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
+                  <div class="input-wrap"><i class="fas fa-stopwatch" aria-hidden="true"></i><select class="form-select" id="set-slot-interval"><option value="15">15 menit</option><option value="30" selected>30 menit</option><option value="60">60 menit</option></select></div>
+                </div>
+                <div class="form-group">
+                  <div class="form-label-row">
+                    <label class="form-label" for="set-duration">Durasi Default (menit)</label>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Berapa lama satu sesi reservasi berlangsung secara default. Contoh: 120 menit berarti tamu diberikan waktu 2 jam. Bisa diatur berbeda per lokasi di menu Lokasi.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
+                  <div class="input-wrap"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="set-duration" type="number" min="30" step="15" value="120"/></div>
+                </div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-label" for="set-buffer">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause" aria-hidden="true"></i><input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/></div></div>
                 <div class="form-group">
-                  <label class="form-label" for="set-min-advance">Minimal Booking Sebelum (jam)</label>
+                  <div class="form-label-row">
+                    <label class="form-label" for="set-buffer">Buffer Antar Reservasi (menit)</label>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Jeda wajib antara dua reservasi di lokasi yang sama. Contoh: buffer 15 menit artinya setelah reservasi jam 12:00-14:00, lokasi baru bisa dipesan lagi jam 14:15. Berguna untuk waktu beres-beres dan persiapan.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
+                  <div class="input-wrap"><i class="fas fa-pause" aria-hidden="true"></i><input class="form-input" id="set-buffer" type="number" min="0" step="5" value="15"/></div>
+                </div>
+                <div class="form-group">
+                  <div class="form-label-row">
+                    <label class="form-label" for="set-min-advance">Minimal Booking Sebelum (jam)</label>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Batas minimum waktu sebelum reservasi bisa dilakukan. Contoh: nilai 2 artinya tamu tidak bisa booking untuk 2 jam ke depan. Berguna agar dapur dan staf punya waktu persiapan yang cukup. Isi 0 jika ingin customer bisa booking kapan saja.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
                   <div class="input-wrap"><i class="fas fa-bell" aria-hidden="true"></i><input class="form-input" id="set-min-advance" type="number" min="0" value="2"/></div>
-                  <p class="form-hint">Tamu tidak bisa booking kurang dari X jam dari sekarang.</p>
                 </div>
               </div>
               <button type="button" class="btn btn-accent" onclick="saveOperational()">
@@ -1194,16 +1231,39 @@ console.log('[Firebase] module loaded.');
           <div class="settings-section" id="sec-messages">
             <div class="settings-card">
               <div class="settings-card-title"><i class="fab fa-whatsapp" aria-hidden="true"></i> Template Pesan WhatsApp</div>
+
+              <!-- Pesan Konfirmasi -->
               <div class="form-group">
                 <label class="form-label" for="set-wa-confirm">Pesan Konfirmasi (Status Confirmed)</label>
-                <textarea class="form-textarea" id="set-wa-confirm" style="min-height:130px"></textarea>
-                <p class="form-hint">Variabel: {nama}, {bisnis}, {tanggal}, {jam}, {jam_selesai}, {tempat}, {jumlah}, {menu}, {dp}, {tipe_dp}</p>
+                <div class="wa-preview-layout">
+                  <div style="flex:1">
+                    <textarea class="form-textarea" id="set-wa-confirm" style="min-height:130px"
+                      oninput="updateWAPreview('confirm')"></textarea>
+                    <p class="form-hint">Variabel: {nama}, {bisnis}, {tanggal}, {jam}, {jam_selesai}, {tempat}, {jumlah}, {menu}, {dp}, {tipe_dp}</p>
+                  </div>
+                  <div class="wa-preview-box" id="wa-preview-confirm">
+                    <div class="wa-preview-label"><i class="fas fa-eye"></i> Preview</div>
+                    <div class="wa-preview-content" id="wa-preview-confirm-text"></div>
+                  </div>
+                </div>
               </div>
+
+              <!-- Pesan Terima Kasih -->
               <div class="form-group">
                 <label class="form-label" for="set-wa-thanks">Pesan Terima Kasih (setelah kunjungan)</label>
-                <textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"></textarea>
-                <p class="form-hint">Variabel: {nama}, {bisnis}</p>
+                <div class="wa-preview-layout">
+                  <div style="flex:1">
+                    <textarea class="form-textarea" id="set-wa-thanks" style="min-height:100px"
+                      oninput="updateWAPreview('thanks')"></textarea>
+                    <p class="form-hint">Variabel: {nama}, {bisnis}</p>
+                  </div>
+                  <div class="wa-preview-box" id="wa-preview-thanks">
+                    <div class="wa-preview-label"><i class="fas fa-eye"></i> Preview</div>
+                    <div class="wa-preview-content" id="wa-preview-thanks-text"></div>
+                  </div>
+                </div>
               </div>
+
               <button type="button" class="btn btn-accent" onclick="saveMessages()">
                 <i class="fas fa-save" aria-hidden="true"></i> Simpan Template
               </button>
@@ -1216,7 +1276,10 @@ console.log('[Firebase] module loaded.');
               <div class="settings-card-title"><i class="fas fa-receipt" aria-hidden="true"></i> Pengaturan DP</div>
               <div class="form-row">
                 <div class="form-group">
-                  <label class="form-label" for="set-dp-mode">Mode DP</label>
+                  <div class="form-label-row">
+                    <label class="form-label" for="set-dp-mode">Mode DP</label>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Persentase: DP dihitung otomatis dari total tagihan. Contoh: 30% dari Rp500.000 = DP Rp150.000.&#10;&#10;Nominal Tetap: DP selalu sama untuk semua reservasi, terlepas dari total tagihan. Bisa di-override per reservasi saat input.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
                   <div class="input-wrap"><i class="fas fa-percentage" aria-hidden="true"></i>
                     <select class="form-select" id="set-dp-mode" onchange="onDpModeChange()">
                       <option value="persen">Persentase (%)</option>
@@ -1242,7 +1305,10 @@ console.log('[Firebase] module loaded.');
               <!-- PPN Toggle -->
               <div class="payment-toggle-row">
                 <div>
-                  <div class="ptr-label">PPN</div>
+                  <div class="ptr-label-row">
+                    <span class="ptr-label">PPN</span>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Pajak Pertambahan Nilai yang dikenakan ke customer. Dihitung dari subtotal harga menu saja - tidak termasuk service charge.&#10;&#10;Contoh: subtotal Rp500.000 dengan PPN 11% → PPN = Rp55.000.&#10;&#10;Standar PPN Indonesia saat ini adalah 11%.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
                   <div class="ptr-hint">Dihitung dari subtotal menu saja (tidak termasuk service)</div>
                 </div>
                 <label class="toggle-switch">
@@ -1254,14 +1320,18 @@ console.log('[Firebase] module loaded.');
                 <label class="form-label" for="set-ppn-pct">Persentase PPN (%)</label>
                 <div class="input-wrap" style="max-width:160px">
                   <span class="ip">%</span>
-                  <input class="form-input" id="set-ppn-pct" type="number" min="0" max="100" step="0.1" value="11" placeholder="11"/>
+                  <input class="form-input" id="set-ppn-pct" type="number" min="0" max="100" step="0.1" value="11" placeholder="11"
+                    oninput="_updateBillingPreview()"/>
                 </div>
               </div>
 
               <!-- Service Charge Toggle -->
               <div class="payment-toggle-row" style="margin-top:16px">
                 <div>
-                  <div class="ptr-label">Service Charge</div>
+                  <div class="ptr-label-row">
+                    <span class="ptr-label">Service Charge</span>
+                    <button type="button" class="info-btn" onclick="showInfo(this,'Biaya layanan tambahan yang dikenakan ke customer. Dihitung dari subtotal harga menu saja - tidak termasuk PPN.&#10;&#10;Contoh: subtotal Rp500.000 dengan service 5% → service = Rp25.000.&#10;&#10;Umumnya berkisar 5-10% untuk restoran.')"><i class="fas fa-circle-info"></i></button>
+                  </div>
                   <div class="ptr-hint">Dihitung dari subtotal menu saja</div>
                 </div>
                 <label class="toggle-switch">
@@ -1273,7 +1343,8 @@ console.log('[Firebase] module loaded.');
                 <label class="form-label" for="set-service-pct">Persentase Service (%)</label>
                 <div class="input-wrap" style="max-width:160px">
                   <span class="ip">%</span>
-                  <input class="form-input" id="set-service-pct" type="number" min="0" max="100" step="0.1" value="5" placeholder="5"/>
+                  <input class="form-input" id="set-service-pct" type="number" min="0" max="100" step="0.1" value="5" placeholder="5"
+                    oninput="_updateBillingPreview()"/>
                 </div>
               </div>
 
@@ -1563,11 +1634,31 @@ console.log('[Firebase] module loaded.');
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label" for="loc-min">Minimum Tamu</label><div class="input-wrap"><i class="fas fa-user-check" aria-hidden="true"></i><input class="form-input" id="loc-min" type="number" min="1" placeholder="2"/></div></div>
-        <div class="form-group"><label class="form-label" for="loc-duration">Durasi Default (menit)</label><div class="input-wrap"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/></div><p class="form-hint">Kosongkan untuk pakai pengaturan global.</p></div>
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label" for="loc-duration">Durasi Default (menit)</label>
+            <button type="button" class="info-btn" onclick="showInfo(this,'Durasi khusus untuk lokasi ini. Jika diisi, akan menggantikan durasi global di pengaturan operasional. Kosongkan jika ingin menggunakan durasi global.')"><i class="fas fa-circle-info"></i></button>
+          </div>
+          <div class="input-wrap"><i class="fas fa-hourglass-half" aria-hidden="true"></i><input class="form-input" id="loc-duration" type="number" min="30" step="15" placeholder="120"/></div>
+          <p class="form-hint">Kosongkan untuk pakai pengaturan global.</p>
+        </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label" for="loc-buffer">Buffer Antar Reservasi (menit)</label><div class="input-wrap"><i class="fas fa-pause" aria-hidden="true"></i><input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/></div></div>
-        <div class="form-group"><label class="form-label" for="loc-open">Jam Buka Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="loc-open" type="time"/></div><p class="form-hint">Kosongkan untuk pakai jam global.</p></div>
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label" for="loc-buffer">Buffer Antar Reservasi (menit)</label>
+            <button type="button" class="info-btn" onclick="showInfo(this,'Jeda wajib setelah reservasi di lokasi ini selesai sebelum reservasi berikutnya bisa mulai. Kosongkan untuk menggunakan buffer global.')"><i class="fas fa-circle-info"></i></button>
+          </div>
+          <div class="input-wrap"><i class="fas fa-pause" aria-hidden="true"></i><input class="form-input" id="loc-buffer" type="number" min="0" step="5" placeholder="15"/></div>
+        </div>
+        <div class="form-group">
+          <div class="form-label-row">
+            <label class="form-label" for="loc-open">Jam Buka Lokasi Ini</label>
+            <button type="button" class="info-btn" onclick="showInfo(this,'Jam operasional khusus untuk lokasi ini. Berguna jika lokasi tertentu buka lebih siang atau tutup lebih awal dari jam bisnis utama. Kosongkan untuk menggunakan jam global.')"><i class="fas fa-circle-info"></i></button>
+          </div>
+          <div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="loc-open" type="time"/></div>
+          <p class="form-hint">Kosongkan untuk pakai jam global.</p>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label" for="loc-close">Jam Tutup Lokasi Ini</label><div class="input-wrap"><i class="far fa-clock" aria-hidden="true"></i><input class="form-input" id="loc-close" type="time"/></div></div>
@@ -1613,12 +1704,22 @@ console.log('[Firebase] module loaded.');
     </div>
     <div class="modal-body">
       <div class="form-group"><label class="form-label" for="export-out">Kode Backup</label><textarea class="form-textarea code-area" id="export-out" readonly placeholder="Klik Export untuk generate kode..."></textarea><p class="form-hint">Salin kode ini untuk backup atau pindah device.</p></div>
+      <div class="modal-divider"><span>export CSV</span></div>
+      <div class="form-group">
+        <label class="form-label">Scope Export CSV</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label class="print-opt"><input type="radio" name="csv-scope" value="month" checked/> Bulan ini</label>
+          <label class="print-opt"><input type="radio" name="csv-scope" value="all"/> Semua data yang sudah dimuat</label>
+        </div>
+        <p class="form-hint" style="margin-top:6px">Pilih "Semua data" lalu klik <strong>Muat Semua</strong> di tab Analisis dulu jika ingin export historis lengkap.</p>
+      </div>
       <div class="modal-divider"><span>atau import data</span></div>
       <div class="form-group"><label class="form-label" for="import-in">Import dari Backup</label><textarea class="form-textarea code-area" id="import-in" placeholder="Tempel kode backup di sini..."></textarea></div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-export')">Tutup</button>
       <button type="button" class="btn btn-secondary" onclick="doImport()"><i class="fas fa-download" aria-hidden="true"></i> Import</button>
+      <button type="button" class="btn btn-secondary" onclick="handleExportCSV()"><i class="fas fa-file-csv" aria-hidden="true"></i> Export CSV</button>
       <button type="button" class="btn btn-accent" onclick="copyExport()"><i class="fas fa-copy" aria-hidden="true"></i> Salin Kode</button>
     </div>
   </div>
@@ -1651,6 +1752,37 @@ console.log('[Firebase] module loaded.');
       </button>
     </div>
   </div>
+</div>
+
+<!-- Modal Konfirmasi Hapus Custom -->
+<div class="modal-overlay" id="modal-confirm-delete" role="dialog" aria-modal="true">
+  <div class="modal modal-sm">
+    <div class="modal-head">
+      <h3 id="confirm-delete-title"><i class="fas fa-exclamation-triangle" style="color:var(--danger)"></i> Hapus?</h3>
+      <button type="button" class="modal-close" onclick="closeModal('modal-confirm-delete')" aria-label="Tutup"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="confirm-delete-body" style="font-size:.9rem;color:var(--ink-2);line-height:1.6"></div>
+      <p style="font-size:.8rem;color:var(--danger);margin-top:12px;font-weight:600">
+        <i class="fas fa-exclamation-circle"></i> Aksi ini tidak bisa dibatalkan.
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-confirm-delete')">Batal</button>
+      <button type="button" class="btn btn-danger" id="confirm-delete-btn">
+        <i class="fas fa-trash-alt"></i> Ya, Hapus
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Info Popover -->
+<div class="info-popover" id="info-popover" role="tooltip" style="display:none">
+  <div class="info-popover-arrow"></div>
+  <div class="info-popover-content" id="info-popover-content"></div>
+  <button type="button" class="info-popover-close" onclick="hideInfo()">
+    <i class="fas fa-times"></i>
+  </button>
 </div>
 
 <!-- ══════════════════════════════════════════════════════
