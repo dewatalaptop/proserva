@@ -25,15 +25,16 @@
    CONSTANTS & STORAGE KEYS
    ────────────────────────────────────────────────────────────── */
 var K = {
-  BIZ:     'psv_biz',
-  MENUS:   'psv_menus',
-  LOCS:    'psv_locs',
-  RES:     'psv_res',
-  BC_MSG:  'psv_bc_msg',
-  OPS:     'psv_ops',
-  MSGS:    'psv_msgs',
-  PAYMENT: 'psv_payment',
-  APPEAR:  'psv_appear'
+  BIZ:          'psv_biz',
+  MENUS:        'psv_menus',
+  LOCS:         'psv_locs',
+  RES:          'psv_res',
+  BC_MSG:       'psv_bc_msg',
+  OPS:          'psv_ops',
+  MSGS:         'psv_msgs',
+  PAYMENT:      'psv_payment',
+  APPEAR:       'psv_appear',
+  CLOSED_DATES: 'psv_closed_dates'
 };
 
 var DEFAULT_CONF = [
@@ -75,8 +76,9 @@ var _UID     = '';
 var _ACCOUNT = null;
 
 var S = {
-  biz:  { name:'Usaha Saya', type:'restoran', tagline:'', logo:'🍽️' },
+  biz:  { name:'Usaha Saya', type:'restoran', tagline:'', logo:'🍽️', locMode:'area' },
   menus:{}, locs:{}, res:{},
+  closedDates: [],   /* [{date:'YYYY-MM-DD', reason:'...'}] */
   loadedMonths: new Set(),
   month: new Date().getMonth(),
   year:  new Date().getFullYear(),
@@ -85,7 +87,6 @@ var S = {
   ops:   { openTime:'09:00', closeTime:'21:00', slotInterval:30,
            defaultDuration:120, bufferTime:15, minAdvance:2 },
   msgs:  { confirm:DEFAULT_CONF, thanks:DEFAULT_THANKS },
-  /* State pembayaran - diload dari Firestore config/payment */
   payment: {
     dpMode:'persen', dpPersen:30, dpNominal:0,
     serviceOn:false, servicePct:5,
@@ -93,7 +94,7 @@ var S = {
     bankName:'', bankNo:'', bankOwner:''
   },
   appear: { accent:'orange', logo:'🍽️' },
-  wizData:{ bizName:'', bizType:'restoran', locs:[], menus:[] }
+  wizData:{ bizName:'', bizType:'restoran', locMode:'area', locs:[], menus:[] }
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -256,7 +257,7 @@ function buildConfMsg(r) {
       + 'Reservasi kamu di *' + S.biz.name + '* menunggu konfirmasi pembayaran:\n\n'
       + '📅 *Tanggal:* ' + formatDateFull(r.date) + '\n'
       + '⏰ *Jam:* ' + r.jam + ' - ' + endT + '\n'
-      + '📍 *Tempat:* ' + r.tempat + '\n'
+      + '📍 *Tempat:* ' + normTempat(r.tempat).join(', ') + '\n'
       + '👥 *Jumlah:* ' + r.jumlah + ' orang\n\n'
       + '🍽 *Pesanan:*\n' + menuBlock + '\n\n'
       + '🧾 *Rincian Tagihan:*\n' + billLines
@@ -273,7 +274,7 @@ function buildConfMsg(r) {
       + 'Konfirmasi reservasi di *' + S.biz.name + '*:\n\n'
       + '📅 *Tanggal:* ' + formatDateFull(r.date) + '\n'
       + '⏰ *Jam:* ' + r.jam + ' - ' + endT + '\n'
-      + '📍 *Tempat:* ' + r.tempat + '\n'
+      + '📍 *Tempat:* ' + normTempat(r.tempat).join(', ') + '\n'
       + '👥 *Jumlah:* ' + r.jumlah + ' orang\n\n'
       + '🍽 *Pesanan:*\n' + menuBlock + '\n\n'
       + (dpInfo ? dpInfo + '\n\n' : '')
@@ -319,7 +320,7 @@ function buildDailyMsg(dateStr, res) {
 
     var line = '*' + (i + 1) + '. ' + r.nama + '* ' + stIcon + '\n'
       + '⏰ ' + r.jam + '-' + endT
-      + ' · 📍 ' + r.tempat
+      + ' · 📍 ' + normTempat(r.tempat).join(', ')
       + ' · 👥 ' + r.jumlah + ' org\n'
       + '🍽 *Pesanan:*\n' + menuLines;
 
@@ -780,14 +781,21 @@ async function doSignOut() {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   _onAuthReady - ENTRY POINT UTAMA
+   _onAuthReady - ENTRY POINT UTAMA (versi app.js, override boot guard)
+   Dipanggil oleh bridge script setelah app.js load.
+   Flag sudah di-reset oleh bridge SEBELUM fungsi ini dipanggil.
    ────────────────────────────────────────────────────────────── */
 window._onAuthReady = async function (user) {
+  /* Tandai sedang berjalan agar fallback timeout tidak interrupt */
+  window._AUTH_HANDLER_RUNNING = true;
+  window._AUTH_PROCESSING      = true;
+
   if (window._FB_UNCONFIGURED) {
     window._AUTH_PROCESSING=window._AUTH_HANDLER_RUNNING=false;
     showScreen('landing'); return;
   }
   if (!user) {
+    /* Tunggu Firebase restore session dari IndexedDB (max ~2.4 detik) */
     for (var i=0; i<8; i++) {
       await new Promise(function(r){ setTimeout(r,300); });
       if (window._FB && window._FB.auth && window._FB.auth.currentUser) {
@@ -799,6 +807,7 @@ window._onAuthReady = async function (user) {
       showScreen('landing'); return;
     }
   }
+  /* Tunggu Firebase SDK siap (max ~3.2 detik) */
   for (var w=0; !window._DONE_FS&&w<40; w++) {
     await new Promise(function(r){ setTimeout(r,80); });
   }
@@ -822,8 +831,8 @@ window._onAuthReady = async function (user) {
     }
   }
 
-  /* Load semua config paralel (termasuk payment) */
-  await Promise.all([loadAccount(), loadStateFS(), loadPaymentSettings()]);
+  /* Load semua config paralel (termasuk payment dan closedDates) */
+  await Promise.all([loadAccount(), loadStateFS(), loadPaymentSettings(), loadClosedDates()]);
   var accountStatus = evaluateAccountStatus();
 
   applyAccent(S.appear.accent || 'orange', false);
@@ -987,6 +996,13 @@ function loadSettingsForm() {
   val('set-account-email',_ACCOUNT?_ACCOUNT.email:(window._FBUSER?window._FBUSER.email:''));
   if (_ACCOUNT) renderAccountStatusCard(evaluateAccountStatus());
   loadPaymentForm();
+  /* Loc mode card UI */
+  setLocMode(S.biz.locMode || 'area');
+  /* Closed dates list */
+  renderClosedDatesList();
+  /* Booking link */
+  var linkEl = document.getElementById('booking-link-url');
+  if (linkEl) linkEl.value = getBookingURL();
 }
 
 async function saveBranding() {
@@ -1048,6 +1064,204 @@ function toMins(t)        { if(!t)return 0;var p=t.split(':');return parseInt(p[
 function minsToTime(m)    { return pad2(Math.floor(m/60))+':'+pad2(m%60); }
 function getEffectiveDuration(loc){ return(loc&&loc.defaultDuration?parseInt(loc.defaultDuration):0)||S.ops.defaultDuration||120; }
 function getEffectiveBuffer(loc)  { var b=loc&&loc.bufferTime!==undefined&&loc.bufferTime!==''?parseInt(loc.bufferTime):-1;return b>=0?b:(S.ops.bufferTime||15); }
+
+/* ──────────────────────────────────────────────────────────────
+   NORM TEMPAT - backward compat: data lama bisa string, baru array
+   ────────────────────────────────────────────────────────────── */
+function normTempat(t) {
+  if (Array.isArray(t)) return t.filter(Boolean);
+  return t ? [t] : [];
+}
+
+/* Kapasitas gabungan dari semua tempat yang dipilih */
+function calcCapacityTotal(tempats) {
+  return normTempat(tempats).reduce(function(sum, name) {
+    var loc = getLocByName(name);
+    return sum + (loc ? (parseInt(loc.capacity) || 0) : 0);
+  }, 0);
+}
+
+/* Cek konflik untuk semua tempat (semua harus bebas) */
+function checkConflictMulti(date, tempats, jam, jumlah, duration, excludeId) {
+  var arr = normTempat(tempats);
+  if (!arr.length || !jam) return { ok:true, type:'none' };
+
+  /* Mode meja: validasi terhadap kapasitas gabungan */
+  if (isTableMode()) {
+    var totalCap = calcCapacityTotal(arr);
+    var pax = parseInt(jumlah) || 0;
+    if (pax > totalCap) {
+      return { ok:false, type:'hard_capacity',
+        msg:'Total kapasitas meja dipilih ' + totalCap + ' orang, tidak cukup untuk ' + pax + ' tamu.' };
+    }
+  }
+
+  /* Cek konflik per-lokasi - semua harus bebas */
+  for (var i = 0; i < arr.length; i++) {
+    var result = checkConflict(date, arr[i], jam, jumlah, duration, excludeId);
+    if (!result.ok) {
+      if (arr.length > 1) result.msg = '<strong>' + esc(arr[i]) + ':</strong> ' + result.msg;
+      return result;
+    }
+  }
+  return { ok:true, type:'none',
+    msg: arr.length > 1 ? 'Semua meja tersedia' : undefined };
+}
+
+/* ──────────────────────────────────────────────────────────────
+   LOC MODE HELPERS
+   ────────────────────────────────────────────────────────────── */
+function isTableMode() { return (S.biz.locMode || 'area') === 'table'; }
+
+/* Set mode di UI settings */
+function setLocMode(mode) {
+  var aCard = document.getElementById('set-mode-area');
+  var tCard = document.getElementById('set-mode-table');
+  if (aCard) aCard.classList.toggle('active', mode === 'area');
+  if (tCard) tCard.classList.toggle('active', mode === 'table');
+  /* Preview di form reservasi */
+  _applyTempatModeUI();
+}
+
+/* Simpan locMode ke Firestore */
+async function saveLocMode() {
+  if (!guardWrite()) return;
+  var mode = document.getElementById('set-mode-table')?.classList.contains('active') ? 'table' : 'area';
+  S.biz.locMode = mode;
+  await saveBizFS();
+  _applyTempatModeUI();
+  showToast('Tipe tempat disimpan: ' + (mode === 'table' ? 'Per Meja' : 'Per Area'), 'success');
+}
+
+/* Tampilkan/sembunyikan section tempat di modal reservasi sesuai mode */
+function _applyTempatModeUI() {
+  var aG = document.getElementById('tempat-area-group');
+  var tG = document.getElementById('tempat-table-group');
+  var isTable = isTableMode();
+  if (aG) aG.style.display = isTable ? 'none' : '';
+  if (tG) tG.style.display = isTable ? '' : 'none';
+}
+
+/* ──────────────────────────────────────────────────────────────
+   CLOSED DATES - Tanggal Tutup Override
+   ────────────────────────────────────────────────────────────── */
+function isDateClosed(dateStr) {
+  return S.closedDates.some(function(cd) { return cd.date === dateStr; });
+}
+
+async function loadClosedDates() {
+  if (_UID && window._FB) {
+    try {
+      var fb   = window._FB;
+      var snap = await fb.getDoc(fb.doc(fb.db, 'users', _UID, 'config', 'closedDates'));
+      if (snap.exists()) {
+        S.closedDates = snap.data().list || [];
+        DB.set(K.CLOSED_DATES, S.closedDates);
+        return;
+      }
+    } catch(e) { console.warn('[loadClosedDates]', e); }
+  }
+  S.closedDates = DB.get(K.CLOSED_DATES, []);
+}
+
+async function saveClosedDatesFS() {
+  DB.set(K.CLOSED_DATES, S.closedDates);
+  _showSync();
+  if (!_UID || !window._FB) return;
+  try {
+    var fb = window._FB;
+    await fb.setDoc(fb.doc(fb.db, 'users', _UID, 'config', 'closedDates'), { list: S.closedDates });
+  } catch(e) { console.warn('[saveClosedDatesFS]', e); }
+}
+
+function renderClosedDatesList() {
+  var el = document.getElementById('closed-dates-list'); if (!el) return;
+  if (!S.closedDates.length) {
+    el.innerHTML = '<div style="font-size:.84rem;color:var(--ink-4);padding:10px 0">Belum ada tanggal yang ditutup.</div>';
+    return;
+  }
+  el.innerHTML = S.closedDates.slice().sort(function(a,b){ return a.date.localeCompare(b.date); })
+    .map(function(cd) {
+      return '<div class="closed-date-item">'
+        + '<div><strong>' + formatDateDisp(cd.date) + '</strong>'
+        + (cd.reason ? '<span class="cd-reason"> · ' + esc(cd.reason) + '</span>' : '') + '</div>'
+        + (isReadOnly() ? '' : '<button class="btn btn-danger btn-sm" onclick="removeClosedDate(\'' + cd.date + '\')">'
+          + '<i class="fas fa-times"></i></button>')
+        + '</div>';
+    }).join('');
+}
+
+async function addClosedDate() {
+  if (!guardWrite()) return;
+  var dateVal   = gval('new-closed-date').trim();
+  var reasonVal = gval('new-closed-reason').trim();
+  if (!dateVal) { showToast('Pilih tanggal dulu!', 'error'); return; }
+  if (S.closedDates.some(function(cd) { return cd.date === dateVal; })) {
+    showToast('Tanggal ini sudah ada!', 'warning'); return;
+  }
+  S.closedDates.push({ date: dateVal, reason: reasonVal });
+  await saveClosedDatesFS();
+  renderClosedDatesList();
+  val('new-closed-date', ''); val('new-closed-reason', '');
+  showToast('Tanggal ' + formatDateDisp(dateVal) + ' ditutup!', 'success');
+  _renderCalendarSync();
+}
+
+async function removeClosedDate(dateStr) {
+  if (!guardWrite()) return;
+  S.closedDates = S.closedDates.filter(function(cd) { return cd.date !== dateStr; });
+  await saveClosedDatesFS();
+  renderClosedDatesList();
+  _renderCalendarSync();
+  showToast('Tanggal dibuka kembali', 'info');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   BOOKING LINK HELPERS
+   ────────────────────────────────────────────────────────────── */
+function getBookingURL() {
+  if (!_UID) return '';
+  /* Deteksi base URL dari lokasi halaman saat ini */
+  var base = window.location.href.replace(/\/[^/]*$/, '');
+  return base + '/booking.html?biz=' + _UID;
+}
+
+function copyBookingLink() {
+  var url = getBookingURL();
+  if (!url) { showToast('Login dulu untuk mendapatkan link', 'error'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url)
+      .then(function() { showToast('Link reservasi disalin! 🔗', 'success'); })
+      .catch(function() { _fallbackCopyText(url); });
+  } else { _fallbackCopyText(url); }
+}
+
+function _fallbackCopyText(text) {
+  var el = document.getElementById('booking-link-url');
+  if (el) { el.select(); document.execCommand('copy'); showToast('Link disalin!', 'success'); }
+}
+
+function openBookingPage() {
+  var url = getBookingURL();
+  if (!url) { showToast('Login dulu', 'error'); return; }
+  window.open(url, '_blank', 'noopener');
+}
+
+/* ──────────────────────────────────────────────────────────────
+   WIZARD - SET MODE
+   ────────────────────────────────────────────────────────────── */
+window.wzSetMode = function(mode) {
+  S.wizData.locMode = mode;
+  var aOpt = document.getElementById('wz-mode-area');
+  var tOpt = document.getElementById('wz-mode-table');
+  if (aOpt) aOpt.classList.toggle('active', mode === 'area');
+  if (tOpt) tOpt.classList.toggle('active', mode === 'table');
+  /* Update placeholder input nama lokasi */
+  var inp = document.getElementById('wz-loc-name');
+  if (inp) inp.placeholder = mode === 'table'
+    ? 'Nama meja (Meja 1, Meja VIP...)'
+    : 'Nama area (Gazebo A, VIP Room...)';
+};
 
 /* ──────────────────────────────────────────────────────────────
    CONFLICT & SLOT
@@ -1144,7 +1358,7 @@ async function wzFinish() {
   if(backBtn) backBtn.disabled=true;
   setText('wz-err-3','');
   try {
-    S.biz={name:S.wizData.bizName,type:S.wizData.bizType,tagline:'',logo:'🍽️'};
+    S.biz={name:S.wizData.bizName,type:S.wizData.bizType,tagline:'',logo:'🍽️',locMode:S.wizData.locMode||'area'};
     await saveBizFS();
     var locTasks =S.wizData.locs.map(function(l){return saveLocFS(genId(),{name:l.name,capacity:l.capacity,minGuests:1,defaultDuration:'',bufferTime:'',openTime:'',closeTime:''}); });
     var menuTasks=S.wizData.menus.map(function(m){return saveMenuFS(genId(),{name:m.name,price:m.price,details:m.details});});
@@ -1297,8 +1511,9 @@ function filterDetail(q) {
   if(!S.date) return;
   var all=getResDate(S.date),ql=q.toLowerCase();
   renderDetail(!q?all:all.filter(function(r){
+    var tempats=normTempat(r.tempat);
     return(r.nama&&r.nama.toLowerCase().includes(ql))
-        ||(r.tempat&&r.tempat.toLowerCase().includes(ql))
+        ||(tempats.some(function(t){return t.toLowerCase().includes(ql);}))
         ||(r.nomorHp&&r.nomorHp.includes(q))
         ||(Array.isArray(r.menus)&&r.menus.some(function(m){return m.name.toLowerCase().includes(ql);}));
   }));
@@ -1314,7 +1529,9 @@ var STATUS_BADGE ={pending:'sb-pending',confirmed:'sb-confirmed',selesai:'sb-sel
 
 function buildResCard(r) {
   var st=r.status||'pending';
-  var loc=getLocByName(r.tempat);
+  var tempats = normTempat(r.tempat);
+  /* Durasi: ambil dari lokasi pertama jika array */
+  var loc=getLocByName(tempats[0]||'');
   var dur=r.duration?parseInt(r.duration):getEffectiveDuration(loc);
   var endT=r.jam?minsToTime(toMins(r.jam)+dur):'?';
 
@@ -1332,17 +1549,19 @@ function buildResCard(r) {
   if(r.dp>0)     chips+='<div class="rc-info"><i class="fas fa-money-bill-wave"></i>DP Rp'+formatRp(r.dp)+(r.tipeDp?' · '+esc(r.tipeDp):'')+' </div>';
   if(r.tambahan) chips+='<div class="rc-info"><i class="fas fa-comment-dots"></i>'+esc(r.tambahan)+'</div>';
 
+  /* Badge sumber reservasi */
+  var srcBadge = r.source === 'customer'
+    ? '<span class="badge badge-new-res"><i class="fas fa-globe"></i> Dari Customer</span>' : '';
+
   var statusOpts=['pending','confirmed','selesai','batal'].map(function(s){
     return'<option value="'+s+'"'+(s===st?' selected':'')+'>'+STATUS_LABELS[s]+'</option>';
   }).join('');
 
   var footerHtml='';
   if(isReadOnly()){
-    /* UX #7: mode read-only - tombol tersembunyi, tampilkan badge + kunci */
     footerHtml='<div class="rc-footer"><span class="status-badge '+STATUS_BADGE[st]+'">'+STATUS_LABELS[st]+'</span>'+
       '<span style="font-size:.72rem;color:var(--ink-4);margin-left:auto"><i class="fas fa-lock"></i> Read Only</span></div>';
   } else {
-    /* Tombol Hubungi - berbeda per status */
     var hubungiBtn='';
     if (r.nomorHp && st !== 'batal') {
       var hubungiLabel='';
@@ -1351,14 +1570,12 @@ function buildResCard(r) {
       else if (st==='selesai')   hubungiLabel='<i class="fab fa-whatsapp"></i> Ucapan';
       hubungiBtn='<button class="btn btn-wa btn-sm" onclick="contactWA(\''+r.id+'\')">'+hubungiLabel+'</button>';
     }
-
     var thankBtn='';
     if (st==='selesai'&&r.nomorHp) {
       thankBtn=r.thankYouSent
         ?'<button class="btn btn-success btn-sm" disabled><i class="fas fa-check-circle"></i> Terima Kasih Terkirim</button>'
         :'<button class="btn btn-secondary btn-sm" onclick="sendThankYou(\''+r.id+'\')"><i class="fas fa-gift"></i> Ucapan Terima Kasih</button>';
     }
-
     footerHtml='<div class="rc-footer">'+
       '<select class="form-select-sm" onchange="quickStatus(\''+r.id+'\',this.value)" style="font-size:.75rem;padding:5px 8px">'+statusOpts+'</select>'+
       hubungiBtn+thankBtn+
@@ -1367,13 +1584,19 @@ function buildResCard(r) {
       '</div>';
   }
 
+  /* Badge lokasi - loop array untuk mode meja */
+  var tempatBadges = tempats.map(function(t){
+    return '<span class="badge badge-gray"><i class="fas fa-map-pin"></i> '+esc(t)+'</span>';
+  }).join('');
+
   return'<div class="res-card" id="rcard-'+r.id+'">'+
     '<div class="rc-stripe '+STATUS_STRIPE[st]+'"></div>'+
     '<div class="rc-top"><div class="rc-name"><div class="rc-avatar" style="background:'+nameColor(r.nama||'?')+'">'+initials(r.nama||'?')+'</div><div class="rc-guest">'+esc(r.nama||'Tanpa Nama')+'</div></div>'+
     '<div class="rc-badges">'+
     '<span class="badge badge-ac"><i class="far fa-clock"></i> '+esc(r.jam||'?')+'-'+endT+'</span>'+
-    '<span class="badge badge-gray"><i class="fas fa-map-pin"></i> '+esc(r.tempat||'?')+'</span>'+
+    tempatBadges+
     '<span class="badge badge-g"><i class="fas fa-users"></i> '+esc(r.jumlah||'?')+' org</span>'+
+    srcBadge+
     '<span class="status-badge '+STATUS_BADGE[st]+'">'+STATUS_LABELS[st]+'</span>'+
     '</div></div>'+
     '<div class="rc-body"><div class="rc-section">Pesanan</div>'+menuHtml+
@@ -1433,7 +1656,16 @@ function openAddRes() {
   val('res-jam','');val('res-jumlah','');val('res-dp','0');val('res-duration','');
   selVal('res-tipe-dp','');selVal('res-status','pending');
   setText('res-cap-hint','');setText('res-dur-hint','');setText('res-dp-hint','');
-  populateLocSelect('res-tempat','');
+  _applyTempatModeUI();
+  if (isTableMode()) {
+    /* Mode meja: kosongkan container meja */
+    var tc = document.getElementById('res-tempat-container');
+    if (tc) tc.innerHTML = '';
+    addTempatRow();
+    _updateCapSummary();
+  } else {
+    populateLocSelect('res-tempat','');
+  }
   clearConflictUI();
   var mc=document.getElementById('res-menus-container');
   if(mc) mc.innerHTML='';
@@ -1457,7 +1689,21 @@ function openEditRes(id) {
   val('res-tambahan',r.tambahan||'');
   selVal('res-tipe-dp',r.tipeDp||'');
   selVal('res-status', r.status||'pending');
-  populateLocSelect('res-tempat',r.tempat);
+  _applyTempatModeUI();
+  if (isTableMode()) {
+    var tc = document.getElementById('res-tempat-container');
+    if (tc) {
+      tc.innerHTML = '';
+      var tempats = normTempat(r.tempat);
+      if (tempats.length) tempats.forEach(function(n){ addTempatRow(n); });
+      else addTempatRow();
+    }
+    _updateCapSummary();
+  } else {
+    /* Mode area: data lama mungkin array - ambil elemen pertama */
+    var tempName = Array.isArray(r.tempat) ? (r.tempat[0]||'') : (r.tempat||'');
+    populateLocSelect('res-tempat', tempName);
+  }
   onResFieldChange();
   var mc=document.getElementById('res-menus-container');
   if(mc){
@@ -1470,15 +1716,109 @@ function openEditRes(id) {
 }
 
 function onResFieldChange() {
-  var jam=gval('res-jam'),loc=gval('res-tempat'),pax=gval('res-jumlah'),dur=gval('res-duration'),editId=gval('res-edit-id');
-  var locObj=getLocByName(loc);
-  if(locObj){
-    setText('res-cap-hint','Kapasitas: '+locObj.capacity+' orang'+(locObj.minGuests?' · Min. '+locObj.minGuests+' orang':''));
-    setText('res-dur-hint','Durasi: '+(dur?parseInt(dur):getEffectiveDuration(locObj))+' menit');
-  } else {setText('res-cap-hint','');setText('res-dur-hint','');}
-  if(!loc||!jam){clearConflictUI();return;}
+  var jam=gval('res-jam'),pax=gval('res-jumlah'),dur=gval('res-duration'),editId=gval('res-edit-id');
   var date=gval('res-date')||S.date||todayStr();
-  showConflictUI(checkConflict(date,loc,jam,pax,dur||null,editId||null),date,loc,jam,pax,editId);
+
+  if (isTableMode()) {
+    /* Mode meja: kumpulkan semua meja yang dipilih */
+    _updateCapSummary();
+    var tempats = _getSelectedTempats();
+    if (!tempats.length || !jam) { clearConflictUI(); return; }
+    var cr = checkConflictMulti(date, tempats, jam, pax, dur||null, editId||null);
+    showConflictUI(cr, date, tempats[0], jam, pax, editId);
+  } else {
+    /* Mode area: satu lokasi */
+    var loc=gval('res-tempat'),locObj=getLocByName(loc);
+    if(locObj){
+      setText('res-cap-hint','Kapasitas: '+locObj.capacity+' orang'+(locObj.minGuests?' · Min. '+locObj.minGuests+' orang':''));
+      setText('res-dur-hint','Durasi: '+(dur?parseInt(dur):getEffectiveDuration(locObj))+' menit');
+    } else {setText('res-cap-hint','');setText('res-dur-hint','');}
+    if(!loc||!jam){clearConflictUI();return;}
+    showConflictUI(checkConflict(date,loc,jam,pax,dur||null,editId||null),date,loc,jam,pax,editId);
+  }
+}
+
+/* Kumpulkan nama meja dari container multi-row */
+function _getSelectedTempats() {
+  var result = [];
+  document.querySelectorAll('#res-tempat-container .tempat-row').forEach(function(row){
+    var sel = row.querySelector('select');
+    if (sel && sel.value) result.push(sel.value);
+  });
+  return result;
+}
+
+/* Update ringkasan kapasitas gabungan */
+function _updateCapSummary() {
+  var tempats = _getSelectedTempats();
+  var totalCap = calcCapacityTotal(tempats);
+  var pax = parseInt(gval('res-jumlah')) || 0;
+  var sumEl = document.getElementById('tempat-cap-summary');
+  var txtEl = document.getElementById('tempat-cap-text');
+  if (!sumEl || !txtEl) return;
+  if (!tempats.length) { sumEl.style.display = 'none'; return; }
+  sumEl.style.display = 'flex';
+  var ok = pax === 0 || pax <= totalCap;
+  txtEl.innerHTML = 'Kapasitas gabungan: <strong>' + totalCap + ' orang</strong>'
+    + (pax > 0 ? ' · Tamu: ' + pax + ' orang ' + (ok
+        ? '<span style="color:var(--success)">✅</span>'
+        : '<span style="color:var(--danger)">⚠️ Melebihi kapasitas</span>') : '');
+}
+
+/* Tambah row meja ke container (mirip addMenuRow) */
+function addTempatRow(selectedName) {
+  selectedName = selectedName || '';
+  var c = document.getElementById('res-tempat-container'); if (!c) return;
+  var locs = getLocsSorted();
+  if (!locs.length) {
+    c.innerHTML = '<div style="padding:12px;text-align:center;color:var(--ink-4);font-size:.82rem">'
+      + 'Belum ada lokasi. <span onclick="showView(\'locations\')" style="color:var(--ac);cursor:pointer">Tambah dulu</span></div>';
+    return;
+  }
+  /* Meja yang sudah dipilih di row lain - disable di dropdown ini */
+  var alreadyPicked = _getSelectedTempats();
+  var opts = locs.map(function(loc) {
+    var cap = parseInt(loc.capacity) || 0;
+    var isSelected = loc.name === selectedName;
+    var isDisabled = !isSelected && alreadyPicked.indexOf(loc.name) >= 0;
+    return '<option value="' + esc(loc.name) + '"'
+      + (isSelected ? ' selected' : '')
+      + (isDisabled ? ' disabled' : '')
+      + '>' + esc(loc.name) + ' (' + cap + ' org)</option>';
+  }).join('');
+
+  var div = document.createElement('div');
+  div.className = 'tempat-row menu-row'; /* pakai class menu-row untuk CSS yang sama */
+  div.innerHTML = '<select class="form-select" onchange="_onTempatRowChange(this)">'
+    + '<option value="">Pilih meja...</option>' + opts + '</select>'
+    + '<button class="mr-del" onclick="_removeTempatRow(this)" title="Hapus meja">'
+    + '<i class="fas fa-times"></i></button>';
+  c.appendChild(div);
+}
+
+function _onTempatRowChange(sel) {
+  /* Refresh semua dropdown agar tidak ada duplikasi */
+  _refreshTempatDropdowns();
+  _updateCapSummary();
+  onResFieldChange();
+}
+
+function _removeTempatRow(btn) {
+  btn.closest('.tempat-row').remove();
+  _refreshTempatDropdowns();
+  _updateCapSummary();
+  onResFieldChange();
+}
+
+function _refreshTempatDropdowns() {
+  var picked = _getSelectedTempats();
+  document.querySelectorAll('#res-tempat-container .tempat-row select').forEach(function(sel) {
+    var current = sel.value;
+    Array.from(sel.options).forEach(function(opt) {
+      if (!opt.value) return;
+      opt.disabled = opt.value !== current && picked.indexOf(opt.value) >= 0;
+    });
+  });
 }
 
 function clearConflictUI() {
@@ -1534,19 +1874,30 @@ async function saveRes() {
   if(!guardWrite()) return;
   clearErrors(); _hideModalErrSummary();
   var nama=gval('res-nama').trim(),hp=gval('res-hp').trim();
-  var jam=gval('res-jam'),jumlah=parseInt(gval('res-jumlah')),tempat=gval('res-tempat');
+  var jam=gval('res-jam'),jumlah=parseInt(gval('res-jumlah'));
   var dp=parseInt(gval('res-dp'))||0,tipeDp=gval('res-tipe-dp');
   var tambahan=gval('res-tambahan').trim(),status=gval('res-status')||'pending';
   var duration=gval('res-duration'),editId=gval('res-edit-id');
   var resDate=gval('res-date')||S.date||todayStr();
   var valid=true,errMsgs=[];
 
+  /* Kumpulkan tempat sesuai mode */
+  var tempat; /* string (area) atau array (meja) */
+  if (isTableMode()) {
+    var tempats = _getSelectedTempats();
+    if (!tempats.length) { showErr('err-tempat-table','Pilih minimal 1 meja');errMsgs.push('Meja');valid=false; }
+    tempat = tempats; /* simpan sebagai array */
+  } else {
+    var tempArea = gval('res-tempat');
+    if (!tempArea) { showErr('err-tempat','Lokasi wajib dipilih');errMsgs.push('Lokasi');valid=false; }
+    tempat = tempArea; /* simpan sebagai string */
+  }
+
   if(!nama)               {showErr('err-nama','Nama wajib diisi');errMsgs.push('Nama');valid=false;}
   if(hp&&!validPhone(hp)) {showErr('err-hp','Nomor HP tidak valid');errMsgs.push('Nomor HP');valid=false;}
   if(!resDate)            {showErr('err-date','Tanggal wajib diisi');errMsgs.push('Tanggal');valid=false;}
   if(!jam)                {showErr('err-jam','Jam wajib diisi');errMsgs.push('Jam');valid=false;}
   if(!jumlah||jumlah<1)  {showErr('err-jumlah','Jumlah tamu minimal 1');errMsgs.push('Jumlah');valid=false;}
-  if(!tempat)             {showErr('err-tempat','Lokasi wajib dipilih');errMsgs.push('Lokasi');valid=false;}
 
   if(jam&&resDate&&!editId){
     var resDatetime=new Date(resDate+'T'+jam).getTime();
@@ -1554,9 +1905,14 @@ async function saveRes() {
     if(resDatetime-Date.now()<minMs){showErr('err-jam','Minimal booking '+(S.ops.minAdvance||0)+' jam sebelumnya.');errMsgs.push('Jam (min. advance)');valid=false;}
   }
 
-  if(tempat&&jam&&jumlah&&valid){
-    var cr=checkConflict(resDate,tempat,jam,jumlah,duration||null,editId||null);
-    if(!cr.ok&&cr.type!=='soft_capacity'){showErr('err-jam','Konflik jadwal - pilih jam atau lokasi lain');errMsgs.push('Jam (konflik)');valid=false;}
+  /* Cek konflik - gunakan checkConflictMulti untuk kedua mode */
+  if(valid&&jam&&jumlah&&tempat){
+    var tempatsToCheck = normTempat(tempat);
+    var cr = checkConflictMulti(resDate, tempatsToCheck, jam, jumlah, duration||null, editId||null);
+    if(!cr.ok&&cr.type!=='soft_capacity'){
+      showErr(isTableMode()?'err-tempat-table':'err-jam', 'Konflik jadwal - pilih jam atau lokasi lain');
+      errMsgs.push('Jadwal (konflik)'); valid=false;
+    }
   }
 
   var menus=[],usedN={},menuOk=true;
@@ -1579,10 +1935,12 @@ async function saveRes() {
     if(editId){
       var ex=findRes(editId);
       if(!ex){showToast('Tidak ditemukan!','error');return;}
-      resObj=Object.assign({},ex,{nama,nomorHp:normPhone(hp),jam,jumlah,dp,tipeDp,tempat,tambahan,menus,status,duration:duration?parseInt(duration):null});
+      resObj=Object.assign({},ex,{nama,nomorHp:normPhone(hp),jam,jumlah,dp,tipeDp,
+        tempat,tambahan,menus,status,duration:duration?parseInt(duration):null});
     } else {
-      resObj={id:genId(),date:resDate,nama,nomorHp:normPhone(hp),jam,jumlah,dp,tipeDp,tempat,tambahan,menus,status,
-              duration:duration?parseInt(duration):null,createdAt:Date.now(),thankYouSent:false};
+      resObj={id:genId(),date:resDate,nama,nomorHp:normPhone(hp),jam,jumlah,dp,tipeDp,
+        tempat,tambahan,menus,status,
+        duration:duration?parseInt(duration):null,createdAt:Date.now(),thankYouSent:false};
     }
     await saveResFS(resObj);
     showToast(editId?'Reservasi diperbarui!':'Reservasi berhasil disimpan! 🎉','success');
@@ -1678,29 +2036,49 @@ function contactWA(id) {
 function renderMenusTable() {
   var tbody=document.getElementById('menus-tbody'); if(!tbody) return;
   var menus=getMenusSorted();
-  if(!menus.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;padding:36px;color:var(--ink-4)"><div style="font-size:2rem;margin-bottom:10px">🍽️</div><div style="font-weight:600">Belum ada menu</div></td></tr>';return;}
+  if(!menus.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:36px;color:var(--ink-4)"><div style="font-size:2rem;margin-bottom:10px">🍽️</div><div style="font-weight:600">Belum ada menu</div></td></tr>';return;}
   tbody.innerHTML=menus.map(function(m){
+    var avail = m.available !== false; /* default true jika field belum ada */
+    var availCell = isReadOnly()
+      ? '<span class="badge '+(avail?'badge-g':'badge-gray')+'">'+(avail?'✅ Tersedia':'❌ Habis')+'</span>'
+      : '<label class="toggle-switch" title="'+(avail?'Klik untuk set Habis':'Klik untuk set Tersedia')+'">'
+        + '<input type="checkbox" '+(avail?'checked':'')
+        + ' onchange="toggleMenuAvail(\''+m.id+'\',this.checked)"/>'
+        + '<span class="toggle-track"><span class="toggle-thumb"></span></span>'
+        + '</label>';
     var editBtn=isReadOnly()?''
       :'<button class="btn btn-info btn-sm" onclick="openMenuModal(\''+m.id+'\')"><i class="fas fa-edit"></i></button>'+
         '<button class="btn btn-danger btn-sm" onclick="doDeleteMenu(\''+m.id+'\')"><i class="fas fa-trash-alt"></i></button>';
     return'<tr><td><strong>'+esc(m.name)+'</strong></td>'+
       '<td>'+(m.price?'<span class="badge badge-ac">Rp '+formatRp(m.price)+'</span>':'<span class="badge badge-gray">Gratis</span>')+'</td>'+
       '<td><span style="font-size:.8rem;color:var(--ink-3)">'+(m.details&&m.details.length?m.details.map(esc).join(', '):'-')+'</span></td>'+
+      '<td>'+availCell+'</td>'+
       '<td><div style="display:flex;gap:5px">'+editBtn+'</div></td></tr>';
   }).join('');
+}
+
+async function toggleMenuAvail(id, available) {
+  if (!guardWrite()) return;
+  if (!S.menus[id]) return;
+  S.menus[id].available = available;
+  await saveMenuFS(id, S.menus[id]);
+  showToast('Menu "' + S.menus[id].name + '" ' + (available ? 'tersedia' : 'diset habis'), 'success', 2000);
 }
 
 function openMenuModal(editId) {
   if(!guardWrite()) return;
   editId=editId||null;
   val('menu-edit-id',editId||'');
+  var availChk = document.getElementById('menu-available');
   if(editId&&S.menus[editId]){
     var m=S.menus[editId];
     setHTML('menu-modal-title','<i class="fas fa-edit"></i> Edit Menu');
     val('menu-name',m.name);val('menu-price',m.price||'');val('menu-details',(m.details||[]).join(', '));
+    if(availChk) availChk.checked = m.available !== false;
   } else {
     setHTML('menu-modal-title','<i class="fas fa-utensils"></i> Tambah Menu');
     val('menu-name','');val('menu-price','');val('menu-details','');
+    if(availChk) availChk.checked = true;
   }
   openModal('modal-menu');
 }
@@ -1709,10 +2087,11 @@ async function saveMenu() {
   if(!guardWrite()) return;
   var name=gval('menu-name').trim(),price=parseFloat(gval('menu-price'))||0;
   var details=gval('menu-details').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  var available=document.getElementById('menu-available')?.checked !== false;
   var editId=gval('menu-edit-id');
   if(!name){showToast('Nama menu wajib!','error');return;}
   if(Object.entries(S.menus).some(function(e){return e[1].name.toLowerCase()===name.toLowerCase()&&e[0]!==editId;})){showToast('Nama sudah ada!','error');return;}
-  await saveMenuFS(editId||genId(),{name,price,details});
+  await saveMenuFS(editId||genId(),{name,price,details,available});
   renderMenusTable(); closeModal('modal-menu');
   showToast('Menu "'+name+'" disimpan!','success');
 }
