@@ -1324,6 +1324,131 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 /* ══════════════════════════════════════════════════════════════
+   WIZARD - PILIHAN TIPE LOKASI (Per Area / Per Meja)
+   ══════════════════════════════════════════════════════════════ */
+.wz-loc-mode-pick {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  margin-bottom: 18px;
+}
+.wz-loc-mode-opt {
+  position: relative; padding: 14px 12px; border-radius: var(--r);
+  border: 2px solid var(--border-2); background: var(--bg);
+  cursor: pointer; transition: var(--ts); text-align: center;
+}
+.wz-loc-mode-opt:hover { border-color: var(--ac); background: var(--ac-dim); }
+.wz-loc-mode-opt.active {
+  border-color: var(--ac); background: var(--ac-dim);
+  box-shadow: 0 0 0 3px var(--ac-glow);
+}
+.wlmo-icon {
+  font-size: 1.5rem; color: var(--ink-3); margin-bottom: 6px;
+  transition: color .2s;
+}
+.wz-loc-mode-opt.active .wlmo-icon { color: var(--ac); }
+.wlmo-title {
+  font-size: .88rem; font-weight: 700; color: var(--ink-2); margin-bottom: 3px;
+}
+.wlmo-desc { font-size: .74rem; color: var(--ink-4); line-height: 1.4; }
+.wlmo-check {
+  position: absolute; top: 8px; right: 8px;
+  color: var(--ac); font-size: .85rem;
+  opacity: 0; transition: opacity .2s;
+}
+.wz-loc-mode-opt.active .wlmo-check { opacity: 1; }
+
+/* ══════════════════════════════════════════════════════════════
+   SETTINGS - PILIHAN TIPE LOKASI
+   ══════════════════════════════════════════════════════════════ */
+.loc-mode-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+.loc-mode-card {
+  position: relative; padding: 16px; border-radius: var(--r);
+  border: 2px solid var(--border-2); background: var(--bg);
+  cursor: pointer; transition: var(--ts);
+}
+.loc-mode-card:hover { border-color: var(--ac); background: var(--ac-dim); }
+.loc-mode-card.active {
+  border-color: var(--ac); background: var(--ac-dim);
+  box-shadow: 0 0 0 3px var(--ac-glow);
+}
+.lmc-icon {
+  font-size: 1.4rem; color: var(--ink-3); margin-bottom: 8px;
+  transition: color .2s;
+}
+.loc-mode-card.active .lmc-icon { color: var(--ac); }
+.lmc-title { font-size: .9rem; font-weight: 700; color: var(--ink-2); margin-bottom: 4px; }
+.lmc-desc  { font-size: .78rem; color: var(--ink-4); line-height: 1.45; }
+.lmc-check {
+  position: absolute; top: 10px; right: 10px;
+  color: var(--ac); font-size: .9rem;
+  opacity: 0; transition: opacity .2s;
+}
+.loc-mode-card.active .lmc-check { opacity: 1; }
+
+/* ══════════════════════════════════════════════════════════════
+   SETTINGS - TANGGAL TUTUP
+   ══════════════════════════════════════════════════════════════ */
+.closed-dates-list {
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;
+}
+.closed-date-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); font-size: .84rem;
+}
+.closed-date-item strong { color: var(--ink-2); }
+.cd-reason { color: var(--ink-4); font-size: .78rem; }
+.closed-date-add {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.closed-date-add .input-wrap { min-width: 0; flex: 1; }
+.closed-date-add input[type="text"] { min-width: 160px; }
+
+/* ══════════════════════════════════════════════════════════════
+   SETTINGS - BOOKING LINK WRAP
+   ══════════════════════════════════════════════════════════════ */
+.booking-link-wrap {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.booking-link-wrap .input-wrap { flex: 1; min-width: 0; }
+@media (max-width: 480px) {
+  .booking-link-wrap { flex-direction: column; align-items: stretch; }
+  .booking-link-wrap .btn { width: 100%; justify-content: center; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FORM RESERVASI - MODE MEJA (multi-row)
+   ══════════════════════════════════════════════════════════════ */
+.tempat-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+.tempat-row:last-child { border-bottom: none; }
+.tempat-row select { width: 100%; }
+
+.tempat-cap-summary {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 8px; padding: 8px 12px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); font-size: .82rem; color: var(--ink-3);
+}
+.tempat-cap-summary i { color: var(--ac); flex-shrink: 0; }
+.tempat-cap-summary strong { color: var(--ink-2); }
+
+/* ══════════════════════════════════════════════════════════════
+   RESERVASI CARD - BADGE DARI CUSTOMER
+   ══════════════════════════════════════════════════════════════ */
+.badge-new-res {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 99px; font-size: .7rem; font-weight: 700;
+  background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;
+}
+.badge-new-res i { font-size: .65rem; }
+
+/* ══════════════════════════════════════════════════════════════
    ANIMATIONS
    ══════════════════════════════════════════════════════════════ */
 @keyframes spin          { to { transform: rotate(360deg) } }
