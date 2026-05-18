@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="id" data-accent="orange">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#ffffff"/>
+<title>Reservasi Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+/* ── CSS Variables - accent disuntikkan JS setelah baca S.biz.accent ── */
+:root {
+  --ac:#ea580c; --ac-h:#c2410c; --ac-dim:rgba(234,88,12,.08);
+  --ac-glow:rgba(234,88,12,.22); --ac-border:rgba(234,88,12,.22);
+  --bg:#fff; --bg-2:#f8f8f8; --bg-3:#f1f1f1;
+  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --ink-4:#94a3b8;
+  --border:#e2e8f0; --border-2:#cbd5e1; --border-3:#94a3b8;
+  --r:14px; --r-sm:8px; --r-lg:20px;
+  --font:'Geist',system-ui,sans-serif;
+  --font-display:'Fraunces',Georgia,serif;
+  --shadow:0 2px 12px rgba(15,23,42,.08);
+  --shadow-lg:0 8px 32px rgba(15,23,42,.12);
+  --success:#059669; --danger:#dc2626; --warning:#d97706; --info:#2563eb;
+  --ts:all .18s cubic-bezier(.4,0,.2,1);
+}
+[data-accent="blue"]    { --ac:#2563eb;--ac-h:#1d4ed8;--ac-dim:rgba(37,99,235,.08);--ac-glow:rgba(37,99,235,.22);--ac-border:rgba(37,99,235,.22) }
+[data-accent="teal"]    { --ac:#0d9488;--ac-h:#0f766e;--ac-dim:rgba(13,148,136,.08);--ac-glow:rgba(13,148,136,.22);--ac-border:rgba(13,148,136,.22) }
+[data-accent="violet"]  { --ac:#7c3aed;--ac-h:#6d28d9;--ac-dim:rgba(124,58,237,.08);--ac-glow:rgba(124,58,237,.22);--ac-border:rgba(124,58,237,.22) }
+[data-accent="rose"]    { --ac:#e11d48;--ac-h:#be123c;--ac-dim:rgba(225,29,72,.08);--ac-glow:rgba(225,29,72,.22);--ac-border:rgba(225,29,72,.22) }
+[data-accent="emerald"] { --ac:#059669;--ac-h:#047857;--ac-dim:rgba(5,150,105,.08);--ac-glow:rgba(5,150,105,.22);--ac-border:rgba(5,150,105,.22) }
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
+html { scroll-behavior:smooth }
+body { font-family:var(--font); background:var(--bg-2); color:var(--ink); min-height:100vh }
+button { font-family:var(--font); cursor:pointer }
+input, select, textarea { font-family:var(--font) }
+
+/* ── Layout ── */
+.bk-wrap { max-width: 560px; margin: 0 auto; padding: 0 0 60px }
+
+/* ── Header Bisnis ── */
+.bk-header {
+  background: var(--ac); color: #fff;
+  padding: 28px 24px 24px; position: relative; overflow: hidden;
+}
+.bk-header-bg {
+  position: absolute; inset: 0; opacity: .12;
+  background: radial-gradient(circle at 80% 20%, #fff 0%, transparent 60%);
+  pointer-events: none;
+}
+.bk-logo {
+  width: 52px; height: 52px; border-radius: 14px; background: rgba(255,255,255,.22);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.7rem; margin-bottom: 12px; flex-shrink: 0;
+}
+.bk-biz-name {
+  font-family: var(--font-display); font-size: 1.5rem; font-style: italic;
+  font-weight: 600; color: #fff; margin-bottom: 4px;
+}
+.bk-biz-tagline { font-size: .84rem; opacity: .85; margin-bottom: 8px }
+.bk-biz-meta {
+  display: flex; gap: 14px; font-size: .78rem; opacity: .8;
+  flex-wrap: wrap;
+}
+.bk-biz-meta span { display: flex; align-items: center; gap: 5px }
+
+/* ── Kalender ── */
+.bk-section { background: var(--bg); margin: 12px 12px 0; border-radius: var(--r); padding: 20px; box-shadow: var(--shadow) }
+.bk-section-title {
+  font-size: .72rem; font-weight: 700; color: var(--ink-4);
+  text-transform: uppercase; letter-spacing: .8px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 7px;
+}
+.bk-section-title i { color: var(--ac) }
+
+.bk-cal-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.bk-cal-nav button {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-2);
+  background: var(--bg); color: var(--ink-3); font-size: .85rem; transition: var(--ts);
+}
+.bk-cal-nav button:hover { border-color: var(--ac); color: var(--ac) }
+.bk-cal-month { font-weight: 700; font-size: .95rem; color: var(--ink-2) }
+
+.bk-weekdays {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  text-align: center; font-size: .7rem; color: var(--ink-4);
+  margin-bottom: 6px; font-weight: 600;
+}
+.bk-cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px }
+.bk-cal-day {
+  aspect-ratio: 1; border-radius: var(--r-sm); font-size: .82rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; border: 1.5px solid transparent; transition: var(--ts);
+  color: var(--ink-2); font-weight: 500; position: relative;
+}
+.bk-cal-day.empty { cursor: default }
+.bk-cal-day.today { font-weight: 700; color: var(--ac) }
+.bk-cal-day.selected { background: var(--ac); color: #fff; border-color: var(--ac) }
+.bk-cal-day.available:not(.selected):hover { background: var(--ac-dim); border-color: var(--ac-border) }
+.bk-cal-day.full { color: var(--ink-4); cursor: not-allowed }
+.bk-cal-day.closed { color: var(--ink-4); cursor: not-allowed }
+.bk-cal-day.past  { color: var(--border-2); cursor: not-allowed }
+.bk-cal-dot {
+  width: 5px; height: 5px; border-radius: 50%; margin-top: 2px;
+}
+.bk-cal-day.available .bk-cal-dot { background: var(--success) }
+.bk-cal-day.full .bk-cal-dot     { background: var(--danger) }
+.bk-cal-day.closed .bk-cal-dot   { background: var(--ink-4) }
+
+.bk-cal-legend {
+  display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap;
+}
+.bk-cal-legend span {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .72rem; color: var(--ink-3);
+}
+.bk-legend-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+
+/* ── Closed date notice ── */
+.bk-closed-notice {
+  background: #fef2f2; border: 1px solid #fecaca;
+  border-radius: var(--r-sm); padding: 12px 14px;
+  font-size: .84rem; color: var(--danger);
+  display: flex; align-items: center; gap: 9px; margin-top: 12px;
+}
+
+/* ── Slot Waktu ── */
+.bk-slots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px }
+.bk-slot {
+  padding: 7px 14px; border-radius: 99px; font-size: .82rem; font-weight: 600;
+  border: 1.5px solid var(--border-2); background: var(--bg);
+  color: var(--ink-3); cursor: pointer; transition: var(--ts);
+}
+.bk-slot:hover { border-color: var(--ac); color: var(--ac); background: var(--ac-dim) }
+.bk-slot.selected { background: var(--ac); color: #fff; border-color: var(--ac) }
+.bk-slot.full { color: var(--border-2); cursor: not-allowed; background: var(--bg-2) }
+
+/* ── Lokasi / Meja ── */
+.bk-locs { display: flex; flex-direction: column; gap: 8px; margin-top: 4px }
+.bk-loc-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--bg);
+  cursor: pointer; transition: var(--ts);
+}
+.bk-loc-item.available:hover { border-color: var(--ac); background: var(--ac-dim) }
+.bk-loc-item.selected { border-color: var(--ac); background: var(--ac-dim) }
+.bk-loc-item.full { opacity: .5; cursor: not-allowed }
+.bk-loc-left { display: flex; align-items: center; gap: 10px }
+.bk-loc-icon { font-size: 1.1rem; color: var(--ac) }
+.bk-loc-name { font-weight: 600; font-size: .88rem; color: var(--ink-2) }
+.bk-loc-cap  { font-size: .75rem; color: var(--ink-4) }
+.bk-loc-status {
+  font-size: .72rem; font-weight: 700; padding: 2px 8px;
+  border-radius: 99px;
+}
+.bk-loc-status.avail  { background: #dcfce7; color: #15803d }
+.bk-loc-status.full   { background: #fee2e2; color: #b91c1c }
+.bk-loc-check { color: var(--ac); font-size: 1rem }
+
+/* Kapasitas gabungan (mode meja) */
+.bk-cap-total {
+  margin-top: 10px; padding: 8px 12px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); font-size: .82rem; color: var(--ink-3);
+  display: flex; align-items: center; gap: 7px;
+}
+.bk-cap-total i { color: var(--ac) }
+
+/* ── Menu ── */
+.bk-menus { display: flex; flex-direction: column; gap: 10px; margin-top: 4px }
+.bk-menu-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r-sm);
+  border: 1.5px solid var(--border); background: var(--bg);
+  transition: var(--ts);
+}
+.bk-menu-item.unavail { opacity: .45; pointer-events: none }
+.bk-menu-left { flex: 1; min-width: 0 }
+.bk-menu-name { font-weight: 700; font-size: .9rem; color: var(--ink-2); margin-bottom: 3px }
+.bk-menu-details { font-size: .75rem; color: var(--ink-4); line-height: 1.5 }
+.bk-menu-price { font-size: .82rem; font-weight: 700; color: var(--ac); margin-top: 4px }
+.bk-menu-unavail-badge {
+  font-size: .7rem; color: var(--danger); font-weight: 700;
+  background: #fee2e2; padding: 2px 7px; border-radius: 99px;
+  margin-top: 4px; display: inline-block;
+}
+.bk-menu-qty {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.bk-qty-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1.5px solid var(--border-2); background: var(--bg);
+  color: var(--ink-3); font-size: .9rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--ts);
+}
+.bk-qty-btn:hover { border-color: var(--ac); color: var(--ac); background: var(--ac-dim) }
+.bk-qty-val { font-weight: 700; min-width: 20px; text-align: center; font-size: .9rem }
+
+/* ── Billing Summary ── */
+.bk-billing {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 14px; margin-top: 12px;
+}
+.bk-bill-title {
+  font-size: .72rem; font-weight: 700; color: var(--ink-4);
+  text-transform: uppercase; letter-spacing: .7px; margin-bottom: 10px;
+}
+.bk-bill-row {
+  display: flex; justify-content: space-between;
+  font-size: .84rem; color: var(--ink-3); padding: 4px 0;
+}
+.bk-bill-row + .bk-bill-row { border-top: 1px dashed var(--border) }
+.bk-bill-total {
+  border-top: 1.5px solid var(--border-3) !important;
+  padding-top: 8px !important; margin-top: 4px;
+  font-weight: 700; color: var(--ink); font-size: .95rem;
+}
+.bk-bill-dp { color: var(--ac); font-weight: 700 }
+
+/* ── Form tamu ── */
+.bk-form { display: flex; flex-direction: column; gap: 14px; margin-top: 4px }
+.bk-field label {
+  display: block; font-size: .78rem; font-weight: 700;
+  color: var(--ink-3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px;
+}
+.bk-input {
+  width: 100%; padding: 11px 14px; border: 1.5px solid var(--border-2);
+  border-radius: var(--r-sm); font-size: .9rem; color: var(--ink);
+  background: var(--bg); transition: var(--ts); outline: none;
+  font-family: var(--font);
+}
+.bk-input:focus { border-color: var(--ac); box-shadow: 0 0 0 3px var(--ac-dim) }
+.bk-input.error { border-color: var(--danger) }
+.bk-jumlah-wrap { display: flex; align-items: center; gap: 10px }
+.bk-jumlah-wrap .bk-input { max-width: 120px }
+.bk-jumlah-hint { font-size: .78rem; color: var(--ink-4) }
+
+/* ── Step indicator ── */
+.bk-steps {
+  display: flex; align-items: center; padding: 16px 24px 0;
+  gap: 0; overflow: hidden;
+}
+.bk-step {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 1; position: relative;
+}
+.bk-step::after {
+  content: ''; position: absolute; top: 13px; left: 50%;
+  width: 100%; height: 2px; background: var(--border-2); z-index: 0;
+}
+.bk-step:last-child::after { display: none }
+.bk-step-dot {
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border-2);
+  background: var(--bg); color: var(--ink-4); font-size: .72rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; z-index: 1;
+  transition: var(--ts);
+}
+.bk-step.done .bk-step-dot { background: var(--success); border-color: var(--success); color: #fff }
+.bk-step.active .bk-step-dot { background: var(--ac); border-color: var(--ac); color: #fff }
+.bk-step-label { font-size: .65rem; color: var(--ink-4); margin-top: 4px; font-weight: 600 }
+.bk-step.active .bk-step-label { color: var(--ac) }
+.bk-step.done .bk-step-label  { color: var(--success) }
+
+/* ── Tombol aksi ── */
+.bk-btn {
+  width: 100%; padding: 14px; border-radius: var(--r-sm);
+  font-size: .92rem; font-weight: 700; border: none;
+  background: var(--ac); color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: var(--ts); box-shadow: 0 4px 14px var(--ac-glow);
+  margin-top: 8px;
+}
+.bk-btn:hover:not(:disabled) { background: var(--ac-h); transform: translateY(-1px) }
+.bk-btn:disabled { opacity: .5; cursor: not-allowed; box-shadow: none }
+.bk-btn-ghost {
+  background: none; color: var(--ink-3); border: 1.5px solid var(--border-2);
+  box-shadow: none;
+}
+.bk-btn-ghost:hover:not(:disabled) { border-color: var(--ac); color: var(--ac); transform: none }
+
+/* ── Success screen ── */
+.bk-success {
+  text-align: center; padding: 40px 24px;
+}
+.bk-success-icon {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: #dcfce7; color: var(--success);
+  font-size: 2rem; display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+}
+.bk-success-title {
+  font-family: var(--font-display); font-size: 1.4rem; font-style: italic;
+  color: var(--ink); margin-bottom: 12px;
+}
+.bk-success-msg { font-size: .88rem; color: var(--ink-3); line-height: 1.7; margin-bottom: 20px }
+.bk-success-detail {
+  background: var(--bg-2); border-radius: var(--r-sm); padding: 16px;
+  text-align: left; font-size: .84rem; margin-bottom: 20px;
+}
+.bk-success-detail-row {
+  display: flex; gap: 8px; padding: 5px 0; color: var(--ink-3);
+}
+.bk-success-detail-row i { color: var(--ac); width: 16px; flex-shrink: 0; margin-top: 2px }
+.bk-success-detail-row span { color: var(--ink-2) }
+.bk-wa-notice {
+  background: #f0fdf4; border: 1px solid #bbf7d0;
+  border-radius: var(--r-sm); padding: 12px 14px;
+  font-size: .82rem; color: #15803d;
+  display: flex; align-items: flex-start; gap: 9px;
+}
+
+/* ── Error/empty ── */
+.bk-error { padding: 40px 24px; text-align: center; color: var(--ink-4) }
+.bk-error i { font-size: 2.5rem; margin-bottom: 14px; display: block }
+.bk-empty  { font-size: .84rem; color: var(--ink-4); padding: 12px 0; font-style: italic }
+
+/* ── Loading ── */
+.bk-loading {
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px 24px; flex-direction: column; gap: 14px;
+}
+.bk-spinner {
+  width: 36px; height: 36px; border: 3px solid var(--border-2);
+  border-top-color: var(--ac); border-radius: 50%;
+  animation: bk-spin .8s linear infinite;
+}
+@keyframes bk-spin { to { transform: rotate(360deg) } }
+
+/* ── Footer ── */
+.bk-footer {
+  text-align: center; padding: 24px;
+  font-size: .72rem; color: var(--ink-4);
+}
+.bk-footer a { color: var(--ac); text-decoration: none }
+</style>
+</head>
+<body>
+
+<div class="bk-wrap" id="bk-wrap">
+  <!-- Loading awal -->
+  <div id="bk-loading" class="bk-loading">
+    <div class="bk-spinner"></div>
+    <span style="color:var(--ink-4);font-size:.84rem">Memuat informasi restoran...</span>
+  </div>
+
+  <!-- Konten utama - disuntikkan JS -->
+  <div id="bk-main" style="display:none"></div>
+
+  <!-- Error state -->
+  <div id="bk-error" style="display:none" class="bk-error">
+    <i class="fas fa-exclamation-triangle" style="color:var(--warning)"></i>
+    <div style="font-weight:700;color:var(--ink-2);margin-bottom:8px">Halaman tidak ditemukan</div>
+    <div id="bk-error-msg">Link reservasi tidak valid atau bisnis tidak ditemukan.</div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+import { getFirestore, doc, getDoc, getDocs, collection, setDoc }
+  from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+/* ── Config ── */
+const firebaseConfig = {
+  apiKey:            'AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw',
+  authDomain:        'proserva-bisnisku.firebaseapp.com',
+  projectId:         'proserva-bisnisku',
+  storageBucket:     'proserva-bisnisku.firebasestorage.app',
+  messagingSenderId: '995357200209',
+  appId:             '1:995357200209:web:5cdba2db9975fcc35f4d70'
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+/* ── State lokal booking.html ── */
+const B = {
+  uid:        '',
+  biz:        {},
+  ops:        {},
+  payment:    {},
+  menus:      [],
+  locs:       [],
+  closedDates:[],
+  year:   new Date().getFullYear(),
+  month:  new Date().getMonth(),
+  /* Form state */
+  selDate:  null,
+  selSlot:  null,
+  selLocs:  [],    /* array nama - untuk mode meja bisa >1 */
+  menuQty:  {},    /* { menuName: qty } */
+  jumlah:   0,
+  nama:     '',
+  hp:       '',
+  catatan:  '',
+  /* Reservasi yang sudah ada hari itu (untuk cek availability) */
+  dayRes:   []
+};
+
+const MONTHS   = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+const MONTHS_S = MONTHS.map(m => m.slice(0,3));
+const DAYS     = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+
+/* ── Helpers ── */
+const $  = id => document.getElementById(id);
+const qs = sel => document.querySelector(sel);
+function esc(s) { const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML; }
+function pad2(n) { return n < 10 ? '0'+n : ''+n; }
+function toMins(t) { if(!t) return 0; const p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
+function minsToTime(m) { return pad2(Math.floor(m/60))+':'+pad2(m%60); }
+function todayStr() { const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function formatDateFull(ds) {
+  if(!ds) return '-';
+  const d=new Date(ds+'T12:00:00'), p=ds.split('-');
+  return DAYS[d.getDay()]+', '+parseInt(p[2])+' '+MONTHS_S[parseInt(p[1])-1]+' '+p[0];
+}
+function formatRp(n) { return (parseInt(n)||0).toLocaleString('id-ID'); }
+function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function isTableMode() { return (B.biz.locMode||'area') === 'table'; }
+function normTempat(t) { return Array.isArray(t)?t.filter(Boolean):(t?[t]:[]); }
+
+/* ── Load data bisnis dari Firestore ── */
+async function loadBizData(uid) {
+  const [bizSnap, opsSnap, paySnap, cdSnap, menuSnap, locSnap] = await Promise.all([
+    getDoc(doc(db,'users',uid,'config','biz')),
+    getDoc(doc(db,'users',uid,'config','ops')),
+    getDoc(doc(db,'users',uid,'config','payment')),
+    getDoc(doc(db,'users',uid,'config','closedDates')),
+    getDocs(collection(db,'users',uid,'menus')),
+    getDocs(collection(db,'users',uid,'locations'))
+  ]);
+
+  if (!bizSnap.exists()) throw new Error('Bisnis tidak ditemukan.');
+
+  B.biz  = bizSnap.data();
+  B.ops  = Object.assign({ openTime:'09:00', closeTime:'21:00', slotInterval:30, defaultDuration:120, bufferTime:15, minAdvance:0 }, opsSnap.exists()?opsSnap.data():{});
+  B.payment = Object.assign({ dpMode:'persen', dpPersen:30, dpNominal:0, serviceOn:false, servicePct:5, ppnOn:false, ppnPct:11, bankName:'', bankNo:'', bankOwner:'' }, paySnap.exists()?paySnap.data():{});
+  B.closedDates = cdSnap.exists() ? (cdSnap.data().list||[]) : [];
+  B.menus = []; menuSnap.forEach(d => B.menus.push(Object.assign({id:d.id},d.data())));
+  B.menus.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  B.locs  = []; locSnap.forEach(d => B.locs.push(Object.assign({id:d.id},d.data())));
+  B.locs.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+  /* Terapkan accent tema */
+  document.documentElement.setAttribute('data-accent', B.biz.accent || B.biz.locMode || 'orange');
+  document.title = 'Reservasi - ' + (B.biz.name||'Restoran');
+}
+
+/* ── Load reservasi bulan tertentu untuk cek availability ── */
+async function loadMonthRes(uid, mk) {
+  try {
+    const snap = await getDocs(collection(db,'users',uid,'reservations',mk,'list'));
+    const arr = [];
+    snap.forEach(d => arr.push(d.data()));
+    return arr;
+  } catch(e) { return []; }
+}
+
+/* ── Cek apakah tanggal ditutup ── */
+function isDateClosed(ds) { return B.closedDates.some(cd => cd.date === ds); }
+
+/* ── Cek apakah tanggal sudah lewat ── */
+function isDatePast(ds) { return ds < todayStr(); }
+
+/* ── Slot waktu tersedia untuk suatu lokasi di suatu tanggal ── */
+function getAvailableSlots(locName, dateStr, excludeId) {
+  const loc     = B.locs.find(l => l.name === locName);
+  const dur     = loc?.defaultDuration ? parseInt(loc.defaultDuration) : (B.ops.defaultDuration||120);
+  const buf     = loc?.bufferTime !== undefined && loc?.bufferTime !== '' ? parseInt(loc.bufferTime) : (B.ops.bufferTime||15);
+  const openM   = toMins(loc?.openTime || B.ops.openTime || '09:00');
+  const closeM  = toMins(loc?.closeTime || B.ops.closeTime || '21:00');
+  const interval = B.ops.slotInterval || 30;
+  const busy = B.dayRes
+    .filter(r => normTempat(r.tempat).includes(locName) && r.id !== excludeId && r.status !== 'batal')
+    .map(r => { const s=toMins(r.jam), d=r.duration?parseInt(r.duration):dur; return {start:s, end:s+d+buf}; });
+  const slots = [];
+  for (let m = openM; m + dur <= closeM; m += interval) {
+    const free = busy.every(b => !(m < b.end && m + dur + buf > b.start));
+    if (free) slots.push(minsToTime(m));
+    if (slots.length >= 12) break;
+  }
+  return slots;
+}
+
+/* ── Semua slot yang tersedia di suatu tanggal (union dari semua lokasi) ── */
+function getAllDaySlots(dateStr) {
+  const slotSet = new Set();
+  B.locs.forEach(loc => {
+    getAvailableSlots(loc.name, dateStr).forEach(s => slotSet.add(s));
+  });
+  return Array.from(slotSet).sort();
+}
+
+/* ── Apakah tanggal penuh (semua slot di semua lokasi terisi) ── */
+function isDateFull(dateStr) {
+  if (isDateClosed(dateStr) || isDatePast(dateStr)) return false;
+  return getAllDaySlots(dateStr).length === 0;
+}
+
+/* ── Kalkulasi billing ── */
+function calcBilling() {
+  const p = B.payment;
+  let sub = 0;
+  Object.entries(B.menuQty).forEach(([name, qty]) => {
+    const m = B.menus.find(x => x.name === name);
+    sub += (m ? (parseFloat(m.price)||0) : 0) * qty;
+  });
+  const svc = p.serviceOn ? Math.round(sub * (parseFloat(p.servicePct)||0) / 100) : 0;
+  const ppn = p.ppnOn     ? Math.round(sub * (parseFloat(p.ppnPct)||0)     / 100) : 0;
+  const tot = sub + svc + ppn;
+  let dpReq = 0;
+  if (p.dpMode === 'nominal') dpReq = parseFloat(p.dpNominal)||0;
+  else dpReq = Math.round(tot * (parseFloat(p.dpPersen)||0) / 100);
+  return { subtotal:sub, service:svc, ppn, total:tot, dpRequested:dpReq };
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER UTAMA
+   ════════════════════════════════════════════════════════════ */
+function render() {
+  const main = $('bk-main');
+  if (!main) return;
+  main.innerHTML = renderHeader() + renderSteps() + renderCalSection()
+    + renderFormSection() + renderConfirmSection() + renderFooter();
+  bindEvents();
+}
+
+function renderHeader() {
+  const b = B.biz;
+  return `<div class="bk-header">
+    <div class="bk-header-bg"></div>
+    <div class="bk-logo">${esc(b.logo||'🍽️')}</div>
+    <div class="bk-biz-name">${esc(b.name||'Reservasi Online')}</div>
+    ${b.tagline ? `<div class="bk-biz-tagline">${esc(b.tagline)}</div>` : ''}
+    <div class="bk-biz-meta">
+      <span><i class="fas fa-clock"></i> ${esc(B.ops.openTime||'09:00')} - ${esc(B.ops.closeTime||'21:00')}</span>
+      <span><i class="fas fa-map-marker-alt"></i> ${esc(b.type||'Restoran')}</span>
+    </div>
+  </div>`;
+}
+
+function renderSteps() {
+  const steps = ['Pilih Tanggal','Detail','Konfirmasi'];
+  const cur   = B.selDate ? (B.selSlot && (B.selLocs.length || !isTableMode()) ? 2 : 1) : 0;
+  return `<div class="bk-steps">
+    ${steps.map((s,i) => `<div class="bk-step ${i < cur ? 'done' : i === cur ? 'active' : ''}">
+      <div class="bk-step-dot">${i < cur ? '<i class="fas fa-check"></i>' : (i+1)}</div>
+      <div class="bk-step-label">${s}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+/* ── Kalender ── */
+function renderCalSection() {
+  const m = B.month, y = B.year;
+  const first = new Date(y,m,1).getDay();
+  const days  = new Date(y,m+1,0).getDate();
+  const today = todayStr();
+  const now   = new Date();
+
+  let cells = Array(first).fill('<div class="bk-cal-day empty"></div>').join('');
+  for (let d = 1; d <= days; d++) {
+    const ds  = `${y}-${pad2(m+1)}-${pad2(d)}`;
+    const isPast   = ds < today;
+    const isClosed = isDateClosed(ds);
+    const isFull   = !isPast && !isClosed && isDateFull(ds);
+    const isToday  = ds === today;
+    const isSel    = ds === B.selDate;
+    const cd = B.closedDates.find(x => x.date === ds);
+
+    let cls = 'bk-cal-day';
+    if (isPast)   cls += ' past';
+    else if (isClosed) cls += ' closed';
+    else if (isFull)   cls += ' full';
+    else           cls += ' available';
+    if (isToday) cls += ' today';
+    if (isSel)   cls += ' selected';
+
+    const dot = isPast ? '' : `<div class="bk-cal-dot"></div>`;
+    const onclick = (!isPast && !isClosed && !isFull) ? `onclick="bkSelDate('${ds}')"` : '';
+    const title = isClosed ? (cd?.reason ? `title="${esc(cd.reason)}"` : '') : '';
+    cells += `<div class="${cls}" ${onclick} ${title}><span>${d}</span>${dot}</div>`;
+  }
+
+  const closedInfo = B.selDate && isDateClosed(B.selDate)
+    ? `<div class="bk-closed-notice"><i class="fas fa-calendar-times"></i>
+        <span>Tanggal ini ditutup${B.closedDates.find(x=>x.date===B.selDate)?.reason
+          ? ': ' + esc(B.closedDates.find(x=>x.date===B.selDate).reason) : '.'}
+        </span></div>` : '';
+
+  return `<div class="bk-section">
+    <div class="bk-section-title"><i class="fas fa-calendar-alt"></i> Pilih Tanggal</div>
+    <div class="bk-cal-nav">
+      <button onclick="bkNavMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+      <span class="bk-cal-month">${MONTHS[m]} ${y}</span>
+      <button onclick="bkNavMonth(1)"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <div class="bk-weekdays">
+      ${['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(d=>`<div>${d}</div>`).join('')}
+    </div>
+    <div class="bk-cal-grid">${cells}</div>
+    ${closedInfo}
+    <div class="bk-cal-legend">
+      <span><div class="bk-legend-dot" style="background:var(--success)"></div> Tersedia</span>
+      <span><div class="bk-legend-dot" style="background:var(--danger)"></div> Penuh</span>
+      <span><div class="bk-legend-dot" style="background:var(--ink-4)"></div> Tutup</span>
+    </div>
+  </div>`;
+}
+
+/* ── Section form (slot + lokasi + menu + tamu) ── */
+function renderFormSection() {
+  if (!B.selDate || isDateClosed(B.selDate)) return '';
+
+  /* ── Slot waktu ── */
+  const slots = getAllDaySlots(B.selDate);
+  const slotHtml = slots.length
+    ? `<div class="bk-slots">${slots.map(s => `
+        <div class="bk-slot${B.selSlot===s?' selected':''}" onclick="bkSelSlot('${s}')">${s}</div>
+      `).join('')}</div>`
+    : `<div class="bk-empty"><i class="fas fa-calendar-times" style="margin-right:6px"></i>Tidak ada slot tersedia untuk tanggal ini.</div>`;
+
+  if (!B.selSlot) {
+    return `<div class="bk-section">
+      <div class="bk-section-title"><i class="fas fa-clock"></i> Pilih Jam</div>
+      ${slotHtml}
+    </div>`;
+  }
+
+  /* ── Lokasi / Meja ── */
+  const locHtml = renderLocSection();
+
+  /* Cek apakah sudah ada lokasi terpilih yang valid */
+  const hasLoc = isTableMode() ? B.selLocs.length > 0 : B.selLocs.length > 0;
+  if (!hasLoc) {
+    return `<div class="bk-section">
+      <div class="bk-section-title"><i class="fas fa-clock"></i> Pilih Jam</div>
+      ${slotHtml}
+    </div>${locHtml}`;
+  }
+
+  /* ── Menu ── */
+  const menuHtml = renderMenuSection();
+
+  /* ── Billing ── */
+  const bill = calcBilling();
+  const billingHtml = bill.total > 0 ? renderBilling(bill) : '';
+
+  /* ── Data tamu ── */
+  const tamuHtml = renderTamuForm();
+
+  return `<div class="bk-section">
+      <div class="bk-section-title"><i class="fas fa-clock"></i> Pilih Jam</div>
+      ${slotHtml}
+    </div>${locHtml}${menuHtml}${billingHtml ? `<div class="bk-section">${billingHtml}</div>` : ''}
+    <div class="bk-section">
+      <div class="bk-section-title"><i class="fas fa-user"></i> Data Pemesan</div>
+      ${tamuHtml}
+    </div>`;
+}
+
+function renderLocSection() {
+  const isTable = isTableMode();
+  const title   = isTable ? 'Pilih Meja' : 'Pilih Lokasi';
+  const icon    = isTable ? 'fas fa-chair' : 'fas fa-map-marker-alt';
+
+  const locItems = B.locs.map(loc => {
+    const slots = getAvailableSlots(loc.name, B.selDate);
+    const isFull = slots.length === 0 || !slots.includes(B.selSlot);
+    const isSel  = B.selLocs.includes(loc.name);
+    const cap    = parseInt(loc.capacity)||0;
+    const cls    = `bk-loc-item ${isFull?'full':isSel?'selected':'available'}`;
+    const onclick= isFull ? '' : `onclick="bkToggleLoc('${esc(loc.name)}')"`;
+
+    return `<div class="${cls}" ${onclick}>
+      <div class="bk-loc-left">
+        <div class="bk-loc-icon"><i class="${icon}"></i></div>
+        <div>
+          <div class="bk-loc-name">${esc(loc.name)}</div>
+          <div class="bk-loc-cap">${cap} orang${loc.minGuests?' · Min. '+loc.minGuests+' orang':''}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="bk-loc-status ${isFull?'full':'avail'}">${isFull?'Penuh':'Tersedia'}</span>
+        ${isSel ? '<i class="fas fa-check-circle bk-loc-check"></i>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  /* Kapasitas gabungan untuk mode meja */
+  let capTotal = '';
+  if (isTable && B.selLocs.length > 0) {
+    const total = B.selLocs.reduce((s,n) => {
+      const l = B.locs.find(x => x.name===n);
+      return s + (l ? parseInt(l.capacity)||0 : 0);
+    }, 0);
+    const paxOk = B.jumlah === 0 || B.jumlah <= total;
+    capTotal = `<div class="bk-cap-total">
+      <i class="fas fa-users"></i>
+      <span>Kapasitas gabungan: <strong>${total} orang</strong>
+        ${B.jumlah > 0 ? ` · Tamu: ${B.jumlah} ${paxOk
+          ? '<span style="color:var(--success)">✅</span>'
+          : '<span style="color:var(--danger)">⚠️ Melebihi kapasitas</span>'}` : ''}
+      </span>
+    </div>`;
+  }
+
+  return `<div class="bk-section">
+    <div class="bk-section-title"><i class="${icon}"></i> ${title}</div>
+    <div class="bk-locs">${locItems || '<div class="bk-empty">Belum ada lokasi tersedia.</div>'}</div>
+    ${capTotal}
+  </div>`;
+}
+
+function renderMenuSection() {
+  const menuItems = B.menus.map(m => {
+    const avail = m.available !== false;
+    const qty   = B.menuQty[m.name] || 0;
+    const det   = Array.isArray(m.details) ? m.details.filter(Boolean) : [];
+    return `<div class="bk-menu-item${!avail?' unavail':''}">
+      <div class="bk-menu-left">
+        <div class="bk-menu-name">${esc(m.name)}</div>
+        ${det.length ? `<div class="bk-menu-details">${det.map(esc).join(' · ')}</div>` : ''}
+        ${m.price > 0 ? `<div class="bk-menu-price">Rp ${formatRp(m.price)}</div>` : ''}
+        ${!avail ? `<div class="bk-menu-unavail-badge">❌ Habis</div>` : ''}
+      </div>
+      ${avail ? `<div class="bk-menu-qty">
+        <button class="bk-qty-btn" onclick="bkMenuQty('${esc(m.name)}',-1)"><i class="fas fa-minus"></i></button>
+        <span class="bk-qty-val">${qty}</span>
+        <button class="bk-qty-btn" onclick="bkMenuQty('${esc(m.name)}',1)"><i class="fas fa-plus"></i></button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="bk-section">
+    <div class="bk-section-title"><i class="fas fa-utensils"></i> Pilih Menu <span style="font-weight:400;text-transform:none;letter-spacing:0">(opsional)</span></div>
+    <div class="bk-menus">${menuItems || '<div class="bk-empty">Belum ada menu.</div>'}</div>
+  </div>`;
+}
+
+function renderBilling(bill) {
+  const p = B.payment;
+  let rows = `<div class="bk-bill-row"><span>Subtotal</span><span>Rp ${formatRp(bill.subtotal)}</span></div>`;
+  if (p.serviceOn) rows += `<div class="bk-bill-row"><span>Service (${p.servicePct}%)</span><span>Rp ${formatRp(bill.service)}</span></div>`;
+  if (p.ppnOn)     rows += `<div class="bk-bill-row"><span>PPN (${p.ppnPct}%)</span><span>Rp ${formatRp(bill.ppn)}</span></div>`;
+  rows += `<div class="bk-bill-row bk-bill-total"><span>Total</span><span>Rp ${formatRp(bill.total)}</span></div>`;
+  if (bill.dpRequested > 0) {
+    const dpLabel = p.dpMode==='nominal' ? 'DP (nominal)' : `DP (${p.dpPersen}%)`;
+    rows += `<div class="bk-bill-row bk-bill-dp"><span>${dpLabel}</span><span>Rp ${formatRp(bill.dpRequested)}</span></div>`;
+  }
+  return `<div class="bk-billing">
+    <div class="bk-bill-title"><i class="fas fa-receipt" style="margin-right:6px;color:var(--ac)"></i>Estimasi Tagihan</div>
+    ${rows}
+    ${bill.dpRequested > 0 && B.payment.bankName ? `
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:.78rem;color:var(--ink-3)">
+        <i class="fas fa-university" style="margin-right:5px;color:var(--ac)"></i>
+        DP ke: <strong>${esc(B.payment.bankName)}</strong> · ${esc(B.payment.bankNo)}
+        ${B.payment.bankOwner ? ` · a.n. ${esc(B.payment.bankOwner)}` : ''}
+      </div>` : ''}
+  </div>`;
+}
+
+function renderTamuForm() {
+  return `<div class="bk-form">
+    <div class="bk-field">
+      <label for="bk-nama">Nama Lengkap *</label>
+      <input class="bk-input" id="bk-nama" type="text" placeholder="Nama pemesan"
+        value="${esc(B.nama)}" oninput="B.nama=this.value"/>
+    </div>
+    <div class="bk-field">
+      <label for="bk-hp">Nomor WhatsApp *</label>
+      <input class="bk-input" id="bk-hp" type="tel" placeholder="08xx-xxxx-xxxx"
+        value="${esc(B.hp)}" oninput="B.hp=this.value"/>
+      <div style="font-size:.74rem;color:var(--ink-4);margin-top:4px">
+        <i class="fas fa-info-circle"></i> Admin akan menghubungi via nomor ini untuk konfirmasi.
+      </div>
+    </div>
+    <div class="bk-field">
+      <label>Jumlah Tamu *</label>
+      <div class="bk-jumlah-wrap">
+        <input class="bk-input" id="bk-jumlah" type="number" min="1" placeholder="1"
+          value="${B.jumlah||''}" oninput="B.jumlah=parseInt(this.value)||0;renderPartial('loc');renderPartial('form')"/>
+        <span class="bk-jumlah-hint">orang</span>
+      </div>
+    </div>
+    <div class="bk-field">
+      <label for="bk-catatan">Catatan (opsional)</label>
+      <textarea class="bk-input" id="bk-catatan" rows="3"
+        placeholder="Dekorasi, alergi, kebutuhan khusus..."
+        oninput="B.catatan=this.value" style="resize:vertical">${esc(B.catatan)}</textarea>
+    </div>
+    <button class="bk-btn" onclick="bkSubmit()">
+      <i class="fas fa-check-circle"></i> Kirim Permintaan Reservasi
+    </button>
+  </div>`;
+}
+
+function renderConfirmSection() {
+  /* Placeholder - diisi saat submit berhasil */
+  return '<div id="bk-success-wrap"></div>';
+}
+
+function renderFooter() {
+  return `<div class="bk-footer">
+    Powered by <a href="https://dewatalaptop.github.io/proserva/" target="_blank">Proserva</a>
+  </div>`;
+}
+
+/* ── Partial re-render tanpa reset scroll ── */
+function renderPartial(part) {
+  /* Re-render hanya section form agar tidak reload seluruh halaman */
+  const main = $('bk-main');
+  if (!main) return;
+  /* Re-render steps */
+  const stepsEl = main.querySelector('.bk-steps');
+  if (stepsEl) stepsEl.outerHTML = renderSteps();
+  /* Re-render seluruh section setelah kalender */
+  const calEl = main.querySelector('.bk-section');
+  if (!calEl) return;
+  /* Hapus semua section setelah kalender, lalu tambah ulang */
+  let next = calEl.nextSibling;
+  while (next) {
+    const tmp = next.nextSibling;
+    if (next.id !== 'bk-success-wrap') next.remove();
+    next = tmp;
+  }
+  const frag = document.createRange().createContextualFragment(
+    renderFormSection() + renderConfirmSection()
+  );
+  main.appendChild(frag);
+  bindFormEvents();
+}
+
+/* ── Event binding ── */
+function bindEvents() {
+  bindFormEvents();
+}
+function bindFormEvents() {
+  /* input events sudah inline via oninput - tidak perlu bind ulang */
+}
+
+/* ── Global event handlers (dipanggil dari inline onclick) ── */
+window.bkNavMonth = function(d) {
+  B.month += d;
+  if (B.month < 0)  { B.month = 11; B.year--; }
+  if (B.month > 11) { B.month = 0;  B.year++; }
+  B.selDate = null; B.selSlot = null; B.selLocs = [];
+  render();
+};
+
+window.bkSelDate = async function(ds) {
+  B.selDate = ds; B.selSlot = null; B.selLocs = [];
+  /* Load reservasi bulan ini untuk cek ketersediaan real-time */
+  const mk = ds.substring(0, 7);
+  B.dayRes = await loadMonthRes(B.uid, mk);
+  render();
+};
+
+window.bkSelSlot = function(slot) {
+  B.selSlot = slot; B.selLocs = [];
+  renderPartial('form');
+};
+
+window.bkToggleLoc = function(name) {
+  if (isTableMode()) {
+    /* Mode meja: bisa pilih banyak */
+    const idx = B.selLocs.indexOf(name);
+    if (idx >= 0) B.selLocs.splice(idx, 1);
+    else B.selLocs.push(name);
+  } else {
+    /* Mode area: hanya satu */
+    B.selLocs = B.selLocs[0] === name ? [] : [name];
+  }
+  renderPartial('form');
+};
+
+window.bkMenuQty = function(name, delta) {
+  const cur = B.menuQty[name] || 0;
+  const nxt = Math.max(0, cur + delta);
+  if (nxt === 0) delete B.menuQty[name];
+  else B.menuQty[name] = nxt;
+  renderPartial('form');
+};
+
+/* ── Submit reservasi ── */
+window.bkSubmit = async function() {
+  /* Validasi */
+  const errors = [];
+  if (!B.selDate) errors.push('Pilih tanggal terlebih dahulu.');
+  if (!B.selSlot) errors.push('Pilih jam terlebih dahulu.');
+  if (!B.selLocs.length) errors.push(isTableMode() ? 'Pilih minimal 1 meja.' : 'Pilih lokasi terlebih dahulu.');
+  if (!B.jumlah || B.jumlah < 1) errors.push('Isi jumlah tamu.');
+  if (!B.nama.trim()) errors.push('Isi nama pemesan.');
+  if (!B.hp.trim() || !/^[\d\s\-+()]{10,15}$/.test(B.hp.trim())) errors.push('Nomor WhatsApp tidak valid.');
+
+  /* Validasi kapasitas gabungan (mode meja) */
+  if (isTableMode() && B.selLocs.length && B.jumlah) {
+    const totalCap = B.selLocs.reduce((s,n) => {
+      const l = B.locs.find(x=>x.name===n);
+      return s + (l?parseInt(l.capacity)||0:0);
+    }, 0);
+    if (B.jumlah > totalCap) errors.push(`Jumlah tamu (${B.jumlah}) melebihi kapasitas meja (${totalCap} orang).`);
+  }
+
+  if (errors.length) {
+    alert(errors.join('\n'));
+    return;
+  }
+
+  /* Bentuk objek reservasi */
+  const menuArr = Object.entries(B.menuQty)
+    .filter(([,q]) => q > 0)
+    .map(([name,qty]) => ({ name, quantity:qty }));
+
+  const tempat = isTableMode() ? B.selLocs : (B.selLocs[0] || '');
+  const mk     = B.selDate.substring(0, 7);
+  const resId  = genId();
+
+  const resObj = {
+    id:         resId,
+    date:       B.selDate,
+    nama:       B.nama.trim(),
+    nomorHp:    B.hp.trim().replace(/\D/g,'').replace(/^0/,'62'),
+    jam:        B.selSlot,
+    jumlah:     B.jumlah,
+    tempat,
+    menus:      menuArr,
+    tambahan:   B.catatan.trim(),
+    dp:         0,
+    tipeDp:     '',
+    status:     'pending',
+    source:     'customer',   /* badge "Dari Customer" di dashboard */
+    duration:   null,
+    createdAt:  Date.now(),
+    thankYouSent: false
+  };
+
+  /* Disable tombol */
+  const btn = qs('.bk-btn:not(.bk-btn-ghost)');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...'; }
+
+  try {
+    await setDoc(
+      doc(db, 'users', B.uid, 'reservations', mk, 'list', resId),
+      resObj
+    );
+    showSuccess(resObj);
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Kirim Permintaan Reservasi'; }
+    alert('Gagal mengirim reservasi: ' + e.message);
+  }
+};
+
+/* ── Tampilkan sukses ── */
+function showSuccess(r) {
+  const tempats = normTempat(r.tempat);
+  const menuStr = r.menus.length
+    ? r.menus.map(m => m.quantity + 'x ' + m.name).join(', ')
+    : 'Tidak ada pesanan';
+
+  const main = $('bk-main');
+  if (main) main.style.display = 'none';
+
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div class="bk-section bk-success">
+      <div class="bk-success-icon"><i class="fas fa-check"></i></div>
+      <div class="bk-success-title">Permintaan Terkirim!</div>
+      <div class="bk-success-msg">
+        Terima kasih, <strong>${esc(r.nama)}</strong>! 🎉<br/>
+        Permintaan reservasi kamu telah kami terima.
+      </div>
+      <div class="bk-success-detail">
+        <div class="bk-success-detail-row"><i class="fas fa-calendar-alt"></i><span>${formatDateFull(r.date)}</span></div>
+        <div class="bk-success-detail-row"><i class="fas fa-clock"></i><span>${r.jam}</span></div>
+        <div class="bk-success-detail-row"><i class="fas fa-map-pin"></i><span>${tempats.map(esc).join(', ')}</span></div>
+        <div class="bk-success-detail-row"><i class="fas fa-users"></i><span>${r.jumlah} orang</span></div>
+        <div class="bk-success-detail-row"><i class="fas fa-utensils"></i><span>${esc(menuStr)}</span></div>
+        ${r.tambahan ? `<div class="bk-success-detail-row"><i class="fas fa-comment-dots"></i><span>${esc(r.tambahan)}</span></div>` : ''}
+      </div>
+      <div class="bk-wa-notice">
+        <i class="fab fa-whatsapp" style="font-size:1.2rem;flex-shrink:0"></i>
+        <div>Admin <strong>${esc(B.biz.name)}</strong> akan menghubungi kamu via WhatsApp ke nomor
+        <strong>${esc(r.nomorHp)}</strong> untuk konfirmasi reservasi.<br/>
+        <span style="margin-top:4px;display:block;color:#166534">Pastikan nomor WhatsApp kamu aktif dan bisa dihubungi.</span>
+        </div>
+      </div>
+    </div>
+    <div class="bk-footer">Powered by <a href="https://dewatalaptop.github.io/proserva/" target="_blank">Proserva</a></div>
+  `;
+  document.querySelector('.bk-wrap').appendChild(wrap);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ════════════════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════════════════ */
+async function init() {
+  /* Baca UID dari query string ?biz=UID */
+  const params = new URLSearchParams(window.location.search);
+  const uid    = params.get('biz');
+  if (!uid) {
+    $('bk-loading').style.display = 'none';
+    $('bk-error').style.display   = 'block';
+    $('bk-error-msg').textContent = 'Parameter bisnis tidak ditemukan. Minta link yang benar dari restoran.';
+    return;
+  }
+  B.uid = uid;
+
+  try {
+    await loadBizData(uid);
+  } catch(e) {
+    $('bk-loading').style.display = 'none';
+    $('bk-error').style.display   = 'block';
+    $('bk-error-msg').textContent  = e.message || 'Bisnis tidak ditemukan.';
+    return;
+  }
+
+  $('bk-loading').style.display = 'none';
+  $('bk-main').style.display    = 'block';
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
