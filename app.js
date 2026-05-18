@@ -1076,10 +1076,16 @@ function showInfo(btn, text) {
   var pop = document.getElementById('info-popover');
   var cnt = document.getElementById('info-popover-content');
   if (!pop || !cnt) return;
-  cnt.innerHTML = text.replace(/\n/g,'<br>');
+  /* Baca teks dari data-info attribute jika tidak ada parameter text
+     - ini menghindari masalah parsing karakter khusus di onclick */
+  var msg = text || btn.getAttribute('data-info') || '';
+  cnt.innerHTML = msg.replace(/\|/g,'<br><br>').replace(/\n/g,'<br>');
   pop.style.display = 'block';
   var rect = btn.getBoundingClientRect();
-  var left = Math.min(rect.left, window.innerWidth - 300);
+  var vw   = window.innerWidth;
+  var pw   = Math.min(280, vw - 24);
+  var left = Math.min(rect.left, vw - pw - 12);
+  pop.style.maxWidth = pw + 'px';
   pop.style.left = Math.max(12, left) + 'px';
   pop.style.top  = (rect.bottom + 10 + window.scrollY) + 'px';
   setTimeout(function(){ pop.classList.add('show'); }, 10);
