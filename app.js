@@ -574,13 +574,13 @@ function renderAccountStatusCard(status) {
   val('set-account-email', _ACCOUNT.email || (window._FBUSER ? window._FBUSER.email : ''));
 }
 
-window.onPaymentSuccess = async function (planType, midtransResult) {
+/* Dipanggil dari admin.html setelah verifikasi manual */
+window.onPaymentSuccess = async function (planType) {
   showToast('Pembayaran berhasil! Mengaktifkan akun...', 'success', 5000);
   var now = Date.now();
   var activeUntil = now + (planType === 'yearly' ? 365 * 86400000 : 31 * 86400000);
   await _updateAccountStatus('active', {
-    plan: planType, activeUntil: activeUntil, lastPaymentAt: now,
-    paymentRef: midtransResult.order_id || null
+    plan: planType, activeUntil: activeUntil, lastPaymentAt: now
   });
   window._READ_ONLY = false;
   applyAccountUI('active');
