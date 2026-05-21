@@ -236,6 +236,20 @@ button { font-family:var(--font); cursor:pointer }
         <i class="fas fa-info-circle" style="flex-shrink:0;margin-top:2px"></i>
         <span>Jika dalam 24 jam belum aktif, hubungi admin via WhatsApp <strong>081460348354</strong></span>
       </div>
+      <!-- FIX #13: tombol kembali ke dashboard -->
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+        <a href="./index.html" style="display:flex;align-items:center;justify-content:center;gap:8px;
+          padding:12px;background:var(--bg-2);border:1.5px solid var(--border-2);border-radius:var(--r-sm);
+          color:var(--ink-3);font-size:.88rem;font-weight:600;text-decoration:none">
+          <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
+        </a>
+        <a href="https://wa.me/6281460348354" target="_blank" rel="noopener"
+          style="display:flex;align-items:center;justify-content:center;gap:8px;
+          padding:12px;background:#25d366;border-radius:var(--r-sm);
+          color:#fff;font-size:.88rem;font-weight:600;text-decoration:none">
+          <i class="fab fa-whatsapp"></i> Hubungi Admin via WhatsApp
+        </a>
+      </div>
     </div>
   </div>
 </div>
@@ -294,7 +308,7 @@ function generateUniqueCode(uid) {
     hash |= 0;
   }
   /* Kode 1–999, tidak pernah 0 */
-  return Math.abs(hash % 999) + 1;
+  return Math.abs(hash % 9999) + 1; /* FIX #14: 4 digit, range 1-9999 */
 }
 
 function formatRp(n) { return n.toLocaleString('id-ID'); }
