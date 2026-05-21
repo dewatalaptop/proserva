@@ -1906,52 +1906,16 @@ window._onAuthReady = function (user) {
   console.log('[boot] user queued:', user ? user.email : 'null');
 };
 
-/* ── Midtrans config ── */
-window.MIDTRANS_CONFIG = {
-  CLIENT_KEY:  'SB-Mid-client-XXXXXXXXXXXXXXXX',
-  SNAP_URL:    'https://app.sandbox.midtrans.com/snap/snap.js',
-  BACKEND_URL: 'https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/createPayment'
-};
-
-/* ── initiatePayment ── */
-window.initiatePayment = async function (planType) {
-  if (!window._FBUSER) { window.showToast?.('Kamu harus login terlebih dahulu.', 'error'); return; }
-  var btnId = planType === 'monthly' ? 'btn-pay-monthly' : 'btn-pay-yearly';
-  var btn   = document.getElementById(btnId);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...'; }
-  try {
-    var resp = await fetch(window.MIDTRANS_CONFIG.BACKEND_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uid: window._FBUSER.uid, email: window._FBUSER.email, plan: planType, amount: planType === 'monthly' ? 149000 : 1399000 })
-    });
-    if (!resp.ok) throw new Error('Backend error ' + resp.status);
-    var data = await resp.json();
-    if (!data.snap_token) throw new Error('Snap token tidak diterima.');
-    if (!window.snap) {
-      await new Promise(function (res, rej) {
-        var s = document.createElement('script');
-        s.src = window.MIDTRANS_CONFIG.SNAP_URL;
-        s.setAttribute('data-client-key', window.MIDTRANS_CONFIG.CLIENT_KEY);
-        s.onload = res; s.onerror = rej; document.head.appendChild(s);
-      });
-    }
-    window.snap.pay(data.snap_token, {
-      onSuccess: function (r) { window.onPaymentSuccess?.(planType, r); },
-      onPending: function ()  { window.showToast?.('Menunggu konfirmasi pembayaran.', 'info', 5000); },
-      onError:   function ()  { window.showToast?.('Pembayaran gagal. Silakan coba lagi.', 'error'); },
-      onClose:   function ()  { window.showToast?.('Pembayaran dibatalkan.', 'info'); }
-    });
-  } catch (e) {
-    console.error('[initiatePayment]', e);
-    window.showToast?.('Gagal memulai pembayaran: ' + e.message, 'error');
-  } finally {
-    if (btn) {
-      btn.disabled  = false;
-      btn.innerHTML = planType === 'monthly'
-        ? '<i class="fas fa-credit-card"></i> Bayar Sekarang'
-        : '<i class="fas fa-crown"></i> Pilih Tahunan';
-    }
+/* ── initiatePayment — redirect ke halaman pembayaran manual ── */
+window.initiatePayment = function (planType) {
+  if (!window._FBUSER) {
+    window.showToast?.('Kamu harus login terlebih dahulu.', 'error'); return;
   }
+  /* Simpan pilihan paket di sessionStorage agar payment.html bisa baca */
+  try { sessionStorage.setItem('psv_plan', planType); } catch(e) {}
+  /* Redirect ke halaman pembayaran */
+  var base = window.location.href.replace(/\/[^/]*$/, '');
+  window.location.href = base + '/payment.html';
 };
 
 /* ── enterReadOnlyMode — hanya dari tombol paywall ── */
