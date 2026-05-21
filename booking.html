@@ -900,14 +900,57 @@ window.bkMenuQty = function(name, delta) {
   renderPartial('form');
 };
 
+/* ── Cek konflik real-time sebelum simpan (FIX D) ── */
+async function checkConflictLive(uid, date, tempats, slot) {
+  /* Reload data bulan terkini dari Firestore untuk cek paling akurat */
+  try {
+    const mk = date.substring(0,7);
+    const fresh = await loadMonthRes(uid, mk);
+    B.dayRes = fresh;
+  } catch(e) { /* fallback ke data yang ada */ }
+
+  for (const loc of tempats) {
+    const slots = getAvailableSlots(loc, date);
+    if (!slots.includes(slot)) {
+      return { ok: false, loc };
+    }
+  }
+  return { ok: true };
+}
+
 /* ── Submit reservasi ── */
 window.bkSubmit = async function() {
+  /* Guard double-submit */
+  if (window._bkSubmitting) return;
+  window._bkSubmitting = true;
+  var submitBtn = document.querySelector('.bk-btn-submit');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Mengirim...'; }
+
   /* Validasi */
   const errors = [];
   if (!B.selDate) errors.push('Pilih tanggal terlebih dahulu.');
   if (!B.selSlot) errors.push('Pilih jam terlebih dahulu.');
+  /* FIX E: validasi minimum advance booking */
+  if (B.selDate && B.selSlot && B.ops.minAdvance) {
+    const resTime = new Date(B.selDate + 'T' + B.selSlot).getTime();
+    const minMs   = (B.ops.minAdvance || 0) * 3600000;
+    if (resTime - Date.now() < minMs) {
+      errors.push('Reservasi minimal ' + B.ops.minAdvance + ' jam sebelumnya. Pilih jam lain.');
+    }
+  }
   if (!B.selLocs.length) errors.push(isTableMode() ? 'Pilih minimal 1 meja.' : 'Pilih lokasi terlebih dahulu.');
   if (!B.jumlah || B.jumlah < 1) errors.push('Isi jumlah tamu.');
+  /* Validasi jumlah tamu terhadap kapasitas lokasi dan minimum tamu */
+  if (B.jumlah > 0 && B.selLocs.length > 0) {
+    B.selLocs.forEach(function(locName) {
+      var loc = B.locs.find(function(l){ return l.name === locName; });
+      if (!loc) return;
+      var mn = parseInt(loc.minGuests) || 1;
+      if (B.jumlah < mn) errors.push('Minimum tamu untuk ' + loc.name + ' adalah ' + mn + ' orang.');
+    });
+  }
+  /* Batas maksimum tamu yang masuk akal */
+  if (B.jumlah > 500) errors.push('Jumlah tamu maksimum 500 orang.');
   if (!B.nama.trim()) errors.push('Isi nama pemesan.');
   /* FIX #9: validasi HP lebih longgar — cukup 9-15 digit setelah strip non-digit */
   var hpClean = B.hp.trim().replace(/[\s\-+()]/g,'');
@@ -924,6 +967,8 @@ window.bkSubmit = async function() {
 
   /* FIX #8: ganti alert() dengan inline error — alert tidak muncul di iOS async */
   if (errors.length) {
+    window._bkSubmitting = false;
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Kirim Reservasi'; }
     var errEl = document.getElementById('bk-submit-err');
     if (!errEl) {
       errEl = document.createElement('div');
@@ -953,7 +998,7 @@ window.bkSubmit = async function() {
     id:         resId,
     date:       B.selDate,
     nama:       B.nama.trim(),
-    nomorHp:    B.hp.trim().replace(/\D/g,'').replace(/^0/,'62'),
+    nomorHp:    B.hp.trim().replace(/^\+/,'').replace(/\D/g,'').replace(/^0/,'62').replace(/^(?!62)/,'62'),
     jam:        B.selSlot,
     jumlah:     B.jumlah,
     tempat,
@@ -973,14 +1018,42 @@ window.bkSubmit = async function() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...'; }
 
   try {
+    /* FIX D: cek konflik SEKALI LAGI sebelum simpan — untuk cegah race condition */
+    const tempatsToCheck = isTableMode() ? B.selLocs : [B.selLocs[0]||''];
+    const finalCheck = await checkConflictLive(B.uid, B.selDate, tempatsToCheck, B.selSlot);
+    if (!finalCheck.ok) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Kirim Permintaan Reservasi'; }
+      let errEl = document.getElementById('bk-submit-err');
+      if (!errEl) {
+        errEl = document.createElement('div');
+        errEl.id = 'bk-submit-err';
+        errEl.style.cssText = 'background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:.84rem;color:#dc2626;margin-bottom:12px;line-height:1.6';
+        if (btn) btn.parentNode.insertBefore(errEl, btn);
+      }
+      errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Maaf, slot ini baru saja dipesan orang lain. Silakan pilih jam atau lokasi lain.';
+      errEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+      B.selSlot = null; B.selLocs = []; renderPartial('form');
+      return;
+    }
     await setDoc(
       doc(db, 'users', B.uid, 'reservations', mk, 'list', resId),
       resObj
     );
+    window._bkSubmitting = false;
     showSuccess(resObj);
   } catch(e) {
+    window._bkSubmitting = false;
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Kirim Permintaan Reservasi'; }
-    alert('Gagal mengirim reservasi: ' + e.message);
+    /* FIX C: ganti alert() dengan inline error */
+    let errEl = document.getElementById('bk-submit-err');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = 'bk-submit-err';
+      errEl.style.cssText = 'background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:.84rem;color:#dc2626;margin-bottom:12px';
+      if (btn) btn.parentNode.insertBefore(errEl, btn);
+    }
+    errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> Gagal mengirim: ' + (e.message||'Coba lagi atau hubungi admin.');
+    errEl.scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 };
 
