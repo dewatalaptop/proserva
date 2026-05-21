@@ -1673,7 +1673,9 @@ function _renderCalendarSync() {
   setText('cal-month-label', MONTHS[m]+' '+y);
   var first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
   var monthRes=getResMonth(y,m),counts={},names={};
-  monthRes.forEach(function(r){
+  /* Hanya reservasi aktif (bukan batal) untuk kalender dan statistik */
+  var monthResAktif = monthRes.filter(function(r){ return r.status !== 'batal'; });
+  monthResAktif.forEach(function(r){
     if(!r.date)return;
     var d=parseInt(r.date.split('-')[2]);
     counts[d]=(counts[d]||0)+1;
@@ -1681,11 +1683,11 @@ function _renderCalendarSync() {
     if(names[d].length<2) names[d].push(r.nama||'?');
   });
   /* Stat tamu — hanya dari bulan yang ditampilkan, bukan getAllRes() */
-  var totalPax=monthRes.reduce(function(s,r){return s+(parseInt(r.jumlah)||0);},0);
-  var totalDp =monthRes.reduce(function(s,r){return s+(parseInt(r.dp)||0);},0);
+  var totalPax=monthResAktif.reduce(function(s,r){return s+(parseInt(r.jumlah)||0);},0);
+  var totalDp =monthResAktif.reduce(function(s,r){return s+(parseInt(r.dp)||0);},0);
   var busiestDay='-';
   if(Object.keys(counts).length){var top=Object.entries(counts).sort(function(a,b){return b[1]-a[1];})[0];busiestDay=top[0]+' '+MONTHS_S[m];}
-  setText('st-total',monthRes.length);
+  setText('st-total',monthResAktif.length);
   setText('st-pax',  totalPax);
   setText('st-dp',   'Rp'+formatRpK(totalDp));
   setText('st-busy', busiestDay);
@@ -1693,7 +1695,7 @@ function _renderCalendarSync() {
   /* UX #1: tampilkan empty state jika tidak ada reservasi */
   var emptyEl = document.getElementById('cal-empty');
   var calEl   = document.getElementById('cal-days');
-  if (emptyEl) emptyEl.style.display = monthRes.length === 0 ? 'flex' : 'none';
+  if (emptyEl) emptyEl.style.display = monthResAktif.length === 0 ? 'flex' : 'none';
 
   if (!calEl) return;
   var today=new Date(),html='';
@@ -1739,7 +1741,7 @@ function _renderCalendarSync() {
 
   /* Empty state kontekstual */
   if(emptyEl){
-    if(monthRes.length===0){
+    if(monthResAktif.length===0){
       var isPastMonth=curMonthKey<todayMonthKey;
       var isFutureMonth=curMonthKey>todayMonthKey;
       var emptyIcon=isPastMonth?'📂':isFutureMonth?'📅':'📋';
@@ -2351,7 +2353,8 @@ function contactWA(id) {
 
   /* Peringatan jika confirmed tapi DP belum diisi */
   if(st==='confirmed'&&(!r.dp||parseInt(r.dp)===0)){
-    if(!confirm('DP belum tercatat. Kirim tetap pesan konfirmasi tanpa info DP?')) return;
+    /* FIX: ganti confirm() dengan toast warning — confirm tidak reliable di iOS */
+    showToast('⚠️ DP belum tercatat — mengirim pesan konfirmasi tanpa info DP','warning',3500);
   }
 
   openWA(r.nomorHp, buildConfMsg(r));
@@ -2670,8 +2673,21 @@ async function doImport() {
   try{payload=JSON.parse(decodeURIComponent(escape(atob(code))));}
   catch(e){showToast('Kode tidak valid: '+e.message,'error');return;}
   if(!payload.v){showToast('Format tidak dikenal','error');return;}
-  if(!confirm('Import akan menggantikan semua data saat ini. Lanjutkan?')) return;
 
+  /* FIX B: pakai confirmDelete bukan confirm() browser */
+  confirmDelete(
+    'Import & Ganti Semua Data?',
+    '<div class="confirm-del-detail">'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-database"></i>'
+    +'<span>Semua data reservasi, menu, dan lokasi saat ini akan digantikan dengan data dari kode backup.</span></div>'
+    +'<div class="confirm-del-detail-row"><i class="fas fa-info-circle"></i>'
+    +'<span>Versi backup: v'+payload.v+(payload.exportedAt?' · '+new Date(payload.exportedAt).toLocaleDateString('id-ID'):'')+'</span></div>'
+    +'</div><div class="confirm-del-warn"><i class="fas fa-exclamation-circle"></i> Pastikan kode backup valid sebelum melanjutkan.</div>',
+    async function() { await _doImportExecute(payload); }
+  );
+}
+
+async function _doImportExecute(payload) {
   S.biz    = payload.biz    || S.biz;
   S.menus  = payload.menus  || {};
   S.locs   = payload.locs   || payload.locations || {};
@@ -2917,7 +2933,7 @@ function formatDateFull(ds){ if(!ds)return'-';var d=new Date(ds+'T12:00:00'),p=d
 function initials(n)      { if(!n)return'?';var p=n.trim().split(/\s+/);return(p.length===1?p[0][0]:(p[0][0]+p[p.length-1][0])).toUpperCase(); }
 function nameColor(n)     { if(!n)return'#64748b';var h=0;for(var i=0;i<n.length;i++)h=n.charCodeAt(i)+((h<<5)-h);return['#2563eb','#059669','#d97706','#dc2626','#7c3aed','#0891b2','#ea580c','#0d9488'][Math.abs(h)%8]; }
 function validPhone(p)    { return /^[\d\s\-+()]{10,15}$/.test(p); }
-function normPhone(p)     { if(!p)return'';var c=p.replace(/\D/g,'');if(c.startsWith('62'))return c;if(c.startsWith('0'))return'62'+c.slice(1);return'62'+c; }
+function normPhone(p)     { if(!p)return'';var c=p.trim().replace(/^\+/,'').replace(/\D/g,'');if(c.startsWith('62'))return c;if(c.startsWith('0'))return'62'+c.slice(1);return'62'+c; }
 function setText(id,v)    { var el=document.getElementById(id);if(el)el.textContent=v; }
 function setHTML(id,v)    { var el=document.getElementById(id);if(el)el.innerHTML=v; }
 function gval(id)         { var el=document.getElementById(id);return el?el.value:''; }
