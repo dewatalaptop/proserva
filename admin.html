@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Proserva — Manajemen Pembayaran</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root {
+  --ac:#ea580c; --ac-h:#c2410c; --ac-dim:rgba(234,88,12,.08);
+  --bg:#fff; --bg-2:#f8f8f8;
+  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --ink-4:#94a3b8;
+  --border:#e2e8f0; --border-2:#cbd5e1;
+  --r:12px; --r-sm:8px;
+  --font:'Geist',system-ui,sans-serif;
+  --success:#059669; --danger:#dc2626; --warning:#d97706;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
+body { font-family:var(--font); background:var(--bg-2); color:var(--ink); min-height:100vh }
+button { font-family:var(--font); cursor:pointer }
+
+/* Header */
+.adm-header {
+  background:var(--ink); color:#fff; padding:16px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100;
+}
+.adm-brand { font-weight:700; font-size:1rem; display:flex; align-items:center; gap:9px }
+.adm-brand span { color:var(--ac) }
+.adm-signout { background:none; border:1px solid rgba(255,255,255,.2); color:rgba(255,255,255,.7); padding:6px 14px; border-radius:var(--r-sm); font-size:.8rem }
+.adm-signout:hover { border-color:rgba(255,255,255,.5); color:#fff }
+
+/* Content */
+.adm-wrap { max-width:800px; margin:0 auto; padding:24px 16px }
+
+/* Stats bar */
+.adm-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px }
+.adm-stat { background:var(--bg); border-radius:var(--r); padding:16px; text-align:center; box-shadow:0 1px 8px rgba(15,23,42,.06) }
+.adm-stat-val { font-size:1.6rem; font-weight:700; color:var(--ink) }
+.adm-stat-lbl { font-size:.72rem; color:var(--ink-4); margin-top:3px }
+.adm-stat.pending .adm-stat-val { color:var(--warning) }
+.adm-stat.active  .adm-stat-val { color:var(--success) }
+
+/* Filter tabs */
+.adm-filters { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap }
+.adm-filter {
+  padding:7px 16px; border-radius:99px; font-size:.82rem; font-weight:600;
+  border:1.5px solid var(--border-2); background:var(--bg); color:var(--ink-3);
+  cursor:pointer; transition:all .15s;
+}
+.adm-filter.active { background:var(--ac); border-color:var(--ac); color:#fff }
+
+/* Payment cards */
+.adm-list { display:flex; flex-direction:column; gap:12px }
+.adm-card {
+  background:var(--bg); border-radius:var(--r); padding:18px 20px;
+  box-shadow:0 1px 8px rgba(15,23,42,.06);
+  border-left:4px solid var(--border);
+}
+.adm-card.pending  { border-left-color:var(--warning) }
+.adm-card.active   { border-left-color:var(--success) }
+.adm-card.rejected { border-left-color:var(--danger); opacity:.7 }
+
+.adm-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px }
+.adm-biz { font-weight:700; font-size:.95rem; color:var(--ink) }
+.adm-email { font-size:.78rem; color:var(--ink-4); margin-top:2px }
+.adm-badge {
+  font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:99px;
+  white-space:nowrap;
+}
+.adm-badge.pending  { background:#fef3c7; color:#92400e }
+.adm-badge.active   { background:#dcfce7; color:#166534 }
+.adm-badge.rejected { background:#fee2e2; color:#991b1b }
+
+.adm-card-info { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px }
+.adm-info-item { font-size:.82rem }
+.adm-info-label { color:var(--ink-4); font-size:.72rem; margin-bottom:1px }
+.adm-info-val { font-weight:600; color:var(--ink-2) }
+.adm-info-val.nominal { color:var(--ac); font-size:1rem }
+.adm-info-val.code { background:var(--bg-2); padding:2px 8px; border-radius:4px; font-family:monospace }
+
+.adm-card-actions { display:flex; gap:8px; flex-wrap:wrap }
+.adm-btn {
+  padding:8px 16px; border-radius:var(--r-sm); font-size:.82rem; font-weight:700;
+  border:none; display:inline-flex; align-items:center; gap:6px; transition:all .15s;
+}
+.adm-btn.activate { background:var(--success); color:#fff }
+.adm-btn.activate:hover { background:#047857 }
+.adm-btn.reject   { background:none; border:1.5px solid var(--danger); color:var(--danger) }
+.adm-btn.reject:hover { background:#fee2e2 }
+.adm-btn.wa { background:#25d366; color:#fff }
+.adm-btn.wa:hover { background:#128c7e }
+.adm-btn:disabled { opacity:.4; cursor:not-allowed }
+
+/* Note input */
+.adm-note {
+  width:100%; padding:8px 12px; border:1.5px solid var(--border-2);
+  border-radius:var(--r-sm); font-size:.82rem; font-family:var(--font);
+  margin-bottom:8px; color:var(--ink);
+}
+.adm-note:focus { outline:none; border-color:var(--ac) }
+
+/* Empty / Loading */
+.adm-empty { text-align:center; padding:48px 24px; color:var(--ink-4) }
+.adm-empty i { font-size:2rem; margin-bottom:12px; display:block }
+.adm-spinner {
+  width:32px; height:32px; border:3px solid var(--border-2);
+  border-top-color:var(--ac); border-radius:50%;
+  animation:spin .8s linear infinite; margin:40px auto;
+}
+@keyframes spin { to { transform:rotate(360deg) } }
+
+/* Toast */
+.adm-toast {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:var(--ink); color:#fff; padding:10px 20px; border-radius:99px;
+  font-size:.84rem; font-weight:600; z-index:9999;
+  opacity:0; transition:opacity .2s; pointer-events:none;
+}
+.adm-toast.show { opacity:1 }
+
+/* Login screen */
+.adm-login { display:flex; align-items:center; justify-content:center; min-height:100vh }
+.adm-login-card { background:var(--bg); border-radius:var(--r); padding:40px; text-align:center; max-width:360px; width:100%; box-shadow:0 4px 24px rgba(15,23,42,.1) }
+.adm-login-icon { font-size:2rem; color:var(--ac); margin-bottom:16px }
+.adm-login-title { font-size:1.2rem; font-weight:700; margin-bottom:8px }
+.adm-login-sub { font-size:.84rem; color:var(--ink-3); margin-bottom:24px }
+.adm-login-btn { width:100%; padding:12px; background:var(--ac); color:#fff; border:none; border-radius:var(--r-sm); font-weight:700; font-size:.9rem }
+.adm-login-btn:hover { background:var(--ac-h) }
+
+@media (max-width:480px) {
+  .adm-stats { grid-template-columns:1fr 1fr }
+  .adm-card-info { grid-template-columns:1fr }
+}
+</style>
+</head>
+<body>
+
+<div id="adm-loading" style="text-align:center;padding:60px">
+  <div class="adm-spinner"></div>
+</div>
+
+<div id="adm-login" class="adm-login" style="display:none">
+  <div class="adm-login-card">
+    <div class="adm-login-icon"><i class="fas fa-lock"></i></div>
+    <div class="adm-login-title">Admin Proserva</div>
+    <div class="adm-login-sub">Halaman ini hanya untuk administrator Proserva.</div>
+    <div id="adm-login-err" style="color:var(--danger);font-size:.82rem;margin-bottom:12px;display:none"></div>
+    <button class="adm-login-btn" onclick="doAdminLogin()">
+      <i class="fas fa-sign-in-alt"></i> Login dengan Google
+    </button>
+  </div>
+</div>
+
+<div id="adm-app" style="display:none">
+  <div class="adm-header">
+    <div class="adm-brand"><i class="fas fa-shield-alt" style="color:var(--ac)"></i> Admin <span>Proserva</span></div>
+    <button class="adm-signout" onclick="doAdminSignout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+  </div>
+
+  <div class="adm-wrap">
+    <div class="adm-stats" id="adm-stats">
+      <div class="adm-stat pending"><div class="adm-stat-val" id="stat-pending">0</div><div class="adm-stat-lbl">Menunggu Aktivasi</div></div>
+      <div class="adm-stat active"><div class="adm-stat-val" id="stat-active">0</div><div class="adm-stat-lbl">Sudah Aktif</div></div>
+      <div class="adm-stat"><div class="adm-stat-val" id="stat-total">0</div><div class="adm-stat-lbl">Total Pembayaran</div></div>
+    </div>
+
+    <div class="adm-filters">
+      <button class="adm-filter active" onclick="filterPayments('all',this)">Semua</button>
+      <button class="adm-filter" onclick="filterPayments('pending',this)">⏳ Pending</button>
+      <button class="adm-filter" onclick="filterPayments('active',this)">✅ Aktif</button>
+      <button class="adm-filter" onclick="filterPayments('rejected',this)">❌ Ditolak</button>
+    </div>
+
+    <div class="adm-list" id="adm-list">
+      <div class="adm-spinner"></div>
+    </div>
+  </div>
+</div>
+
+<div class="adm-toast" id="adm-toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+import {
+  getFirestore, collection, getDocs, doc, updateDoc, orderBy, query, getDoc, setDoc
+} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey:            'AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw',
+  authDomain:        'proserva-bisnisku.firebaseapp.com',
+  projectId:         'proserva-bisnisku',
+  storageBucket:     'proserva-bisnisku.firebasestorage.app',
+  messagingSenderId: '995357200209',
+  appId:             '1:995357200209:web:5cdba2db9975fcc35f4d70'
+};
+
+const app      = initializeApp(firebaseConfig);
+const auth     = getAuth(app);
+const db       = getFirestore(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_UID = '4d2atnssx3W4jLG1bYok8S2LTMr1';
+
+let allPayments = [];
+let currentFilter = 'all';
+
+/* ── Format helpers ── */
+function formatRp(n) { return (parseInt(n)||0).toLocaleString('id-ID'); }
+function formatDate(ts) { return new Date(ts).toLocaleString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+
+/* ── Toast ── */
+function toast(msg, dur) {
+  var el = document.getElementById('adm-toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, dur||2500);
+}
+
+/* ── Login ── */
+window.doAdminLogin = async function() {
+  try {
+    var result = await signInWithPopup(auth, provider);
+    if (result.user.uid !== ADMIN_UID) {
+      await signOut(auth);
+      document.getElementById('adm-login-err').style.display = 'block';
+      document.getElementById('adm-login-err').textContent   = 'Akun ini tidak memiliki akses admin.';
+    }
+  } catch(e) {
+    document.getElementById('adm-login-err').style.display = 'block';
+    document.getElementById('adm-login-err').textContent   = 'Login gagal: ' + e.message;
+  }
+};
+
+window.doAdminSignout = async function() {
+  await signOut(auth);
+};
+
+/* ── Load payments ── */
+async function loadPayments() {
+  document.getElementById('adm-list').innerHTML = '<div class="adm-spinner"></div>';
+  try {
+    var q    = query(collection(db,'payments'), orderBy('submittedAt','desc'));
+    var snap = await getDocs(q);
+    allPayments = snap.docs.map(function(d){ return d.data(); });
+    updateStats();
+    renderList(currentFilter);
+  } catch(e) {
+    document.getElementById('adm-list').innerHTML = '<div class="adm-empty"><i class="fas fa-exclamation-triangle"></i>Gagal memuat: ' + e.message + '</div>';
+  }
+}
+
+function updateStats() {
+  var pending  = allPayments.filter(function(p){ return p.status==='pending'; }).length;
+  var active   = allPayments.filter(function(p){ return p.status==='active';  }).length;
+  document.getElementById('stat-pending').textContent = pending;
+  document.getElementById('stat-active').textContent  = active;
+  document.getElementById('stat-total').textContent   = allPayments.length;
+}
+
+/* ── Filter ── */
+window.filterPayments = function(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.adm-filter').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  renderList(filter);
+};
+
+function renderList(filter) {
+  var list = filter === 'all' ? allPayments : allPayments.filter(function(p){ return p.status===filter; });
+  var el   = document.getElementById('adm-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="adm-empty"><i class="fas fa-inbox"></i>Tidak ada pembayaran ' + (filter==='all'?'':'dengan status '+filter) + '</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(p){ return buildCard(p); }).join('');
+}
+
+function buildCard(p) {
+  var statusLabel = { pending:'Menunggu', active:'Aktif', rejected:'Ditolak' }[p.status] || p.status;
+  var actions = '';
+
+  if (p.status === 'pending') {
+    actions = [
+      '<input class="adm-note" id="note-' + p.id + '" placeholder="Catatan (opsional)..."/>',
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">',
+      '<button class="adm-btn activate" onclick="activatePayment(\'' + p.id + '\',\'' + p.uid + '\',\'' + p.plan + '\')">',
+      '<i class="fas fa-check-circle"></i> Aktifkan Akun</button>',
+      '<button class="adm-btn wa" onclick="contactViaWA(\'' + p.email + '\',\'' + p.bizName + '\')">',
+      '<i class="fab fa-whatsapp"></i> Hubungi</button>',
+      '<button class="adm-btn reject" onclick="rejectPayment(\'' + p.id + '\')">',
+      '<i class="fas fa-times"></i> Tolak</button>',
+      '</div>'
+    ].join('');
+  } else if (p.status === 'active') {
+    actions = '<span style="font-size:.78rem;color:var(--success)"><i class="fas fa-check-circle"></i> Diaktifkan ' + (p.activatedAt ? formatDate(p.activatedAt) : '') + '</span>';
+  } else {
+    actions = '<span style="font-size:.78rem;color:var(--danger)"><i class="fas fa-times-circle"></i> Ditolak ' + (p.rejectedAt ? formatDate(p.rejectedAt) : '') + '</span>';
+  }
+
+  return '<div class="adm-card ' + p.status + '" id="card-' + p.id + '">'
+    + '<div class="adm-card-top">'
+    + '<div><div class="adm-biz">' + esc(p.bizName||'-') + '</div><div class="adm-email">' + esc(p.email||'-') + '</div></div>'
+    + '<span class="adm-badge ' + p.status + '">' + statusLabel + '</span>'
+    + '</div>'
+    + '<div class="adm-card-info">'
+    + '<div class="adm-info-item"><div class="adm-info-label">Paket</div><div class="adm-info-val">' + esc(p.planLabel||p.plan) + '</div></div>'
+    + '<div class="adm-info-item"><div class="adm-info-label">Nominal Transfer</div><div class="adm-info-val nominal">Rp ' + formatRp(p.amount) + '</div></div>'
+    + '<div class="adm-info-item"><div class="adm-info-label">Kode Unik</div><div class="adm-info-val code">+' + (p.uniqueCode||'-') + '</div></div>'
+    + '<div class="adm-info-item"><div class="adm-info-label">Waktu Submit</div><div class="adm-info-val">' + (p.submittedAt ? formatDate(p.submittedAt) : '-') + '</div></div>'
+    + '</div>'
+    + '<div class="adm-card-actions">' + actions + '</div>'
+    + '</div>';
+}
+
+function esc(s) { var d=document.createElement('div');d.appendChild(document.createTextNode(String(s||'')));return d.innerHTML; }
+
+/* ── Aktifkan akun ── */
+window.activatePayment = async function(paymentId, uid, plan) {
+  var btn = document.querySelector('#card-' + paymentId + ' .adm-btn.activate');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengaktifkan...'; }
+
+  try {
+    var note = document.getElementById('note-' + paymentId)?.value || '';
+    var now  = Date.now();
+    var activeUntil = now + (plan === 'yearly' ? 365*86400000 : 31*86400000);
+
+    /* Update payment status */
+    await updateDoc(doc(db,'payments',paymentId), {
+      status:      'active',
+      activatedAt: now,
+      note:        note
+    });
+
+    /* Update akun user */
+    await setDoc(doc(db,'users',uid,'config','account'), {
+      status:      'active',
+      plan:        plan,
+      activeUntil: activeUntil,
+      lastPaymentAt: now,
+      paymentRef:  paymentId
+    }, { merge: true });
+
+    /* Update local data */
+    var p = allPayments.find(function(x){ return x.id===paymentId; });
+    if (p) { p.status='active'; p.activatedAt=now; }
+    updateStats();
+    renderList(currentFilter);
+    toast('✅ Akun berhasil diaktifkan!', 3000);
+
+  } catch(e) {
+    toast('❌ Gagal: ' + e.message, 4000);
+    if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-check-circle"></i> Aktifkan Akun'; }
+  }
+};
+
+/* ── Tolak pembayaran ── */
+window.rejectPayment = async function(paymentId) {
+  if (!confirm('Tolak pembayaran ini?')) return;
+  try {
+    var now = Date.now();
+    await updateDoc(doc(db,'payments',paymentId), { status:'rejected', rejectedAt:now });
+    var p = allPayments.find(function(x){ return x.id===paymentId; });
+    if (p) { p.status='rejected'; p.rejectedAt=now; }
+    updateStats();
+    renderList(currentFilter);
+    toast('Pembayaran ditolak', 2500);
+  } catch(e) { toast('Gagal: ' + e.message, 3000); }
+};
+
+/* ── Hubungi via WA ── */
+window.contactViaWA = function(email, bizName) {
+  var msg = 'Halo, kami dari Proserva.\nPembayaran upgrade akun *' + bizName + '* sudah kami terima dan akun telah diaktifkan. Terima kasih! 🎉';
+  window.open('https://wa.me/081460348354?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+};
+
+/* ── Auth guard ── */
+onAuthStateChanged(auth, function(user) {
+  document.getElementById('adm-loading').style.display = 'none';
+
+  if (!user) {
+    document.getElementById('adm-login').style.display = 'flex';
+    document.getElementById('adm-app').style.display   = 'none';
+    return;
+  }
+
+  if (user.uid !== ADMIN_UID) {
+    signOut(auth);
+    document.getElementById('adm-login').style.display = 'flex';
+    document.getElementById('adm-login-err').style.display = 'block';
+    document.getElementById('adm-login-err').textContent   = 'Akun ini tidak memiliki akses admin.';
+    return;
+  }
+
+  document.getElementById('adm-login').style.display = 'none';
+  document.getElementById('adm-app').style.display   = 'block';
+  loadPayments();
+});
+</script>
+</body>
+</html>
