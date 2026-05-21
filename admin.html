@@ -371,11 +371,24 @@ window.rejectPayment = async function(paymentId) {
   } catch(e) { toast('Gagal: ' + e.message, 3000); }
 };
 
-/* ── Hubungi via WA ── */
+/* ── Hubungi via WA ── FIX #17: buka WA ke email/info user, bukan nomor admin ── */
 window.contactViaWA = function(email, bizName) {
-  var msg = 'Halo, kami dari Proserva.\nPembayaran upgrade akun *' + bizName + '* sudah kami terima dan akun telah diaktifkan. Terima kasih! 🎉';
-  window.open('https://wa.me/081460348354?text=' + encodeURIComponent(msg), '_blank', 'noopener');
+  /* Tidak ada nomor HP user di data payment — kirim via email sebagai fallback */
+  var subject = encodeURIComponent('Re: Pembayaran Proserva — ' + bizName);
+  var body    = encodeURIComponent('Halo,\n\nPembayaran upgrade akun Proserva untuk bisnis ' + bizName + ' sudah kami terima dan akun telah diaktifkan.\n\nTerima kasih telah menggunakan Proserva!\n\nSalam,\nTim Proserva');
+  window.open('mailto:' + email + '?subject=' + subject + '&body=' + body, '_blank');
 };
+
+/* ── Auto refresh setiap 60 detik — FIX #16 ── */
+var _autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (_autoRefreshTimer) clearInterval(_autoRefreshTimer);
+  _autoRefreshTimer = setInterval(function() {
+    if (!document.hidden) {
+      loadPayments();
+    }
+  }, 60000);
+}
 
 /* ── Auth guard ── */
 onAuthStateChanged(auth, function(user) {
@@ -398,6 +411,7 @@ onAuthStateChanged(auth, function(user) {
   document.getElementById('adm-login').style.display = 'none';
   document.getElementById('adm-app').style.display   = 'block';
   loadPayments();
+  startAutoRefresh();
 });
 </script>
 </body>
