@@ -1959,8 +1959,23 @@ window.sendShareToWA = function () {
 /* ── DOMContentLoaded ── */
 document.addEventListener('DOMContentLoaded', function () {
   document.documentElement.classList.add('dom-ready');
+
+  /* Reset semua screen ke kondisi tersembunyi kecuali loading */
+  ['screen-landing','screen-auth','screen-wizard','screen-paywall'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'none';
+    el.classList.remove('active');
+    el.setAttribute('aria-hidden','true');
+  });
+  var shell = document.getElementById('app-shell');
+  if (shell) { shell.style.display = 'none'; shell.setAttribute('aria-hidden','true'); }
+
   var loading = document.getElementById('screen-loading');
   if (loading) {
+    loading.style.display = 'flex';
+    loading.classList.add('active');
+    loading.setAttribute('aria-hidden','false');
     setTimeout(function () {
       loading.style.opacity = '0'; loading.style.pointerEvents = 'none';
       setTimeout(function () { loading.style.display = 'none'; }, 400);
@@ -1972,8 +1987,8 @@ document.addEventListener('DOMContentLoaded', function () {
   setTimeout(function () {
     if (window._AUTH_PROCESSING || window._AUTH_HANDLER_RUNNING) return;
     if (window._FBUSER) return; /* user sudah login, tunggu app.js selesai */
-    var shell   = document.getElementById('app-shell');
-    var appVis  = shell && window.getComputedStyle(shell).display !== 'none';
+    var shellEl  = document.getElementById('app-shell');
+    var appVis   = shellEl && window.getComputedStyle(shellEl).display !== 'none';
     var hasActive = ['screen-wizard','screen-auth','screen-paywall'].some(function (id) {
       var el = document.getElementById(id); return el && el.classList.contains('active');
     });
