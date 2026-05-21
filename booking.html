@@ -529,7 +529,7 @@ input,select,textarea { font-family:var(--font) }
             <i class="fas fa-phone"></i>
             <input class="bk-input" id="bk-hp" type="tel" placeholder="08xx-xxxx-xxxx" maxlength="20" autocomplete="tel"/>
           </div>
-          <div class="bk-form-hint">Format apapun diterima — kami akan hubungi via WhatsApp</div>
+          <div class="bk-form-hint">Format apapun diterima - kami akan hubungi via WhatsApp</div>
         </div>
 
         <div class="bk-form-group">
@@ -843,7 +843,7 @@ function clearErr() {
 }
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 1 — KALENDER
+   RENDER STEP 1 - KALENDER
    ══════════════════════════════════════════════════ */
 async function renderStep1() {
   const m=B.month,y=B.year;
@@ -903,7 +903,7 @@ window.navMonth = async function(d) {
 };
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 2 — JAM
+   RENDER STEP 2 - JAM
    ══════════════════════════════════════════════════ */
 function renderStep2() {
   $('step2-date-label').textContent = formatDateFull(B.selDate);
@@ -935,7 +935,7 @@ window.selSlot = function(s) {
 };
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 3 — LOKASI + JUMLAH + MENU
+   RENDER STEP 3 - LOKASI + JUMLAH + MENU
    ══════════════════════════════════════════════════ */
 function renderStep3() {
   $('step3-datetime-label').textContent = formatDateFull(B.selDate)+' · '+B.selSlot;
@@ -960,7 +960,7 @@ function renderLocs() {
         <div class="bk-loc-icon"><i class="fas fa-${isTable?'chair':'map-marker-alt'}"></i></div>
         <div>
           <div class="bk-loc-name">${esc(loc.name)}</div>
-          <div class="bk-loc-cap">${cap} orang${loc.minGuests?' · Min. '+loc.minGuests+' org':''}${loc.openTime?' · '+loc.openTime+'–'+(loc.closeTime||'...'):''}
+          <div class="bk-loc-cap">${cap} orang${loc.minGuests?' · Min. '+loc.minGuests+' org':''}${loc.openTime?' · '+loc.openTime+'-'+(loc.closeTime||'...'):''}
           </div>
         </div>
       </div>
@@ -1065,7 +1065,7 @@ function updatePaxUI() {
 }
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 4 — KONFIRMASI
+   RENDER STEP 4 - KONFIRMASI
    ══════════════════════════════════════════════════ */
 function renderStep4() {
   /* Sync nilai dari input jika sudah pernah diisi */
@@ -1241,7 +1241,7 @@ async function init() {
   $('bk-logo').textContent = B.biz.logo||'🍽️';
   $('bk-biz-name').textContent = B.biz.name||'Restoran';
   $('bk-biz-sub').textContent = B.biz.tagline||'Reservasi Online';
-  document.title = 'Reservasi — '+(B.biz.name||'Restoran');
+  document.title = 'Reservasi - '+(B.biz.name||'Restoran');
   document.documentElement.setAttribute('data-accent', B.biz.accent||'orange');
 
   /* Tampilkan app */
