@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="id" data-accent="orange">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="theme-color" content="#ffffff"/>
+<title>Upgrade Proserva Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+:root {
+  --ac:#ea580c; --ac-h:#c2410c; --ac-dim:rgba(234,88,12,.08);
+  --ac-glow:rgba(234,88,12,.22);
+  --bg:#fff; --bg-2:#f8f8f8; --bg-3:#f1f1f1;
+  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --ink-4:#94a3b8;
+  --border:#e2e8f0; --border-2:#cbd5e1;
+  --r:14px; --r-sm:8px;
+  --font:'Geist',system-ui,sans-serif;
+  --font-display:'Fraunces',Georgia,serif;
+  --success:#059669; --danger:#dc2626; --warning:#d97706;
+  --ts:all .18s cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
+body { font-family:var(--font); background:var(--bg-2); color:var(--ink); min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:24px 16px 60px }
+button { font-family:var(--font); cursor:pointer }
+
+/* Header */
+.py-header { text-align:center; margin-bottom:28px }
+.py-logo { font-family:var(--font-display); font-size:1.6rem; font-style:italic; color:var(--ac); margin-bottom:4px }
+.py-sub { font-size:.84rem; color:var(--ink-4) }
+
+/* Card */
+.py-card { background:var(--bg); border-radius:var(--r); box-shadow:0 2px 24px rgba(15,23,42,.08); padding:28px 24px; width:100%; max-width:440px; margin-bottom:16px }
+.py-card-title { font-size:.72rem; font-weight:700; color:var(--ink-4); text-transform:uppercase; letter-spacing:.8px; margin-bottom:16px; display:flex; align-items:center; gap:7px }
+.py-card-title i { color:var(--ac) }
+
+/* Paket selector */
+.py-plans { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:4px }
+.py-plan {
+  border:2px solid var(--border-2); border-radius:var(--r-sm);
+  padding:14px 12px; text-align:center; cursor:pointer; transition:var(--ts);
+  position:relative;
+}
+.py-plan:hover { border-color:var(--ac); background:var(--ac-dim) }
+.py-plan.active { border-color:var(--ac); background:var(--ac-dim) }
+.py-plan-name { font-weight:700; font-size:.88rem; color:var(--ink-2); margin-bottom:4px }
+.py-plan-price { font-size:1.1rem; font-weight:700; color:var(--ac) }
+.py-plan-period { font-size:.72rem; color:var(--ink-4) }
+.py-plan-badge {
+  position:absolute; top:-8px; left:50%; transform:translateX(-50%);
+  background:var(--success); color:#fff; font-size:.65rem; font-weight:700;
+  padding:2px 8px; border-radius:99px; white-space:nowrap;
+}
+
+/* Rekening */
+.py-bank { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--r-sm); padding:16px; margin-bottom:16px }
+.py-bank-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:.88rem }
+.py-bank-row:not(:last-child) { border-bottom:1px dashed var(--border) }
+.py-bank-label { color:var(--ink-4); font-size:.78rem }
+.py-bank-val { font-weight:700; color:var(--ink-2) }
+
+/* Nominal unik */
+.py-nominal-box {
+  background:linear-gradient(135deg,var(--ac) 0%,var(--ac-h) 100%);
+  border-radius:var(--r-sm); padding:20px; text-align:center; margin-bottom:16px;
+  position:relative; overflow:hidden;
+}
+.py-nominal-box::before {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at 80% 20%, rgba(255,255,255,.15) 0%, transparent 60%);
+}
+.py-nominal-label { font-size:.74rem; color:rgba(255,255,255,.8); margin-bottom:6px; font-weight:600 }
+.py-nominal-val { font-size:2rem; font-weight:700; color:#fff; letter-spacing:-1px; margin-bottom:6px }
+.py-nominal-copy {
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.3);
+  color:#fff; border-radius:99px; padding:5px 14px; font-size:.78rem; font-weight:600;
+  cursor:pointer; transition:var(--ts); border:none;
+}
+.py-nominal-copy:hover { background:rgba(255,255,255,.3) }
+.py-nominal-warn {
+  font-size:.74rem; color:rgba(255,255,255,.85); margin-top:10px;
+  display:flex; align-items:center; gap:5px; justify-content:center;
+}
+
+/* Steps */
+.py-steps { display:flex; flex-direction:column; gap:10px; margin-bottom:20px }
+.py-step { display:flex; align-items:flex-start; gap:12px; font-size:.84rem; color:var(--ink-3) }
+.py-step-num {
+  width:24px; height:24px; border-radius:50%; background:var(--ac); color:#fff;
+  font-size:.72rem; font-weight:700; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; margin-top:1px;
+}
+
+/* Tombol konfirmasi */
+.py-btn {
+  width:100%; padding:15px; border-radius:var(--r-sm);
+  background:var(--ac); color:#fff; border:none;
+  font-size:.95rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center; gap:9px;
+  transition:var(--ts); box-shadow:0 4px 14px var(--ac-glow);
+}
+.py-btn:hover:not(:disabled) { background:var(--ac-h); transform:translateY(-1px) }
+.py-btn:disabled { opacity:.5; cursor:not-allowed; box-shadow:none }
+
+/* Status screens */
+.py-status { text-align:center; padding:32px 24px }
+.py-status-icon {
+  width:72px; height:72px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:2rem; margin:0 auto 20px;
+}
+.py-status-icon.pending { background:#fef3c7; color:var(--warning) }
+.py-status-icon.success { background:#dcfce7; color:var(--success) }
+.py-status-title { font-family:var(--font-display); font-size:1.3rem; font-style:italic; margin-bottom:10px }
+.py-status-msg { font-size:.88rem; color:var(--ink-3); line-height:1.7; margin-bottom:20px }
+.py-status-detail {
+  background:var(--bg-2); border-radius:var(--r-sm); padding:14px 16px;
+  font-size:.84rem; text-align:left; margin-bottom:16px;
+}
+.py-status-detail-row { display:flex; gap:8px; padding:4px 0; color:var(--ink-3) }
+.py-status-detail-row i { color:var(--ac); width:14px; flex-shrink:0 }
+.py-status-detail-row span { color:var(--ink-2) }
+.py-info-box {
+  background:#fffbeb; border:1px solid #fde68a; border-radius:var(--r-sm);
+  padding:12px 14px; font-size:.82rem; color:#92400e;
+  display:flex; align-items:flex-start; gap:9px; text-align:left;
+}
+
+/* Loading */
+.py-loading { text-align:center; padding:60px 24px }
+.py-spinner {
+  width:36px; height:36px; border:3px solid var(--border-2);
+  border-top-color:var(--ac); border-radius:50%;
+  animation:spin .8s linear infinite; margin:0 auto 16px;
+}
+@keyframes spin { to { transform:rotate(360deg) } }
+
+.py-back { display:inline-flex; align-items:center; gap:7px; color:var(--ink-4); font-size:.84rem; text-decoration:none; margin-bottom:20px }
+.py-back:hover { color:var(--ac) }
+
+.py-footer { font-size:.72rem; color:var(--ink-4); text-align:center; margin-top:24px }
+</style>
+</head>
+<body>
+
+<div class="py-header">
+  <div class="py-logo">Proserva</div>
+  <div class="py-sub">Upgrade ke Pro — Pembayaran Manual</div>
+</div>
+
+<div id="py-loading" class="py-card py-loading">
+  <div class="py-spinner"></div>
+  <div style="color:var(--ink-4);font-size:.84rem">Memuat informasi akun...</div>
+</div>
+
+<div id="py-main" style="display:none;width:100%;max-width:440px">
+  <!-- Pilih Paket -->
+  <div class="py-card">
+    <div class="py-card-title"><i class="fas fa-crown"></i> Pilih Paket</div>
+    <div class="py-plans">
+      <div class="py-plan active" id="plan-monthly" onclick="selectPlan('monthly')">
+        <div class="py-plan-name">Pro Bulanan</div>
+        <div class="py-plan-price">Rp 149.000</div>
+        <div class="py-plan-period">per bulan</div>
+      </div>
+      <div class="py-plan" id="plan-yearly" onclick="selectPlan('yearly')">
+        <div class="py-plan-badge">Hemat 22%</div>
+        <div class="py-plan-name">Pro Tahunan</div>
+        <div class="py-plan-price">Rp 1.399.000</div>
+        <div class="py-plan-period">per tahun</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info Rekening -->
+  <div class="py-card">
+    <div class="py-card-title"><i class="fas fa-university"></i> Transfer ke Rekening</div>
+    <div class="py-bank">
+      <div class="py-bank-row">
+        <span class="py-bank-label">Bank</span>
+        <span class="py-bank-val">Bank Mandiri</span>
+      </div>
+      <div class="py-bank-row">
+        <span class="py-bank-label">Nomor Rekening</span>
+        <span class="py-bank-val">1360 0328 6334 9</span>
+      </div>
+      <div class="py-bank-row">
+        <span class="py-bank-label">Atas Nama</span>
+        <span class="py-bank-val">Ryan Indra Setyawan</span>
+      </div>
+    </div>
+
+    <!-- Nominal unik -->
+    <div class="py-nominal-box">
+      <div class="py-nominal-label">Nominal transfer UNIK kamu</div>
+      <div class="py-nominal-val" id="py-nominal-display">Rp 149.083</div>
+      <button class="py-nominal-copy" onclick="copyNominal()">
+        <i class="fas fa-copy"></i> Salin Nominal
+      </button>
+      <div class="py-nominal-warn">
+        <i class="fas fa-exclamation-triangle"></i>
+        Transfer PERSIS nominal ini agar mudah diverifikasi
+      </div>
+    </div>
+
+    <!-- Langkah-langkah -->
+    <div class="py-steps">
+      <div class="py-step"><div class="py-step-num">1</div><span>Transfer ke Bank Mandiri <strong>1360 0328 6334 9</strong> dengan nominal <strong id="py-nominal-step">Rp 149.083</strong></span></div>
+      <div class="py-step"><div class="py-step-num">2</div><span>Klik tombol <strong>"Saya Sudah Transfer"</strong> di bawah</span></div>
+      <div class="py-step"><div class="py-step-num">3</div><span>Akun akan diaktifkan dalam <strong>1×24 jam</strong> setelah verifikasi</span></div>
+    </div>
+
+    <button class="py-btn" id="py-confirm-btn" onclick="confirmPayment()">
+      <i class="fas fa-check-circle"></i> Saya Sudah Transfer
+    </button>
+  </div>
+</div>
+
+<!-- Status: Pending -->
+<div id="py-pending" style="display:none;width:100%;max-width:440px">
+  <div class="py-card">
+    <div class="py-status">
+      <div class="py-status-icon pending"><i class="fas fa-clock"></i></div>
+      <div class="py-status-title">Menunggu Verifikasi</div>
+      <div class="py-status-msg">
+        Pembayaran kamu sedang kami verifikasi. Akun akan diaktifkan dalam <strong>1×24 jam</strong>.
+      </div>
+      <div class="py-status-detail">
+        <div class="py-status-detail-row"><i class="fas fa-box"></i><span id="pend-plan">-</span></div>
+        <div class="py-status-detail-row"><i class="fas fa-money-bill"></i><span id="pend-amount">-</span></div>
+        <div class="py-status-detail-row"><i class="fas fa-clock"></i><span id="pend-time">-</span></div>
+      </div>
+      <div class="py-info-box">
+        <i class="fas fa-info-circle" style="flex-shrink:0;margin-top:2px"></i>
+        <span>Jika dalam 24 jam belum aktif, hubungi admin via WhatsApp <strong>081460348354</strong></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Error state -->
+<div id="py-error" style="display:none;width:100%;max-width:440px">
+  <div class="py-card">
+    <div class="py-status">
+      <div class="py-status-icon" style="background:#fee2e2;color:var(--danger)"><i class="fas fa-exclamation-triangle"></i></div>
+      <div class="py-status-title">Terjadi Kesalahan</div>
+      <div class="py-status-msg" id="py-error-msg">Silakan coba lagi atau hubungi admin.</div>
+    </div>
+  </div>
+</div>
+
+<div class="py-footer">Proserva · Sistem Manajemen Reservasi</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
+import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs }
+  from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey:            'AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw',
+  authDomain:        'proserva-bisnisku.firebaseapp.com',
+  projectId:         'proserva-bisnisku',
+  storageBucket:     'proserva-bisnisku.firebasestorage.app',
+  messagingSenderId: '995357200209',
+  appId:             '1:995357200209:web:5cdba2db9975fcc35f4d70'
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+/* ── State ── */
+const STATE = {
+  uid:     '',
+  email:   '',
+  bizName: '',
+  plan:    'monthly',
+  uniqueCode: 0,
+  amount:  0
+};
+
+const BASE_PRICE = { monthly: 149000, yearly: 1399000 };
+const PLAN_LABEL = { monthly: 'Pro Bulanan', yearly: 'Pro Tahunan' };
+const ADMIN_UID  = '4d2atnssx3W4jLG1bYok8S2LTMr1';
+
+/* ── Generate kode unik 3 digit dari UID ── */
+function generateUniqueCode(uid) {
+  var hash = 0;
+  for (var i = 0; i < uid.length; i++) {
+    hash = ((hash << 5) - hash) + uid.charCodeAt(i);
+    hash |= 0;
+  }
+  /* Kode 1–999, tidak pernah 0 */
+  return Math.abs(hash % 999) + 1;
+}
+
+function formatRp(n) { return n.toLocaleString('id-ID'); }
+
+function updateNominalDisplay() {
+  STATE.uniqueCode = generateUniqueCode(STATE.uid);
+  STATE.amount     = BASE_PRICE[STATE.plan] + STATE.uniqueCode;
+  var display      = 'Rp ' + formatRp(STATE.amount);
+  var nd = document.getElementById('py-nominal-display');
+  var ns = document.getElementById('py-nominal-step');
+  if (nd) nd.textContent = display;
+  if (ns) ns.textContent = display;
+}
+
+/* ── Pilih paket ── */
+window.selectPlan = function(plan) {
+  STATE.plan = plan;
+  document.getElementById('plan-monthly').classList.toggle('active', plan === 'monthly');
+  document.getElementById('plan-yearly').classList.toggle('active',  plan === 'yearly');
+  updateNominalDisplay();
+};
+
+/* ── Salin nominal ── */
+window.copyNominal = function() {
+  var text = String(STATE.amount);
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(function() {
+      showCopied();
+    }).catch(function() { fallbackCopy(text); });
+  } else { fallbackCopy(text); }
+};
+
+function fallbackCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta);
+  showCopied();
+}
+
+function showCopied() {
+  var btn = document.querySelector('.py-nominal-copy');
+  if (!btn) return;
+  var orig = btn.innerHTML;
+  btn.innerHTML = '<i class="fas fa-check"></i> Tersalin!';
+  setTimeout(function() { btn.innerHTML = orig; }, 1800);
+}
+
+/* ── Cek apakah sudah ada payment pending ── */
+async function checkExistingPayment() {
+  try {
+    var q    = query(collection(db,'payments'), where('uid','==',STATE.uid), where('status','==','pending'));
+    var snap = await getDocs(q);
+    if (!snap.empty) {
+      var data = snap.docs[0].data();
+      showPendingScreen(data);
+      return true;
+    }
+  } catch(e) { console.warn('[checkExistingPayment]', e); }
+  return false;
+}
+
+/* ── Konfirmasi sudah transfer ── */
+window.confirmPayment = async function() {
+  var btn = document.getElementById('py-confirm-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...'; }
+
+  try {
+    var paymentId = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+    var now       = Date.now();
+    var payData   = {
+      id:          paymentId,
+      uid:         STATE.uid,
+      email:       STATE.email,
+      bizName:     STATE.bizName,
+      plan:        STATE.plan,
+      planLabel:   PLAN_LABEL[STATE.plan],
+      baseAmount:  BASE_PRICE[STATE.plan],
+      uniqueCode:  STATE.uniqueCode,
+      amount:      STATE.amount,
+      status:      'pending',
+      submittedAt: now,
+      activatedAt: null,
+      rejectedAt:  null,
+      note:        ''
+    };
+
+    /* Simpan ke Firestore payments/ */
+    await setDoc(doc(db,'payments', paymentId), payData);
+
+    /* Trigger email notifikasi ke admin via collection mail/ */
+    await setDoc(doc(db,'mail', paymentId), {
+      to: ['merryaslan@gmail.com'],
+      message: {
+        subject: '💰 Pembayaran Baru — ' + STATE.bizName,
+        html: [
+          '<h2 style="color:#ea580c">Ada Pembayaran Baru!</h2>',
+          '<table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">',
+          '<tr><td style="padding:6px 12px;color:#64748b">Bisnis</td><td style="padding:6px 12px;font-weight:600">' + STATE.bizName + '</td></tr>',
+          '<tr><td style="padding:6px 12px;color:#64748b">Email</td><td style="padding:6px 12px">' + STATE.email + '</td></tr>',
+          '<tr><td style="padding:6px 12px;color:#64748b">Paket</td><td style="padding:6px 12px;font-weight:600">' + PLAN_LABEL[STATE.plan] + '</td></tr>',
+          '<tr><td style="padding:6px 12px;color:#64748b">Nominal Transfer</td><td style="padding:6px 12px;font-weight:700;color:#ea580c;font-size:18px">Rp ' + formatRp(STATE.amount) + '</td></tr>',
+          '<tr><td style="padding:6px 12px;color:#64748b">Kode Unik</td><td style="padding:6px 12px">' + STATE.uniqueCode + '</td></tr>',
+          '<tr><td style="padding:6px 12px;color:#64748b">Waktu</td><td style="padding:6px 12px">' + new Date(now).toLocaleString('id-ID') + '</td></tr>',
+          '</table>',
+          '<br><a href="https://dewatalaptop.github.io/proserva/admin.html" style="display:inline-block;padding:12px 24px;background:#ea580c;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Buka Dashboard Admin</a>'
+        ].join('')
+      }
+    });
+
+    showPendingScreen(payData);
+
+  } catch(e) {
+    console.error('[confirmPayment]', e);
+    document.getElementById('py-main').style.display    = 'none';
+    document.getElementById('py-error').style.display   = 'block';
+    var em = document.getElementById('py-error-msg');
+    if (em) em.textContent = 'Gagal mengirim: ' + e.message + '. Hubungi admin di 081460348354';
+  }
+};
+
+function showPendingScreen(data) {
+  document.getElementById('py-main').style.display    = 'none';
+  document.getElementById('py-pending').style.display = 'block';
+  var el_plan   = document.getElementById('pend-plan');
+  var el_amount = document.getElementById('pend-amount');
+  var el_time   = document.getElementById('pend-time');
+  if (el_plan)   el_plan.textContent   = data.planLabel || PLAN_LABEL[data.plan];
+  if (el_amount) el_amount.textContent = 'Rp ' + formatRp(data.amount);
+  if (el_time)   el_time.textContent   = new Date(data.submittedAt).toLocaleString('id-ID');
+}
+
+/* ── Init ── */
+onAuthStateChanged(auth, async function(user) {
+  document.getElementById('py-loading').style.display = 'none';
+
+  if (!user) {
+    /* Tidak login → redirect ke app */
+    window.location.href = './index.html';
+    return;
+  }
+
+  STATE.uid   = user.uid;
+  STATE.email = user.email || '';
+
+  /* Baca plan dari sessionStorage jika ada */
+  try {
+    var savedPlan = sessionStorage.getItem('psv_plan');
+    if (savedPlan === 'yearly') {
+      selectPlan('yearly');
+    }
+    sessionStorage.removeItem('psv_plan');
+  } catch(e) {}
+
+  /* Cek apakah akun sudah active */
+  try {
+    var accSnap = await getDoc(doc(db,'users',user.uid,'config','account'));
+    if (accSnap.exists() && accSnap.data().status === 'active') {
+      window.location.href = './index.html';
+      return;
+    }
+  } catch(e) { console.warn(e); }
+
+  /* Ambil nama bisnis */
+  try {
+    var bizSnap = await getDoc(doc(db,'users',user.uid,'config','biz'));
+    if (bizSnap.exists()) STATE.bizName = bizSnap.data().name || 'Usaha Saya';
+  } catch(e) { STATE.bizName = 'Usaha Saya'; }
+
+  /* Cek payment pending yang sudah ada */
+  var hasPending = await checkExistingPayment();
+  if (hasPending) return;
+
+  /* Tampilkan form */
+  updateNominalDisplay();
+  document.getElementById('py-main').style.display = 'block';
+});
+</script>
+</body>
+</html>
