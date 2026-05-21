@@ -461,8 +461,12 @@ function evaluateAccountStatus() {
   if (status === 'expired') return 'expired';
   if (status === 'trial') {
     if (Date.now() > (_ACCOUNT.trialEndsAt || 0)) {
-      _updateAccountStatus('expired')
-        .catch(function (e) { console.warn('[evaluateAccountStatus]', e); });
+      /* FIX #18: hanya update Firestore jika status belum expired (cegah write berulang) */
+      if (_ACCOUNT.status !== 'expired') {
+        _updateAccountStatus('expired')
+          .catch(function (e) { console.warn('[evaluateAccountStatus]', e); });
+        _ACCOUNT.status = 'expired'; /* update lokal agar tidak update lagi */
+      }
       return 'expired';
     }
     return 'trial';
@@ -767,17 +771,25 @@ var showScreen = window.showScreen;
    SIGN OUT
    ────────────────────────────────────────────────────────────── */
 async function doSignOut() {
-  if (!confirm('Yakin ingin keluar dari Proserva?')) return;
-  if (window._FB) {
-    try { await window._FB.signOut(window._FB.auth); } catch(e){ console.warn(e); }
-  }
-  _UID=''; _ACCOUNT=null;
-  window._FBUSER=null; window._AUTH_PROCESSING=false;
-  window._AUTH_HANDLER_RUNNING=false; window._READ_ONLY=false;
-  window._NOTIF_STARTED=false;
-  S.res={}; S.menus={}; S.locs={}; S.loadedMonths=new Set();
-  showScreen('landing');
-  showToast('Berhasil keluar. Sampai jumpa! 👋','info');
+  /* FIX #4: pakai modal custom, bukan confirm() yang tidak muncul di iOS */
+  confirmDelete(
+    'Keluar dari Proserva?',
+    '<div style="font-size:.88rem;color:var(--ink-3);line-height:1.6">'
+    + 'Kamu akan keluar dari akun ini. Data tersimpan aman di cloud dan bisa diakses kembali setelah login.'
+    + '</div>',
+    async function() {
+      if (window._FB) {
+        try { await window._FB.signOut(window._FB.auth); } catch(e){ console.warn(e); }
+      }
+      _UID=''; _ACCOUNT=null;
+      window._FBUSER=null; window._AUTH_PROCESSING=false;
+      window._AUTH_HANDLER_RUNNING=false; window._READ_ONLY=false;
+      window._NOTIF_STARTED=false;
+      S.res={}; S.menus={}; S.locs={}; S.loadedMonths=new Set();
+      showScreen('landing');
+      showToast('Berhasil keluar. Sampai jumpa! 👋','info');
+    }
+  );
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -857,7 +869,20 @@ window._onAuthReady = async function (user) {
     return;
   }
 
-  if (!Object.keys(S.locs||{}).length) { showScreen('wizard'); return; }
+  /* Jika belum ada lokasi → wizard setup bisnis
+     Ini berlaku untuk akun baru DAN akun yang baru diaktifkan admin tapi belum setup */
+  if (!Object.keys(S.locs||{}).length) {
+    /* Jika akun active tapi belum ada data bisnis, tampilkan toast petunjuk */
+    if (accountStatus === 'active') {
+      showScreen('wizard');
+      setTimeout(function(){
+        showToast('Akun Pro aktif! Selesaikan setup bisnis kamu dulu. 🎉', 'success', 5000);
+      }, 800);
+    } else {
+      showScreen('wizard');
+    }
+    return;
+  }
 
   showScreen('app');
   requestAnimationFrame(async function(){
@@ -1514,7 +1539,10 @@ function checkConflict(date,locName,jam,jumlah,durationOverride,excludeId) {
   if (pax>capacity) return {ok:false,type:'hard_capacity',msg:'Lokasi ini maks. '+capacity+' orang.'};
   var softWarn=pax>0&&pax>=capacity*0.8&&pax<=capacity;
   var newStart=toMins(jam),newEnd=newStart+duration+buffer;
-  var existing=getResDate(date).filter(function(r){return r.tempat===locName&&r.id!==excludeId&&r.status!=='batal';});
+  /* FIX #5: normTempat agar cek reservasi lama (string) dan baru (array) */
+  var existing=getResDate(date).filter(function(r){
+    return normTempat(r.tempat).indexOf(locName)>=0&&r.id!==excludeId&&r.status!=='batal';
+  });
   for(var i=0;i<existing.length;i++){
     var r=existing[i]; if(!r.jam) continue;
     var rDur=r.duration?parseInt(r.duration):getEffectiveDuration(loc);
@@ -1535,8 +1563,10 @@ function findAvailableSlots(date,locName,excludeId) {
   var interval=S.ops.slotInterval||30;
   var openM=toMins(loc.openTime||S.ops.openTime||'09:00');
   var closeM=toMins(loc.closeTime||S.ops.closeTime||'21:00');
-  var busy=getResDate(date).filter(function(r){return r.tempat===locName&&r.id!==excludeId&&r.status!=='batal';})
-    .map(function(r){var s=toMins(r.jam),d=r.duration?parseInt(r.duration):duration;return{start:s,end:s+d+buffer};});
+  /* FIX #5: normTempat untuk filter reservasi */
+  var busy=getResDate(date).filter(function(r){
+    return normTempat(r.tempat).indexOf(locName)>=0&&r.id!==excludeId&&r.status!=='batal';
+  }).map(function(r){var s=toMins(r.jam),d=r.duration?parseInt(r.duration):duration;return{start:s,end:s+d+buffer};});
   var slots=[];
   for(var m=openM;m+duration<=closeM;m+=interval){
     var free=true;
