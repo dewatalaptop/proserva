@@ -622,6 +622,11 @@ function renderCalSection() {
 function renderFormSection() {
   if (!B.selDate || isDateClosed(B.selDate)) return '';
 
+  /* FIX #11: tombol ganti tanggal/slot */
+  const resetBtns = B.selSlot
+    ? '<button onclick="bkResetSlot()" style="font-size:.78rem;color:var(--ac);background:none;border:none;cursor:pointer;padding:0;margin-bottom:8px;display:block"><i class=\"fas fa-arrow-left\"></i> Ganti jam</button>'
+    : '<button onclick="bkResetDate()" style="font-size:.78rem;color:var(--ac);background:none;border:none;cursor:pointer;padding:0;margin-bottom:8px;display:block"><i class=\"fas fa-arrow-left\"></i> Ganti tanggal</button>';
+
   /* ── Slot waktu ── */
   const slots = getAllDaySlots(B.selDate);
   const slotHtml = slots.length
@@ -850,11 +855,14 @@ function bindFormEvents() {
 }
 
 /* ── Global event handlers (dipanggil dari inline onclick) ── */
-window.bkNavMonth = function(d) {
+window.bkNavMonth = async function(d) {
   B.month += d;
   if (B.month < 0)  { B.month = 11; B.year--; }
   if (B.month > 11) { B.month = 0;  B.year++; }
   B.selDate = null; B.selSlot = null; B.selLocs = [];
+  /* FIX #10b: load data bulan baru agar warna kalender akurat */
+  const mk = B.year + '-' + pad2(B.month + 1);
+  B.dayRes = await loadMonthRes(B.uid, mk);
   render();
 };
 
@@ -901,7 +909,9 @@ window.bkSubmit = async function() {
   if (!B.selLocs.length) errors.push(isTableMode() ? 'Pilih minimal 1 meja.' : 'Pilih lokasi terlebih dahulu.');
   if (!B.jumlah || B.jumlah < 1) errors.push('Isi jumlah tamu.');
   if (!B.nama.trim()) errors.push('Isi nama pemesan.');
-  if (!B.hp.trim() || !/^[\d\s\-+()]{10,15}$/.test(B.hp.trim())) errors.push('Nomor WhatsApp tidak valid.');
+  /* FIX #9: validasi HP lebih longgar — cukup 9-15 digit setelah strip non-digit */
+  var hpClean = B.hp.trim().replace(/[\s\-+()]/g,'');
+  if (!B.hp.trim() || !/^\d{9,15}$/.test(hpClean)) errors.push('Nomor WhatsApp tidak valid (contoh: 08123456789).');
 
   /* Validasi kapasitas gabungan (mode meja) */
   if (isTableMode() && B.selLocs.length && B.jumlah) {
@@ -912,10 +922,23 @@ window.bkSubmit = async function() {
     if (B.jumlah > totalCap) errors.push(`Jumlah tamu (${B.jumlah}) melebihi kapasitas meja (${totalCap} orang).`);
   }
 
+  /* FIX #8: ganti alert() dengan inline error — alert tidak muncul di iOS async */
   if (errors.length) {
-    alert(errors.join('\n'));
+    var errEl = document.getElementById('bk-submit-err');
+    if (!errEl) {
+      errEl = document.createElement('div');
+      errEl.id = 'bk-submit-err';
+      errEl.style.cssText = 'background:#fee2e2;border:1px solid #fecaca;border-radius:8px;padding:12px 14px;font-size:.84rem;color:#dc2626;margin-bottom:12px;line-height:1.6';
+      var submitBtn = document.querySelector('.bk-btn:not(.bk-btn-ghost)');
+      if (submitBtn) submitBtn.parentNode.insertBefore(errEl, submitBtn);
+    }
+    errEl.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + errors.join('<br>');
+    errEl.scrollIntoView({behavior:'smooth', block:'nearest'});
     return;
   }
+  /* Hapus error jika ada */
+  var errEl = document.getElementById('bk-submit-err');
+  if (errEl) errEl.remove();
 
   /* Bentuk objek reservasi */
   const menuArr = Object.entries(B.menuQty)
@@ -1026,10 +1049,25 @@ async function init() {
     return;
   }
 
+  /* FIX #10: load reservasi bulan ini agar warna kalender akurat sejak awal */
+  const curMk = B.year + '-' + pad2(B.month + 1);
+  B.dayRes = await loadMonthRes(uid, curMk);
+
   $('bk-loading').style.display = 'none';
   $('bk-main').style.display    = 'block';
   render();
 }
+
+/* FIX #11: fungsi reset pilihan */
+window.bkResetDate = function() {
+  B.selDate = null; B.selSlot = null; B.selLocs = [];
+  B.menuQty = {}; B.jumlah = 0;
+  render();
+};
+window.bkResetSlot = function() {
+  B.selSlot = null; B.selLocs = [];
+  renderPartial('form');
+};
 
 init();
 </script>
