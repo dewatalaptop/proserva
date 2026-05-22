@@ -1,1178 +1,948 @@
 <!DOCTYPE html>
-<html lang="id" data-accent="orange">
+<html lang="id">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<meta name="apple-mobile-web-app-capable" content="yes"/>
-<meta name="theme-color" content="#ea580c"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#ea580c">
 <title>Reservasi Online</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-:root {
-  --ac:#ea580c; --ac-h:#c2410c; --ac-dim:rgba(234,88,12,.08);
-  --ac-glow:rgba(234,88,12,.22); --ac-border:rgba(234,88,12,.25);
-  --bg:#fff; --bg-2:#f8f8f8;
-  --ink:#0f172a; --ink-2:#334155; --ink-3:#64748b; --ink-4:#94a3b8;
-  --border:#e2e8f0; --border-2:#cbd5e1;
-  --r:16px; --r-sm:10px; --r-xs:8px;
-  --font:'Geist',system-ui,sans-serif;
-  --font-display:'Fraunces',Georgia,serif;
-  --success:#059669; --danger:#dc2626; --warning:#d97706;
-  --ts:all .22s cubic-bezier(.4,0,.2,1);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+*,*:before,*:after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Geist',system-ui,sans-serif;background:#f8f8f8;color:#0f172a}
+button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;border:none;background:none}
+input,select,textarea{font-family:inherit}
+:root{
+  --ac:#ea580c;--ach:#c2410c;--acd:rgba(234,88,12,.1);--acg:rgba(234,88,12,.25);
+  --bg:#fff;--bg2:#f8f8f8;--bor:#e2e8f0;--bor2:#cbd5e1;
+  --ink:#0f172a;--ink2:#334155;--ink3:#64748b;--ink4:#94a3b8;
+  --ok:#059669;--err:#dc2626;--warn:#d97706;
+  --r:14px;--rs:8px;
 }
-[data-accent="blue"]    { --ac:#2563eb;--ac-h:#1d4ed8;--ac-dim:rgba(37,99,235,.08);--ac-glow:rgba(37,99,235,.2);--ac-border:rgba(37,99,235,.25) }
-[data-accent="teal"]    { --ac:#0d9488;--ac-h:#0f766e;--ac-dim:rgba(13,148,136,.08);--ac-glow:rgba(13,148,136,.2);--ac-border:rgba(13,148,136,.25) }
-[data-accent="violet"]  { --ac:#7c3aed;--ac-h:#6d28d9;--ac-dim:rgba(124,58,237,.08);--ac-glow:rgba(124,58,237,.2);--ac-border:rgba(124,58,237,.25) }
-[data-accent="rose"]    { --ac:#e11d48;--ac-h:#be123c;--ac-dim:rgba(225,29,72,.08);--ac-glow:rgba(225,29,72,.2);--ac-border:rgba(225,29,72,.25) }
-[data-accent="emerald"] { --ac:#059669;--ac-h:#047857;--ac-dim:rgba(5,150,105,.08);--ac-glow:rgba(5,150,105,.2);--ac-border:rgba(5,150,105,.25) }
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
 
-*,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
-html,body { height:100% }
-body { font-family:var(--font); background:var(--bg-2); color:var(--ink); }
-button { font-family:var(--font); cursor:pointer; -webkit-tap-highlight-color:transparent }
-input,select,textarea { font-family:var(--font) }
+/* HEADER */
+.hdr{background:var(--ac);padding:18px 20px 14px;flex-shrink:0;position:relative;overflow:hidden}
+.hdr:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 20%,rgba(255,255,255,.15),transparent 55%)}
+.hdr-row{display:flex;align-items:center;gap:12px;position:relative}
+.hdr-logo{width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.hdr-name{font-size:1.1rem;font-weight:700;color:#fff}
+.hdr-sub{font-size:.72rem;color:rgba(255,255,255,.8);margin-top:1px}
 
-/* ══ APP SHELL ══ */
-.bk-app {
-  max-width: 480px; margin: 0 auto;
-  min-height: 100dvh; display: flex; flex-direction: column;
-  background: var(--bg); position: relative; overflow: hidden;
-}
+/* PROGRESS */
+.prg{background:var(--ac);padding:0 20px 14px;flex-shrink:0}
+.prg-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.prg-title{font-size:.8rem;font-weight:700;color:#fff}
+.prg-num{font-size:.7rem;color:rgba(255,255,255,.75)}
+.prg-bar{height:4px;background:rgba(255,255,255,.25);border-radius:99px;overflow:hidden}
+.prg-fill{height:100%;background:#fff;border-radius:99px;transition:width .35s ease}
 
-/* ══ HEADER ══ */
-.bk-header {
-  background: var(--ac); padding: 20px 20px 18px;
-  position: relative; overflow: hidden; flex-shrink: 0;
-}
-.bk-header::before {
-  content:''; position:absolute; inset:0;
-  background: radial-gradient(circle at 85% 15%, rgba(255,255,255,.18) 0%, transparent 55%);
-}
-.bk-header-row { display:flex; align-items:center; gap:12px; position:relative }
-.bk-logo {
-  width:44px; height:44px; border-radius:12px;
-  background:rgba(255,255,255,.2); display:flex; align-items:center;
-  justify-content:center; font-size:1.4rem; flex-shrink:0;
-}
-.bk-biz-name { font-family:var(--font-display); font-size:1.2rem; font-style:italic; font-weight:600; color:#fff }
-.bk-biz-sub { font-size:.75rem; color:rgba(255,255,255,.8); margin-top:1px }
+/* STEP WRAPPER */
+.steps{flex:1;position:relative;overflow:hidden}
+.step{position:absolute;inset:0;overflow-y:auto;padding:16px 16px 90px;opacity:0;pointer-events:none;transform:translateX(32px);transition:opacity .28s ease,transform .28s ease}
+.step.active{opacity:1;pointer-events:auto;transform:translateX(0)}
+.step.out-l{opacity:0;transform:translateX(-32px)}
 
-/* ══ PROGRESS BAR ══ */
-.bk-progress {
-  background: var(--ac); padding: 0 20px 16px; flex-shrink:0;
-}
-.bk-progress-track {
-  height: 4px; background: rgba(255,255,255,.25); border-radius: 99px; overflow: hidden;
-}
-.bk-progress-fill {
-  height: 100%; background: #fff; border-radius: 99px;
-  transition: width .4s cubic-bezier(.4,0,.2,1);
-}
-.bk-progress-label {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 8px;
-}
-.bk-step-title { font-size:.82rem; font-weight:700; color:#fff }
-.bk-step-num   { font-size:.72rem; color:rgba(255,255,255,.75) }
+/* CARD */
+.card{background:var(--bg);border-radius:var(--r);padding:18px;margin-bottom:12px;box-shadow:0 1px 6px rgba(15,23,42,.07)}
+.card-title{font-size:.68rem;font-weight:700;color:var(--ink4);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.card-title i{color:var(--ac)}
 
-/* ══ STEP CONTAINER ══ */
-.bk-steps-wrap { flex:1; overflow:hidden; position:relative }
-.bk-step {
-  position:absolute; inset:0; overflow-y:auto; overflow-x:hidden;
-  padding: 16px 16px calc(80px + var(--safe-bottom)) 16px;
-  opacity:0; pointer-events:none;
-  transform: translateX(40px);
-  transition: opacity .3s ease, transform .3s cubic-bezier(.4,0,.2,1);
-}
-.bk-step.active {
-  opacity:1; pointer-events:auto; transform:translateX(0);
-}
-.bk-step.exit-left  { opacity:0; transform:translateX(-40px) }
-.bk-step.exit-right { opacity:0; transform:translateX(40px) }
+/* KALENDER */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-m{font-weight:700;font-size:.9rem;color:var(--ink2)}
+.cal-btn{width:32px;height:32px;border-radius:50%;background:var(--bg2);border:1px solid var(--bor);display:flex;align-items:center;justify-content:center;font-size:.75rem;color:var(--ink3);transition:.15s}
+.cal-btn:hover{background:var(--acd);border-color:var(--ac);color:var(--ac)}
+.cal-wk{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px}
+.cal-wk div{text-align:center;font-size:.65rem;font-weight:700;color:var(--ink4);padding:2px 0}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day{aspect-ratio:1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:500;cursor:pointer;transition:.15s;color:var(--ink2);border:2px solid transparent;position:relative}
+.cal-day:hover{background:var(--acd);color:var(--ac);border-color:var(--acg)}
+.cal-day.sel{background:var(--ac);color:#fff;border-color:var(--ac);box-shadow:0 2px 8px var(--acg)}
+.cal-day.today{font-weight:700;color:var(--ac)}
+.cal-day.today:after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--ac)}
+.cal-day.sel:after{background:#fff}
+.cal-day.past{color:var(--ink4);cursor:default}
+.cal-day.closed{background:#fef2f2;color:#fca5a5;cursor:default;border-color:#fecaca}
+.cal-day.busy:before,.cal-day.full:before{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%}
+.cal-day.busy:before{background:#fbbf24}
+.cal-day.full:before{background:#fca5a5}
+.cal-day.empty{cursor:default}
+.cal-leg{display:flex;gap:12px;margin-top:10px;flex-wrap:wrap}
+.cal-leg-i{display:flex;align-items:center;gap:4px;font-size:.67rem;color:var(--ink4)}
+.cal-leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 
-/* ══ CARD ══ */
-.bk-card {
-  background:var(--bg); border-radius:var(--r);
-  padding:18px; margin-bottom:12px;
-  box-shadow: 0 1px 8px rgba(15,23,42,.07);
-}
-.bk-card-title {
-  font-size:.72rem; font-weight:700; color:var(--ink-4);
-  text-transform:uppercase; letter-spacing:.8px;
-  margin-bottom:14px; display:flex; align-items:center; gap:7px;
-}
-.bk-card-title i { color:var(--ac) }
+/* SLOT */
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.slot{padding:10px 6px;border-radius:var(--rs);border:1.5px solid var(--bor2);text-align:center;font-size:.86rem;font-weight:600;color:var(--ink2);cursor:pointer;transition:.15s;background:var(--bg)}
+.slot:hover{border-color:var(--ac);color:var(--ac);background:var(--acd)}
+.slot.sel{background:var(--ac);color:#fff;border-color:var(--ac);box-shadow:0 2px 8px var(--acg)}
 
-/* ══ KALENDER ══ */
-.bk-cal-nav {
-  display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;
-}
-.bk-cal-month { font-weight:700; font-size:.95rem; color:var(--ink-2) }
-.bk-cal-btn {
-  width:34px; height:34px; border-radius:50%; background:var(--bg-2);
-  border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
-  font-size:.8rem; color:var(--ink-3); transition:var(--ts);
-}
-.bk-cal-btn:hover { background:var(--ac-dim); border-color:var(--ac-border); color:var(--ac) }
-.bk-cal-weekdays {
-  display:grid; grid-template-columns:repeat(7,1fr);
-  margin-bottom:6px;
-}
-.bk-cal-weekdays div { text-align:center; font-size:.68rem; font-weight:700; color:var(--ink-4); padding:3px 0 }
-.bk-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px }
-.bk-cal-day {
-  aspect-ratio:1; border-radius:var(--r-xs); display:flex; flex-direction:column;
-  align-items:center; justify-content:center; font-size:.82rem; font-weight:500;
-  cursor:pointer; transition:var(--ts); position:relative; color:var(--ink-2);
-  border:2px solid transparent;
-}
-.bk-cal-day:hover:not(.empty):not(.past):not(.closed) {
-  background:var(--ac-dim); color:var(--ac); border-color:var(--ac-border);
-}
-.bk-cal-day.today { font-weight:700; color:var(--ac) }
-.bk-cal-day.today::after {
-  content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
-  width:4px; height:4px; border-radius:50%; background:var(--ac);
-}
-.bk-cal-day.selected {
-  background:var(--ac); color:#fff; border-color:var(--ac);
-  box-shadow:0 3px 10px var(--ac-glow);
-}
-.bk-cal-day.selected::after { background:#fff }
-.bk-cal-day.past   { color:var(--ink-4); cursor:not-allowed }
-.bk-cal-day.closed { background:#fef2f2; color:#fca5a5; cursor:not-allowed; border-color:#fecaca }
-.bk-cal-day.full   { color:var(--ink-4); cursor:not-allowed }
-.bk-cal-day.full::before {
-  content:''; position:absolute; top:4px; right:4px;
-  width:6px; height:6px; border-radius:50%; background:#fca5a5;
-}
-.bk-cal-day.busy::before {
-  content:''; position:absolute; top:4px; right:4px;
-  width:6px; height:6px; border-radius:50%; background:#fbbf24;
-}
-.bk-cal-day.has-res::after {
-  content:''; position:absolute; bottom:3px; left:50%; transform:translateX(-50%);
-  width:4px; height:4px; border-radius:50%; background:var(--ac); opacity:.5;
-}
-.bk-cal-day.selected.has-res::after { background:#fff }
-.bk-cal-day.empty  { cursor:default }
+/* LOKASI */
+.loc-item{display:flex;align-items:center;justify-content:space-between;padding:13px;border:1.5px solid var(--bor2);border-radius:var(--rs);margin-bottom:8px;cursor:pointer;transition:.15s;background:var(--bg)}
+.loc-item:hover{border-color:var(--ac);background:var(--acd)}
+.loc-item.sel{border-color:var(--ac);background:var(--acd)}
+.loc-item.full{opacity:.5;cursor:default}
+.loc-left{display:flex;align-items:center;gap:10px}
+.loc-ico{width:36px;height:36px;border-radius:var(--rs);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:.85rem;color:var(--ac);flex-shrink:0}
+.loc-name{font-weight:700;font-size:.88rem;color:var(--ink2)}
+.loc-cap{font-size:.72rem;color:var(--ink4);margin-top:2px}
+.loc-badge{font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:99px}
+.loc-badge.ok{background:#dcfce7;color:#166534}
+.loc-badge.no{background:#fee2e2;color:#991b1b}
 
-.bk-cal-legend { display:flex; gap:14px; margin-top:12px; flex-wrap:wrap }
-.bk-cal-legend-item { display:flex; align-items:center; gap:5px; font-size:.7rem; color:var(--ink-4) }
-.bk-cal-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
+/* STEPPER */
+.stepper{display:flex;align-items:center;gap:14px}
+.stp-btn{width:42px;height:42px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--bor2);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:var(--ink3);transition:.15s}
+.stp-btn:hover{background:var(--ac);border-color:var(--ac);color:#fff}
+.stp-val{font-size:1.5rem;font-weight:700;color:var(--ink);min-width:36px;text-align:center}
+.stp-lbl{font-size:.72rem;color:var(--ink4)}
 
-/* ══ SLOT WAKTU ══ */
-.bk-slots { display:grid; grid-template-columns:repeat(3,1fr); gap:8px }
-.bk-slot {
-  padding:11px 8px; border-radius:var(--r-xs); border:1.5px solid var(--border-2);
-  text-align:center; font-size:.88rem; font-weight:600; color:var(--ink-2);
-  cursor:pointer; transition:var(--ts); background:var(--bg);
-}
-.bk-slot:hover { border-color:var(--ac); color:var(--ac); background:var(--ac-dim) }
-.bk-slot.selected {
-  background:var(--ac); color:#fff; border-color:var(--ac);
-  box-shadow:0 3px 10px var(--ac-glow);
-}
+/* MENU */
+.menu-row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--bor)}
+.menu-row:last-child{border-bottom:none}
+.menu-info{flex:1;min-width:0}
+.menu-name{font-weight:600;font-size:.86rem;color:var(--ink2)}
+.menu-price{font-size:.75rem;color:var(--ac);font-weight:700;margin-top:1px}
+.menu-det{font-size:.7rem;color:var(--ink4);margin-top:2px}
+.qty{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.qty-btn{width:28px;height:28px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--bor2);display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--ink3);transition:.15s}
+.qty-btn:hover{background:var(--ac);border-color:var(--ac);color:#fff}
+.qty-btn:disabled{opacity:.3;cursor:default}
+.qty-val{width:22px;text-align:center;font-weight:700;font-size:.88rem}
+.skip-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:9px 14px;margin-top:8px;border:1.5px solid var(--bor);border-radius:var(--rs);font-size:.78rem;color:var(--ink3);background:var(--bg2);cursor:pointer;transition:.15s}
+.skip-btn:hover,.skip-btn.on{border-color:var(--ac);color:var(--ac);background:var(--acd)}
 
-/* ══ LOKASI ══ */
-.bk-loc-item {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:14px; border:1.5px solid var(--border-2); border-radius:var(--r-sm);
-  margin-bottom:8px; cursor:pointer; transition:var(--ts); background:var(--bg);
-}
-.bk-loc-item:hover:not(.full) { border-color:var(--ac); background:var(--ac-dim) }
-.bk-loc-item.selected { border-color:var(--ac); background:var(--ac-dim) }
-.bk-loc-item.full { opacity:.5; cursor:not-allowed }
-.bk-loc-left { display:flex; align-items:center; gap:12px }
-.bk-loc-icon {
-  width:38px; height:38px; border-radius:var(--r-xs); background:var(--bg-2);
-  display:flex; align-items:center; justify-content:center; font-size:.9rem; color:var(--ac);
-  flex-shrink:0;
-}
-.bk-loc-name { font-weight:700; font-size:.9rem; color:var(--ink-2) }
-.bk-loc-cap  { font-size:.75rem; color:var(--ink-4); margin-top:2px }
-.bk-loc-badge {
-  font-size:.7rem; font-weight:700; padding:3px 10px; border-radius:99px;
-}
-.bk-loc-badge.avail { background:#dcfce7; color:#166534 }
-.bk-loc-badge.full  { background:#fee2e2; color:#991b1b }
-.bk-loc-check { color:var(--ac); font-size:1.1rem }
+/* FORM */
+.fg{margin-bottom:13px}
+.lbl{display:block;font-size:.75rem;font-weight:700;color:var(--ink3);margin-bottom:5px}
+.iw{position:relative}
+.iw i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink4);font-size:.82rem;pointer-events:none}
+.inp{width:100%;padding:11px 13px 11px 36px;border:1.5px solid var(--bor2);border-radius:var(--rs);font-size:.88rem;color:var(--ink);background:var(--bg);outline:none;transition:.15s}
+.inp:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acd)}
+.ta{width:100%;padding:11px 13px;border:1.5px solid var(--bor2);border-radius:var(--rs);font-size:.86rem;color:var(--ink);background:var(--bg);outline:none;resize:none;min-height:76px;line-height:1.5;transition:.15s}
+.ta:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--acd)}
+.hint{font-size:.7rem;color:var(--ink4);margin-top:4px}
 
-.bk-cap-summary {
-  background:var(--ac-dim); border:1px solid var(--ac-border);
-  border-radius:var(--r-xs); padding:10px 14px; margin-top:10px;
-  font-size:.82rem; color:var(--ac); font-weight:600;
-  display:flex; align-items:center; gap:8px;
-}
+/* RINGKASAN */
+.sum{background:var(--bg2);border:1.5px solid var(--bor);border-radius:var(--rs);padding:13px}
+.sum-row{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:.82rem;color:var(--ink3)}
+.sum-row:not(:last-child){border-bottom:1px dashed var(--bor)}
+.sum-row i{color:var(--ac);width:13px;flex-shrink:0;margin-top:2px}
+.sum-val{color:var(--ink2);font-weight:600;flex:1}
+.bill{background:#fff7ed;border:1.5px solid #fed7aa;border-radius:var(--rs);padding:12px 13px;margin-top:10px}
+.bill-row{display:flex;justify-content:space-between;font-size:.8rem;padding:3px 0;color:var(--ink3)}
+.bill-tot{font-weight:800;font-size:.9rem;color:var(--ac);padding-top:6px;margin-top:4px;border-top:1.5px solid #fed7aa}
+.bill-bank{font-size:.75rem;color:var(--ink3);margin-top:8px;padding-top:8px;border-top:1px dashed #fed7aa}
 
-/* ══ MENU ══ */
-.bk-menu-item {
-  display:flex; align-items:center; gap:12px; padding:12px 0;
-  border-bottom:1px solid var(--border);
-}
-.bk-menu-item:last-child { border-bottom:none }
-.bk-menu-info { flex:1; min-width:0 }
-.bk-menu-name { font-weight:600; font-size:.88rem; color:var(--ink-2); margin-bottom:2px }
-.bk-menu-price { font-size:.78rem; color:var(--ac); font-weight:700 }
-.bk-menu-details { font-size:.72rem; color:var(--ink-4); margin-top:2px }
-.bk-menu-unavail { font-size:.7rem; color:var(--danger); font-weight:600 }
-.bk-qty {
-  display:flex; align-items:center; gap:6px; flex-shrink:0;
-}
-.bk-qty-btn {
-  width:30px; height:30px; border-radius:50%; background:var(--bg-2);
-  border:1.5px solid var(--border-2); display:flex; align-items:center; justify-content:center;
-  font-size:.9rem; font-weight:700; color:var(--ink-3); transition:var(--ts);
-}
-.bk-qty-btn:hover:not(:disabled) { background:var(--ac); border-color:var(--ac); color:#fff }
-.bk-qty-btn:disabled { opacity:.3; cursor:not-allowed }
-.bk-qty-val { width:24px; text-align:center; font-weight:700; font-size:.9rem }
+/* INFO BOX */
+.ibox{background:var(--acd);border:1px solid var(--acg);border-radius:var(--rs);padding:10px 13px;font-size:.78rem;color:var(--ink2);line-height:1.6;display:flex;gap:8px;margin-bottom:12px}
+.ibox i{color:var(--ac);flex-shrink:0;margin-top:2px}
 
-.bk-skip-menu {
-  display:flex; align-items:center; gap:7px; padding:10px 14px;
-  background:var(--bg-2); border-radius:var(--r-xs); margin-top:8px;
-  font-size:.8rem; color:var(--ink-3); border:1.5px solid var(--border);
-  cursor:pointer; transition:var(--ts); width:100%; justify-content:center;
-}
-.bk-skip-menu:hover { border-color:var(--ac); color:var(--ac); background:var(--ac-dim) }
-.bk-skip-menu.active { background:var(--ac-dim); border-color:var(--ac); color:var(--ac) }
+/* ERROR */
+.err-box{background:#fee2e2;border:1px solid #fecaca;border-radius:var(--rs);padding:10px 13px;font-size:.8rem;color:var(--err);margin-bottom:10px;line-height:1.5;display:flex;gap:7px;align-items:flex-start}
+.err-box i{flex-shrink:0;margin-top:2px}
 
-/* ══ FORM TAMU ══ */
-.bk-form-group { margin-bottom:14px }
-.bk-label { font-size:.78rem; font-weight:700; color:var(--ink-3); margin-bottom:6px; display:block }
-.bk-input-wrap { position:relative; display:flex; align-items:center }
-.bk-input-wrap i { position:absolute; left:13px; color:var(--ink-4); font-size:.85rem; pointer-events:none }
-.bk-input {
-  width:100%; padding:12px 14px 12px 38px;
-  border:1.5px solid var(--border-2); border-radius:var(--r-xs);
-  font-size:.9rem; color:var(--ink); background:var(--bg);
-  transition:var(--ts); outline:none;
-}
-.bk-input:focus { border-color:var(--ac); box-shadow:0 0 0 3px var(--ac-dim) }
-.bk-textarea {
-  width:100%; padding:12px 14px;
-  border:1.5px solid var(--border-2); border-radius:var(--r-xs);
-  font-size:.88rem; color:var(--ink); background:var(--bg);
-  transition:var(--ts); outline:none; resize:none; min-height:80px; line-height:1.5;
-}
-.bk-textarea:focus { border-color:var(--ac); box-shadow:0 0 0 3px var(--ac-dim) }
-.bk-form-hint { font-size:.72rem; color:var(--ink-4); margin-top:5px }
+/* FOOTER */
+.ftr{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--bor);padding:11px 16px;display:flex;gap:9px;align-items:center;flex-shrink:0}
+.ftr-back{flex-shrink:0;width:42px;height:42px;border-radius:50%;background:var(--bg2);border:1.5px solid var(--bor2);display:flex;align-items:center;justify-content:center;font-size:.88rem;color:var(--ink3);transition:.15s}
+.ftr-back:hover{border-color:var(--ac);color:var(--ac)}
+.ftr-next{flex:1;padding:12px;border-radius:var(--rs);background:var(--ac);color:#fff;font-size:.92rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s;box-shadow:0 3px 12px var(--acg)}
+.ftr-next:hover{background:var(--ach);transform:translateY(-1px)}
+.ftr-next:disabled{opacity:.4;cursor:default;box-shadow:none;transform:none}
 
-/* ══ RINGKASAN ══ */
-.bk-summary {
-  background:var(--bg-2); border:1.5px solid var(--border);
-  border-radius:var(--r-sm); padding:14px;
-}
-.bk-summary-row {
-  display:flex; align-items:flex-start; gap:10px; padding:5px 0;
-  font-size:.84rem; color:var(--ink-3);
-}
-.bk-summary-row:not(:last-child) { border-bottom:1px dashed var(--border) }
-.bk-summary-row i { color:var(--ac); width:14px; flex-shrink:0; margin-top:2px }
-.bk-summary-val { color:var(--ink-2); font-weight:600; flex:1 }
-.bk-billing-box {
-  background:#fff7ed; border:1.5px solid #fed7aa;
-  border-radius:var(--r-xs); padding:12px 14px; margin-top:10px;
-}
-.bk-billing-row { display:flex; justify-content:space-between; font-size:.82rem; padding:3px 0; color:var(--ink-3) }
-.bk-billing-total { font-weight:800; font-size:.92rem; color:var(--ac); padding-top:6px; margin-top:4px; border-top:1.5px solid #fed7aa }
-.bk-billing-bank { font-size:.78rem; color:var(--ink-3); margin-top:8px; padding-top:8px; border-top:1px dashed #fed7aa }
-.bk-billing-bank strong { color:var(--ink-2) }
+/* SUCCESS */
+.suc{text-align:center;padding:36px 20px}
+.suc-ico{width:76px;height:76px;border-radius:50%;background:var(--ac);color:#fff;font-size:1.9rem;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 6px 20px var(--acg);animation:pop .4s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.suc-title{font-size:1.3rem;font-weight:700;margin-bottom:8px}
+.suc-msg{font-size:.86rem;color:var(--ink3);line-height:1.7;margin-bottom:18px}
+.suc-card{background:var(--bg2);border-radius:var(--rs);padding:14px;text-align:left;margin-bottom:16px}
+.suc-row{display:flex;gap:9px;padding:5px 0;font-size:.82rem;color:var(--ink3)}
+.suc-row:not(:last-child){border-bottom:1px dashed var(--bor)}
+.suc-row i{color:var(--ac);width:13px;flex-shrink:0;margin-top:2px}
+.suc-row span{color:var(--ink2);font-weight:600}
+.wa-note{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--rs);padding:11px 13px;font-size:.8rem;color:#166534;line-height:1.6;display:flex;gap:8px;align-items:flex-start}
 
-/* ══ ERROR ══ */
-.bk-err {
-  background:#fee2e2; border:1px solid #fecaca; border-radius:var(--r-xs);
-  padding:11px 14px; font-size:.82rem; color:var(--danger);
-  margin-bottom:12px; line-height:1.6; display:flex; align-items:flex-start; gap:8px;
-}
-.bk-err i { flex-shrink:0; margin-top:2px }
-
-/* ══ FOOTER FIXED ══ */
-.bk-footer {
-  position:sticky; bottom:0; left:0; right:0;
-  background:var(--bg); border-top:1px solid var(--border);
-  padding:12px 16px calc(12px + var(--safe-bottom));
-  display:flex; gap:10px; align-items:center; flex-shrink:0;
-}
-.bk-btn-back {
-  flex-shrink:0; width:44px; height:44px; border-radius:50%;
-  background:var(--bg-2); border:1.5px solid var(--border-2);
-  display:flex; align-items:center; justify-content:center;
-  font-size:.9rem; color:var(--ink-3); transition:var(--ts);
-}
-.bk-btn-back:hover { border-color:var(--ac); color:var(--ac); background:var(--ac-dim) }
-.bk-btn-next {
-  flex:1; padding:13px; border-radius:var(--r-sm);
-  background:var(--ac); color:#fff; border:none;
-  font-size:.95rem; font-weight:700;
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  transition:var(--ts); box-shadow:0 4px 14px var(--ac-glow);
-}
-.bk-btn-next:hover:not(:disabled) { background:var(--ac-h); transform:translateY(-1px) }
-.bk-btn-next:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; transform:none }
-
-/* ══ SUCCESS ══ */
-.bk-success {
-  text-align:center; padding:40px 24px;
-}
-.bk-success-icon {
-  width:80px; height:80px; border-radius:50%; background:var(--ac);
-  color:#fff; font-size:2rem; display:flex; align-items:center; justify-content:center;
-  margin:0 auto 20px; box-shadow:0 8px 24px var(--ac-glow);
-  animation:pop .4s cubic-bezier(.2,1.4,.4,1);
-}
-@keyframes pop { from { transform:scale(0); opacity:0 } to { transform:scale(1); opacity:1 } }
-.bk-success-title { font-family:var(--font-display); font-size:1.4rem; font-style:italic; font-weight:600; margin-bottom:10px; color:var(--ink) }
-.bk-success-msg { font-size:.88rem; color:var(--ink-3); line-height:1.7; margin-bottom:20px }
-.bk-success-card {
-  background:var(--bg-2); border-radius:var(--r-sm); padding:16px;
-  text-align:left; margin-bottom:20px;
-}
-.bk-success-row { display:flex; gap:10px; padding:5px 0; font-size:.84rem; color:var(--ink-3) }
-.bk-success-row:not(:last-child) { border-bottom:1px dashed var(--border) }
-.bk-success-row i { color:var(--ac); width:14px; flex-shrink:0; margin-top:2px }
-.bk-success-row span { color:var(--ink-2); font-weight:600 }
-.bk-wa-notice {
-  background:#f0fdf4; border:1px solid #bbf7d0; border-radius:var(--r-xs);
-  padding:12px 14px; font-size:.82rem; color:#166534; line-height:1.6;
-  display:flex; gap:9px; align-items:flex-start;
-}
-
-/* ══ LOADING & ERROR SCREEN ══ */
-.bk-splash {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  min-height:100dvh; padding:40px 24px; text-align:center;
-}
-.bk-spinner {
-  width:40px; height:40px; border:3px solid var(--border-2);
-  border-top-color:var(--ac); border-radius:50%;
-  animation:spin .8s linear infinite; margin-bottom:20px;
-}
-@keyframes spin { to { transform:rotate(360deg) } }
-.bk-err-screen-icon { font-size:2.5rem; margin-bottom:16px }
-.bk-err-screen-title { font-size:1.1rem; font-weight:700; margin-bottom:8px }
-.bk-err-screen-msg { font-size:.84rem; color:var(--ink-3); line-height:1.6 }
-
-/* Pilih jumlah tamu (stepper) */
-.bk-stepper {
-  display:flex; align-items:center; gap:14px;
-}
-.bk-stepper-btn {
-  width:44px; height:44px; border-radius:50%;
-  background:var(--bg-2); border:1.5px solid var(--border-2);
-  display:flex; align-items:center; justify-content:center;
-  font-size:1.1rem; font-weight:700; color:var(--ink-3); transition:var(--ts);
-}
-.bk-stepper-btn:hover:not(:disabled) { background:var(--ac); border-color:var(--ac); color:#fff }
-.bk-stepper-btn:disabled { opacity:.3; cursor:not-allowed }
-.bk-stepper-val { font-size:1.6rem; font-weight:700; color:var(--ink); min-width:40px; text-align:center }
-.bk-stepper-label { font-size:.78rem; color:var(--ink-4) }
-
-/* Info box */
-.bk-info-box {
-  background:var(--ac-dim); border:1px solid var(--ac-border);
-  border-radius:var(--r-xs); padding:11px 14px;
-  font-size:.8rem; color:var(--ink-2); line-height:1.6;
-  display:flex; gap:8px; margin-bottom:12px;
-}
-.bk-info-box i { color:var(--ac); flex-shrink:0; margin-top:2px }
+/* SPLASH */
+.splash{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px;text-align:center}
+.spin{width:38px;height:38px;border:3px solid var(--bor2);border-top-color:var(--ac);border-radius:50%;animation:rot .8s linear infinite;margin-bottom:16px}
+@keyframes rot{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 
-<!-- Loading -->
-<div id="bk-loading" class="bk-splash">
-  <div class="bk-spinner"></div>
-  <div style="color:var(--ink-4);font-size:.84rem">Memuat halaman reservasi...</div>
+<div id="s-load" class="splash">
+  <div class="spin"></div>
+  <div style="color:#94a3b8;font-size:.84rem">Memuat halaman reservasi...</div>
 </div>
 
-<!-- Error -->
-<div id="bk-error" class="bk-splash" style="display:none">
-  <div class="bk-err-screen-icon">😕</div>
-  <div class="bk-err-screen-title">Oops!</div>
-  <div class="bk-err-screen-msg" id="bk-error-msg">Terjadi kesalahan.</div>
+<div id="s-err" class="splash" style="display:none">
+  <div style="font-size:2.2rem;margin-bottom:14px">😕</div>
+  <div style="font-size:1rem;font-weight:700;margin-bottom:8px">Oops!</div>
+  <div id="s-err-msg" style="font-size:.84rem;color:#64748b;line-height:1.6">Terjadi kesalahan.</div>
 </div>
 
-<!-- App -->
-<div id="bk-app" class="bk-app" style="display:none">
+<div id="s-app" class="app" style="display:none">
 
-  <!-- Header -->
-  <div class="bk-header">
-    <div class="bk-header-row">
-      <div class="bk-logo" id="bk-logo">🍽️</div>
+  <div class="hdr">
+    <div class="hdr-row">
+      <div class="hdr-logo" id="h-logo">🍽️</div>
       <div>
-        <div class="bk-biz-name" id="bk-biz-name">-</div>
-        <div class="bk-biz-sub" id="bk-biz-sub">Reservasi Online</div>
+        <div class="hdr-name" id="h-name">-</div>
+        <div class="hdr-sub" id="h-sub">Reservasi Online</div>
       </div>
     </div>
   </div>
 
-  <!-- Progress -->
-  <div class="bk-progress" id="bk-progress" style="display:none">
-    <div class="bk-progress-label">
-      <div class="bk-step-title" id="bk-step-title">Pilih Tanggal</div>
-      <div class="bk-step-num" id="bk-step-num">1 / 4</div>
+  <div class="prg" id="prg">
+    <div class="prg-row">
+      <div class="prg-title" id="prg-title">Pilih Tanggal</div>
+      <div class="prg-num" id="prg-num">1 / 4</div>
     </div>
-    <div class="bk-progress-track">
-      <div class="bk-progress-fill" id="bk-progress-fill" style="width:25%"></div>
-    </div>
+    <div class="prg-bar"><div class="prg-fill" id="prg-fill" style="width:25%"></div></div>
   </div>
 
-  <!-- Steps Container -->
-  <div class="bk-steps-wrap" id="bk-steps-wrap" style="display:none">
+  <div class="steps" id="steps">
 
-    <!-- STEP 1: Pilih Tanggal -->
-    <div class="bk-step active" id="step-1">
-      <div class="bk-card">
-        <div class="bk-card-title"><i class="fas fa-calendar-alt"></i> Pilih Tanggal</div>
-        <div class="bk-cal-nav">
-          <button class="bk-cal-btn" onclick="navMonth(-1)"><i class="fas fa-chevron-left"></i></button>
-          <div class="bk-cal-month" id="cal-month-label">-</div>
-          <button class="bk-cal-btn" onclick="navMonth(1)"><i class="fas fa-chevron-right"></i></button>
+    <!-- STEP 1: Tanggal -->
+    <div class="step active" id="st1">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-calendar-alt"></i> Pilih Tanggal</div>
+        <div class="cal-nav">
+          <button class="cal-btn" id="cal-prev"><i class="fas fa-chevron-left"></i></button>
+          <div class="cal-m" id="cal-label">-</div>
+          <button class="cal-btn" id="cal-next"><i class="fas fa-chevron-right"></i></button>
         </div>
-        <div class="bk-cal-weekdays">
-          <div>Min</div><div>Sen</div><div>Sel</div>
-          <div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
+        <div class="cal-wk">
+          <div>Min</div><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div>
         </div>
-        <div class="bk-cal-grid" id="bk-cal-grid"></div>
-        <div class="bk-cal-legend">
-          <div class="bk-cal-legend-item"><div class="bk-cal-legend-dot" style="background:var(--ac);opacity:.4"></div> Ada reservasi</div>
-          <div class="bk-cal-legend-item"><div class="bk-cal-legend-dot" style="background:#fbbf24"></div> Hampir penuh</div>
-          <div class="bk-cal-legend-item"><div class="bk-cal-legend-dot" style="background:#fca5a5"></div> Penuh / Tutup</div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-leg">
+          <div class="cal-leg-i"><div class="cal-leg-dot" style="background:#fbbf24"></div> Hampir penuh</div>
+          <div class="cal-leg-i"><div class="cal-leg-dot" style="background:#fca5a5"></div> Penuh / Tutup</div>
         </div>
       </div>
-      <div id="step1-err"></div>
+      <div id="e1"></div>
     </div>
 
-    <!-- STEP 2: Pilih Jam -->
-    <div class="bk-step" id="step-2">
-      <div class="bk-info-box" id="step2-info">
-        <i class="fas fa-calendar-check"></i>
-        <span id="step2-date-label">-</span>
-      </div>
-      <div class="bk-card">
-        <div class="bk-card-title"><i class="fas fa-clock"></i> Pilih Jam Reservasi</div>
-        <div class="bk-slots" id="bk-slots"></div>
-        <div id="step2-empty" style="display:none;text-align:center;padding:20px;color:var(--ink-4);font-size:.84rem">
-          <i class="fas fa-calendar-times" style="font-size:1.5rem;display:block;margin-bottom:8px;color:#fca5a5"></i>
-          Tidak ada slot tersedia di tanggal ini.<br>Pilih tanggal lain.
+    <!-- STEP 2: Jam -->
+    <div class="step" id="st2">
+      <div class="ibox"><i class="fas fa-calendar-check"></i><span id="s2-date">-</span></div>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-clock"></i> Pilih Jam Reservasi</div>
+        <div class="slots" id="slots"></div>
+        <div id="s2-empty" style="display:none;text-align:center;padding:20px;color:#94a3b8;font-size:.84rem">
+          <i class="fas fa-calendar-times" style="font-size:1.4rem;display:block;margin-bottom:8px;color:#fca5a5"></i>
+          Tidak ada slot tersedia.<br>Coba pilih tanggal lain.
         </div>
       </div>
-      <div id="step2-err"></div>
+      <div id="e2"></div>
     </div>
 
-    <!-- STEP 3: Pilih Lokasi + Menu -->
-    <div class="bk-step" id="step-3">
-      <div class="bk-info-box" id="step3-info">
-        <i class="fas fa-clock"></i>
-        <span id="step3-datetime-label">-</span>
+    <!-- STEP 3: Lokasi + Tamu + Menu -->
+    <div class="step" id="st3">
+      <div class="ibox"><i class="fas fa-clock"></i><span id="s3-dt">-</span></div>
+      <div class="card">
+        <div class="card-title" id="s3-loctitle"><i class="fas fa-map-marker-alt"></i> Pilih Lokasi</div>
+        <div id="locs"></div>
+        <div id="cap-sum" style="display:none;margin-top:10px;padding:9px 12px;background:var(--acd);border:1px solid var(--acg);border-radius:var(--rs);font-size:.8rem;color:var(--ac);font-weight:600"></div>
       </div>
-
-      <!-- Lokasi -->
-      <div class="bk-card">
-        <div class="bk-card-title" id="step3-loc-title"><i class="fas fa-map-marker-alt"></i> Pilih Lokasi</div>
-        <div id="bk-locs"></div>
-        <div id="step3-cap-summary" class="bk-cap-summary" style="display:none">
-          <i class="fas fa-users"></i>
-          <span id="step3-cap-text">-</span>
-        </div>
-      </div>
-
-      <!-- Jumlah Tamu -->
-      <div class="bk-card">
-        <div class="bk-card-title"><i class="fas fa-users"></i> Jumlah Tamu</div>
-        <div style="display:flex; align-items:center; gap:16px">
-          <div class="bk-stepper">
-            <button class="bk-stepper-btn" onclick="changePax(-1)"><i class="fas fa-minus"></i></button>
-            <div>
-              <div class="bk-stepper-val" id="pax-val">1</div>
-              <div class="bk-stepper-label">orang</div>
-            </div>
-            <button class="bk-stepper-btn" onclick="changePax(1)"><i class="fas fa-plus"></i></button>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-users"></i> Jumlah Tamu</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="stepper">
+            <button class="stp-btn" id="pax-minus"><i class="fas fa-minus" style="font-size:.75rem"></i></button>
+            <div><div class="stp-val" id="pax-val">2</div><div class="stp-lbl">orang</div></div>
+            <button class="stp-btn" id="pax-plus"><i class="fas fa-plus" style="font-size:.75rem"></i></button>
           </div>
-          <div id="pax-hint" style="font-size:.8rem;color:var(--ink-4);flex:1"></div>
+          <div id="pax-hint" style="font-size:.78rem;color:#94a3b8;flex:1"></div>
         </div>
       </div>
-
-      <!-- Menu -->
-      <div class="bk-card" id="step3-menu-card">
-        <div class="bk-card-title"><i class="fas fa-utensils"></i> Menu & Paket <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-4);font-size:.7rem">(opsional)</span></div>
-        <div id="bk-menus"></div>
-        <button class="bk-skip-menu" id="btn-skip-menu" onclick="toggleSkipMenu()">
-          <i class="fas fa-forward"></i> Lewati, tidak pesan menu
-        </button>
+      <div class="card" id="menu-card">
+        <div class="card-title"><i class="fas fa-utensils"></i> Menu &amp; Paket <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;font-size:.68rem">(opsional)</span></div>
+        <div id="menus"></div>
+        <button class="skip-btn" id="skip-btn"><i class="fas fa-forward"></i> Lewati, tidak pesan menu</button>
       </div>
-      <div id="step3-err"></div>
+      <div id="e3"></div>
     </div>
 
-    <!-- STEP 4: Data Tamu + Konfirmasi -->
-    <div class="bk-step" id="step-4">
-      <!-- Form -->
-      <div class="bk-card">
-        <div class="bk-card-title"><i class="fas fa-user"></i> Data Pemesan</div>
-
-        <div class="bk-form-group">
-          <label class="bk-label" for="bk-nama">Nama Lengkap <span style="color:var(--danger)">*</span></label>
-          <div class="bk-input-wrap">
-            <i class="fas fa-user"></i>
-            <input class="bk-input" id="bk-nama" type="text" placeholder="Nama lengkap pemesan" maxlength="100" autocomplete="name"/>
-          </div>
+    <!-- STEP 4: Konfirmasi -->
+    <div class="step" id="st4">
+      <div class="card">
+        <div class="card-title"><i class="fas fa-user"></i> Data Pemesan</div>
+        <div class="fg">
+          <label class="lbl" for="f-nama">Nama Lengkap *</label>
+          <div class="iw"><i class="fas fa-user"></i><input class="inp" id="f-nama" type="text" placeholder="Nama lengkap" maxlength="100" autocomplete="name"></div>
         </div>
-
-        <div class="bk-form-group">
-          <label class="bk-label" for="bk-hp">Nomor WhatsApp <span style="color:var(--danger)">*</span></label>
-          <div class="bk-input-wrap">
-            <i class="fas fa-phone"></i>
-            <input class="bk-input" id="bk-hp" type="tel" placeholder="08xx-xxxx-xxxx" maxlength="20" autocomplete="tel"/>
-          </div>
-          <div class="bk-form-hint">Format apapun diterima — kami akan hubungi via WhatsApp</div>
+        <div class="fg">
+          <label class="lbl" for="f-hp">Nomor WhatsApp *</label>
+          <div class="iw"><i class="fas fa-phone"></i><input class="inp" id="f-hp" type="tel" placeholder="08xx-xxxx-xxxx" maxlength="20" autocomplete="tel"></div>
+          <div class="hint">Format bebas, kami hubungi via WhatsApp</div>
         </div>
-
-        <div class="bk-form-group">
-          <label class="bk-label" for="bk-catatan">Catatan / Request Khusus</label>
-          <textarea class="bk-textarea" id="bk-catatan" placeholder="Dekorasi ulang tahun, alergi makanan, kursi bayi..." maxlength="500"></textarea>
+        <div class="fg">
+          <label class="lbl" for="f-cat">Catatan / Request Khusus</label>
+          <textarea class="ta" id="f-cat" placeholder="Dekorasi, alergi makanan, kursi bayi..." maxlength="500"></textarea>
         </div>
       </div>
-
-      <!-- Ringkasan -->
-      <div class="bk-card">
-        <div class="bk-card-title"><i class="fas fa-receipt"></i> Ringkasan Reservasi</div>
-        <div class="bk-summary" id="bk-summary"></div>
-        <div id="bk-billing-box"></div>
+      <div class="card">
+        <div class="card-title"><i class="fas fa-receipt"></i> Ringkasan Reservasi</div>
+        <div class="sum" id="sum"></div>
+        <div id="bill-box"></div>
       </div>
-
-      <div id="step4-err"></div>
+      <div id="e4"></div>
     </div>
 
     <!-- SUCCESS -->
-    <div class="bk-step" id="step-success">
-      <div class="bk-card bk-success">
-        <div class="bk-success-icon"><i class="fas fa-check"></i></div>
-        <div class="bk-success-title">Permintaan Terkirim!</div>
-        <div class="bk-success-msg" id="success-msg">-</div>
-        <div class="bk-success-card" id="success-detail"></div>
-        <div class="bk-wa-notice">
-          <i class="fas fa-whatsapp" style="color:#25d366;font-size:1rem;flex-shrink:0;margin-top:2px"></i>
-          <span>Kami akan menghubungi kamu via WhatsApp untuk konfirmasi reservasi. Pastikan nomor WA aktif.</span>
+    <div class="step" id="st-ok">
+      <div class="card suc">
+        <div class="suc-ico"><i class="fas fa-check"></i></div>
+        <div class="suc-title">Permintaan Terkirim!</div>
+        <div class="suc-msg" id="ok-msg">-</div>
+        <div class="suc-card" id="ok-detail"></div>
+        <div class="wa-note">
+          <i class="fab fa-whatsapp" style="color:#25d366;font-size:1rem;flex-shrink:0;margin-top:2px"></i>
+          <span>Kami akan menghubungi kamu via WhatsApp untuk konfirmasi. Pastikan nomor aktif.</span>
         </div>
       </div>
     </div>
 
-  </div><!-- /steps-wrap -->
-
-  <!-- Footer Nav -->
-  <div class="bk-footer" id="bk-footer" style="display:none">
-    <button class="bk-btn-back" id="btn-back" onclick="prevStep()" style="display:none" aria-label="Kembali">
-      <i class="fas fa-arrow-left"></i>
-    </button>
-    <button class="bk-btn-next" id="btn-next" onclick="nextStep()">
-      Lanjut <i class="fas fa-arrow-right"></i>
-    </button>
   </div>
 
-</div><!-- /bk-app -->
+  <div class="ftr" id="ftr">
+    <button class="ftr-back" id="btn-back" style="display:none"><i class="fas fa-arrow-left"></i></button>
+    <button class="ftr-next" id="btn-next">Lanjut <i class="fas fa-arrow-right"></i></button>
+  </div>
 
-<script type="module">
-import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js';
-import { getFirestore, doc, getDoc, getDocs, collection, setDoc }
-  from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js';
+</div>
 
-const firebaseConfig = {
-  apiKey:            'AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw',
-  authDomain:        'proserva-bisnisku.firebaseapp.com',
-  projectId:         'proserva-bisnisku',
-  storageBucket:     'proserva-bisnisku.firebasestorage.app',
-  messagingSenderId: '995357200209',
-  appId:             '1:995357200209:web:5cdba2db9975fcc35f4d70'
-};
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+<script>
+/* ============================================================
+   PROSERVA BOOKING — ES5 COMPATIBLE
+   Tidak ada: optional chaining, nullish coalescing, template literal
+   ============================================================ */
 
-/* ══════════════════════════════════════════════════
-   STATE
-   ══════════════════════════════════════════════════ */
-const MONTHS   = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-const MONTHS_S = MONTHS.map(m => m.slice(0,3));
-const DAYS     = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+var MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+var DAYS   = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
 
-const B = {
-  uid: '', biz:{}, ops:{}, payment:{}, closedDates:[],
+/* State */
+var B = {
+  uid:'', biz:{}, ops:{}, pay:{}, closed:[],
   menus:[], locs:[],
-  year: new Date().getFullYear(),
-  month: new Date().getMonth(),
-  dayRes: {},       /* { 'YYYY-MM': [...] } cache per bulan */
-  selDate: null,    /* 'YYYY-MM-DD' */
-  selSlot: null,    /* '13:00' */
-  selLocs: [],      /* ['Gazebo A'] */
-  jumlah: 2,
-  menuQty: {},      /* { 'Paket Keluarga': 2 } */
-  skipMenu: false,
-  nama: '', hp: '', catatan: '',
-  step: 1,
+  y: new Date().getFullYear(),
+  m: new Date().getMonth(),
+  res: {},
+  date: null,
+  slot: null,
+  lsel: [],
+  pax: 2,
+  qty: {},
+  skip: false,
+  nama:'', hp:'', cat:'',
+  step: 1
 };
 
-/* ══════════════════════════════════════════════════
-   HELPERS
-   ══════════════════════════════════════════════════ */
-const $   = id => document.getElementById(id);
-function esc(s) { var d=document.createElement('div'); d.textContent=String(s!=null?s:''); return d.innerHTML; }
-function pad2(n) { return n<10?'0'+n:''+n; }
-function toMins(t) { if(!t)return 0; const p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
-function minsToTime(m) { return pad2(Math.floor(m/60))+':'+pad2(m%60); }
-function todayStr() { const d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
-function mkStr(y,m) { return y+'-'+pad2(m+1); }
-function formatDateFull(ds) {
+/* DOM helpers */
+function ge(id){ return document.getElementById(id); }
+function esc(s){
+  var d = document.createElement('div');
+  d.appendChild(document.createTextNode(s == null ? '' : String(s)));
+  return d.innerHTML;
+}
+function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+function toMins(t){ if(!t) return 0; var p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
+function toTime(m){ return pad2(Math.floor(m/60))+':'+pad2(m%60); }
+function today(){ var d=new Date(); return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
+function mkStr(y,m){ return y+'-'+pad2(m+1); }
+function fmtDate(ds){
   if(!ds) return '-';
-  const d=new Date(ds+'T12:00:00'), p=ds.split('-');
+  var p=ds.split('-'), d=new Date(ds+'T12:00:00');
   return DAYS[d.getDay()]+', '+parseInt(p[2])+' '+MONTHS[parseInt(p[1])-1]+' '+p[0];
 }
-function formatRp(n) { return (parseInt(n)||0).toLocaleString('id-ID'); }
-function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
-function isTableMode() { return (B.biz.locMode||'area')==='table'; }
-function normTempat(t) { return Array.isArray(t)?t.filter(Boolean):(t?[t]:[]); }
+function fmtRp(n){ return (parseInt(n)||0).toLocaleString('id-ID'); }
+function genId(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function isTable(){ return (B.biz.locMode||'area')==='table'; }
+function normT(t){ return Array.isArray(t)?t.filter(Boolean):(t?[t]:[]); }
 
-/* ══════════════════════════════════════════════════
-   LOAD DATA DARI FIRESTORE
-   ══════════════════════════════════════════════════ */
-async function loadBizData(uid) {
-  const [bizSnap,opsSnap,paySnap,cdSnap,menuSnap,locSnap] = await Promise.all([
-    getDoc(doc(db,'users',uid,'config','biz')),
-    getDoc(doc(db,'users',uid,'config','ops')),
-    getDoc(doc(db,'users',uid,'config','payment')),
-    getDoc(doc(db,'users',uid,'config','closedDates')),
-    getDocs(collection(db,'users',uid,'menus')),
-    getDocs(collection(db,'users',uid,'locations'))
-  ]);
-  if (!bizSnap.exists()) throw new Error('Halaman reservasi ini tidak ditemukan. Minta link terbaru dari restoran.');
-  B.biz     = bizSnap.data();
-  B.ops     = Object.assign({openTime:'09:00',closeTime:'21:00',slotInterval:30,defaultDuration:120,bufferTime:15,minAdvance:0}, opsSnap.exists()?opsSnap.data():{});
-  B.payment = Object.assign({dpMode:'persen',dpPersen:30,dpNominal:0,serviceOn:false,servicePct:5,ppnOn:false,ppnPct:11,bankName:'',bankNo:'',bankOwner:''}, paySnap.exists()?paySnap.data():{});
-  B.closedDates = cdSnap.exists()?(cdSnap.data().list||[]):[];
-  B.menus=[]; menuSnap.forEach(d=>B.menus.push(Object.assign({id:d.id},d.data())));
-  B.menus.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  B.locs=[]; locSnap.forEach(d=>B.locs.push(Object.assign({id:d.id},d.data())));
-  B.locs.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+/* ── Firebase via CDN (compat SDK) ── */
+var db;
+function initFB(){
+  var cfg = {
+    apiKey:'AIzaSyB5b0LPmSO2d23mtBXks2T-ASq9i3b24zw',
+    authDomain:'proserva-bisnisku.firebaseapp.com',
+    projectId:'proserva-bisnisku'
+  };
+  firebase.initializeApp(cfg);
+  db = firebase.firestore();
 }
 
-async function loadMonthRes(mk) {
-  if (B.dayRes[mk]) return B.dayRes[mk];
-  try {
-    const snap = await getDocs(collection(db,'users',B.uid,'reservations',mk,'list'));
-    const arr=[]; snap.forEach(d=>arr.push(d.data()));
-    B.dayRes[mk] = arr; return arr;
-  } catch(e) { B.dayRes[mk]=[]; return []; }
+function dbGet(path){
+  var parts = path.split('/');
+  var ref = db.collection(parts[0]);
+  for(var i=1;i<parts.length;i++){
+    ref = (i%2===0) ? ref.collection(parts[i]) : ref.doc(parts[i]);
+  }
+  return ref.get();
 }
 
-function getResForDate(ds) {
-  const mk=ds.substring(0,7);
-  return (B.dayRes[mk]||[]).filter(r=>r.date===ds && r.status!=='batal');
+function dbColl(path){
+  var parts = path.split('/');
+  var ref = db.collection(parts[0]);
+  for(var i=1;i<parts.length;i++){
+    ref = (i%2===0) ? ref.collection(parts[i]) : ref.doc(parts[i]);
+  }
+  return ref.get();
 }
 
-/* ══════════════════════════════════════════════════
-   AVAILABILITY
-   ══════════════════════════════════════════════════ */
-function isDateClosed(ds) { return B.closedDates.some(cd=>cd.date===ds); }
-function isDatePast(ds)   { return ds < todayStr(); }
+function dbSet(path, data){
+  var parts = path.split('/');
+  var ref = db.collection(parts[0]);
+  for(var i=1;i<parts.length;i++){
+    ref = (i%2===0) ? ref.collection(parts[i]) : ref.doc(parts[i]);
+  }
+  return ref.set(data);
+}
 
-function getAvailableSlots(locName, dateStr) {
-  var loc    = B.locs.find(function(l){return l.name===locName;});
-  var dur    = (loc&&loc.defaultDuration)?parseInt(loc.defaultDuration):(B.ops.defaultDuration||120);
-  var buf    = (loc&&loc.bufferTime!==undefined&&loc.bufferTime!=='')?parseInt(loc.bufferTime):(B.ops.bufferTime||15);
-  var openM  = toMins((loc&&loc.openTime)||B.ops.openTime||'09:00');
-  var closeM = toMins((loc&&loc.closeTime)||B.ops.closeTime||'21:00');
-  const intvl  = B.ops.slotInterval||30;
-  const busy = getResForDate(dateStr)
-    .filter(r=>normTempat(r.tempat).includes(locName))
-    .map(r=>{const s=toMins(r.jam),d=r.duration?parseInt(r.duration):dur;return{start:s,end:s+d+buf};});
-  const slots=[];
-  for(let m=openM;m+dur<=closeM;m+=intvl){
-    if(busy.every(b=>!(m<b.end&&m+dur+buf>b.start))) slots.push(minsToTime(m));
-    if(slots.length>=12) break;
+/* ── Load data bisnis ── */
+function loadBiz(uid, cb){
+  Promise.all([
+    db.doc('users/'+uid+'/config/biz').get(),
+    db.doc('users/'+uid+'/config/ops').get(),
+    db.doc('users/'+uid+'/config/payment').get(),
+    db.doc('users/'+uid+'/config/closedDates').get(),
+    db.collection('users/'+uid+'/menus').get(),
+    db.collection('users/'+uid+'/locations').get()
+  ]).then(function(rs){
+    var biz=rs[0],ops=rs[1],pay=rs[2],cd=rs[3],menus=rs[4],locs=rs[5];
+    if(!biz.exists){ cb(new Error('Bisnis tidak ditemukan.')); return; }
+    B.biz  = biz.data();
+    B.ops  = ops.exists ? ops.data() : {};
+    B.ops.openTime       = B.ops.openTime       || '09:00';
+    B.ops.closeTime      = B.ops.closeTime      || '21:00';
+    B.ops.slotInterval   = B.ops.slotInterval   || 30;
+    B.ops.defaultDuration= B.ops.defaultDuration|| 120;
+    B.ops.bufferTime     = B.ops.bufferTime     || 15;
+    B.ops.minAdvance     = B.ops.minAdvance     || 0;
+    B.pay  = pay.exists ? pay.data() : {};
+    B.pay.dpMode    = B.pay.dpMode    || 'persen';
+    B.pay.dpPersen  = B.pay.dpPersen  || 30;
+    B.pay.dpNominal = B.pay.dpNominal || 0;
+    B.pay.serviceOn = B.pay.serviceOn || false;
+    B.pay.servicePct= B.pay.servicePct|| 5;
+    B.pay.ppnOn     = B.pay.ppnOn     || false;
+    B.pay.ppnPct    = B.pay.ppnPct    || 11;
+    B.pay.bankName  = B.pay.bankName  || '';
+    B.pay.bankNo    = B.pay.bankNo    || '';
+    B.pay.bankOwner = B.pay.bankOwner || '';
+    B.closed = (cd.exists && cd.data().list) ? cd.data().list : [];
+    B.menus = [];
+    menus.forEach(function(d){ B.menus.push(d.data()); });
+    B.menus.sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+    B.locs = [];
+    locs.forEach(function(d){ B.locs.push(d.data()); });
+    B.locs.sort(function(a,b){ return (a.name||'').localeCompare(b.name||''); });
+    cb(null);
+  }).catch(function(e){ cb(e); });
+}
+
+/* ── Load reservasi bulan ── */
+function loadMonth(mk, cb){
+  if(B.res[mk] !== undefined){ if(cb) cb(); return; }
+  db.collection('users/'+B.uid+'/reservations/'+mk+'/list').get()
+    .then(function(snap){
+      var arr = [];
+      snap.forEach(function(d){ arr.push(d.data()); });
+      B.res[mk] = arr;
+      if(cb) cb();
+    })
+    .catch(function(){ B.res[mk]=[]; if(cb) cb(); });
+}
+
+function resOfDate(ds){
+  var mk = ds.substring(0,7);
+  var all = B.res[mk] || [];
+  var out = [];
+  for(var i=0;i<all.length;i++){
+    if(all[i].date===ds && all[i].status!=='batal') out.push(all[i]);
+  }
+  return out;
+}
+
+/* ── Ketersediaan ── */
+function isClosed(ds){ for(var i=0;i<B.closed.length;i++){ if(B.closed[i].date===ds) return true; } return false; }
+function isPast(ds){ return ds < today(); }
+
+function locDur(loc){ return (loc && loc.defaultDuration) ? parseInt(loc.defaultDuration) : (B.ops.defaultDuration||120); }
+function locBuf(loc){ return (loc && loc.bufferTime !== undefined && loc.bufferTime !== '') ? parseInt(loc.bufferTime) : (B.ops.bufferTime||15); }
+function locOpen(loc){ return (loc && loc.openTime) ? loc.openTime : (B.ops.openTime||'09:00'); }
+function locClose(loc){ return (loc && loc.closeTime) ? loc.closeTime : (B.ops.closeTime||'21:00'); }
+
+function availSlots(locName, ds){
+  var loc = null;
+  for(var i=0;i<B.locs.length;i++){ if(B.locs[i].name===locName){ loc=B.locs[i]; break; } }
+  var dur   = locDur(loc);
+  var buf   = locBuf(loc);
+  var openM = toMins(locOpen(loc));
+  var closeM= toMins(locClose(loc));
+  var intvl = B.ops.slotInterval || 30;
+  var res = resOfDate(ds);
+  var busy = [];
+  for(var j=0;j<res.length;j++){
+    var r=res[j], tt=normT(r.tempat);
+    var found=false; for(var k=0;k<tt.length;k++){ if(tt[k]===locName){ found=true; break; } }
+    if(!found) continue;
+    var s=toMins(r.jam), d2=r.duration?parseInt(r.duration):dur;
+    busy.push({start:s, end:s+d2+buf});
+  }
+  var slots=[];
+  for(var m=openM; m+dur<=closeM; m+=intvl){
+    var free=true;
+    for(var b=0;b<busy.length;b++){
+      if(m<busy[b].end && m+dur+buf>busy[b].start){ free=false; break; }
+    }
+    if(free){ slots.push(toTime(m)); if(slots.length>=12) break; }
   }
   return slots;
 }
 
-function getAllDaySlots(dateStr) {
-  const set=new Set();
-  B.locs.forEach(loc=>getAvailableSlots(loc.name,dateStr).forEach(s=>set.add(s)));
-  return Array.from(set).sort();
+function allSlots(ds){
+  var set={}, out=[];
+  for(var i=0;i<B.locs.length;i++){
+    var sl=availSlots(B.locs[i].name, ds);
+    for(var j=0;j<sl.length;j++){ if(!set[sl[j]]){ set[sl[j]]=1; out.push(sl[j]); } }
+  }
+  out.sort(); return out;
 }
 
-function getDateStatus(ds) {
-  if(isDateClosed(ds)||isDatePast(ds)) return 'closed';
-  const slots=getAllDaySlots(ds);
-  const total=B.locs.reduce((s,loc)=>{
-    const dur=loc.defaultDuration?parseInt(loc.defaultDuration):(B.ops.defaultDuration||120);
-    const openM=toMins(loc.openTime||B.ops.openTime||'09:00');
-    const closeM=toMins(loc.closeTime||B.ops.closeTime||'21:00');
-    const intvl=B.ops.slotInterval||30;
-    return s+Math.max(0,Math.floor((closeM-openM)/intvl));
-  },0);
-  const resCount = getResForDate(ds).length;
-  if(slots.length===0&&resCount>0) return 'full';
-  if(slots.length<total*0.4&&resCount>0) return 'busy';
+function dateStatus(ds){
+  if(isClosed(ds)||isPast(ds)) return 'closed';
+  var sl=allSlots(ds);
+  var tot=0;
+  for(var i=0;i<B.locs.length;i++){
+    var loc=B.locs[i];
+    var dur=locDur(loc), openM=toMins(locOpen(loc)), closeM=toMins(locClose(loc));
+    tot+=Math.max(0,Math.floor((closeM-openM)/(B.ops.slotInterval||30)));
+  }
+  var rc=resOfDate(ds).length;
+  if(sl.length===0 && rc>0) return 'full';
+  if(sl.length < tot*0.4 && rc>0) return 'busy';
   return 'free';
 }
 
-/* ══════════════════════════════════════════════════
-   BILLING
-   ══════════════════════════════════════════════════ */
-function calcBilling() {
-  const p=B.payment;
-  let sub=0;
-  if(!B.skipMenu) {
-    Object.entries(B.menuQty).forEach(([name,qty])=>{
-      const m=B.menus.find(x=>x.name===name);
-      sub+=(m?(parseFloat(m.price)||0):0)*qty;
-    });
-  }
-  const svc=p.serviceOn?Math.round(sub*(parseFloat(p.servicePct)||0)/100):0;
-  const ppn=p.ppnOn?Math.round(sub*(parseFloat(p.ppnPct)||0)/100):0;
-  const tot=sub+svc+ppn;
-  let dpReq=0;
-  if(p.dpMode==='nominal') dpReq=parseFloat(p.dpNominal)||0;
-  else dpReq=Math.round(tot*(parseFloat(p.dpPersen)||0)/100);
-  return {subtotal:sub,service:svc,ppn,total:tot,dpRequested:dpReq};
-}
-
-/* ══════════════════════════════════════════════════
-   STEP NAVIGATION
-   ══════════════════════════════════════════════════ */
-const STEP_TITLES = ['Pilih Tanggal','Pilih Jam','Lokasi & Menu','Konfirmasi'];
-const TOTAL_STEPS = 4;
-
-function goToStep(n, direction) {
-  const prev = $('step-'+B.step);
-  const next = $('step-'+n) || $('step-success');
-
-  if (prev) {
-    prev.classList.remove('active');
-    prev.classList.add(direction==='forward'?'exit-left':'exit-right');
-    setTimeout(()=>{ prev.classList.remove('exit-left','exit-right'); },320);
-  }
-  if (next) {
-    next.style.transform = direction==='forward'?'translateX(40px)':'translateX(-40px)';
-    next.style.opacity = '0';
-    requestAnimationFrame(()=>{
-      next.classList.add('active');
-    });
-  }
-
-  B.step = n;
-
-  /* Progress */
-  const isSuccess = n==='success';
-  $('bk-progress').style.display = isSuccess?'none':'block';
-  $('bk-footer').style.display   = isSuccess?'none':'flex';
-  if(!isSuccess && n<=TOTAL_STEPS) {
-    $('bk-step-title').textContent   = STEP_TITLES[n-1];
-    $('bk-step-num').textContent     = n+' / '+TOTAL_STEPS;
-    $('bk-progress-fill').style.width = (n/TOTAL_STEPS*100)+'%';
-  }
-
-  /* Tombol footer */
-  const backBtn = $('btn-back');
-  const nextBtn = $('btn-next');
-  if(backBtn) backBtn.style.display = n>1?'flex':'none';
-  if(nextBtn) {
-    if(n===TOTAL_STEPS) {
-      nextBtn.innerHTML = '<i class="fas fa-check-circle"></i> Kirim Reservasi';
-    } else {
-      nextBtn.innerHTML = 'Lanjut <i class="fas fa-arrow-right"></i>';
+/* ── Billing ── */
+function calcBill(){
+  var p=B.pay, sub=0;
+  if(!B.skip){
+    var keys=Object.keys(B.qty);
+    for(var i=0;i<keys.length;i++){
+      var q=B.qty[keys[i]]; if(!q) continue;
+      var m=null;
+      for(var j=0;j<B.menus.length;j++){ if(B.menus[j].name===keys[i]){ m=B.menus[j]; break; } }
+      sub += (m ? (parseFloat(m.price)||0) : 0) * q;
     }
   }
+  var svc = p.serviceOn ? Math.round(sub*(parseFloat(p.servicePct)||0)/100) : 0;
+  var ppn = p.ppnOn     ? Math.round(sub*(parseFloat(p.ppnPct)||0)/100)     : 0;
+  var tot = sub+svc+ppn;
+  var dp  = (p.dpMode==='nominal') ? (parseFloat(p.dpNominal)||0) : Math.round(tot*(parseFloat(p.dpPersen)||0)/100);
+  return {sub:sub,svc:svc,ppn:ppn,tot:tot,dp:dp};
+}
 
-  /* Render konten sesuai step */
+/* ═══════════════════════════════════════
+   NAVIGASI STEP
+   ═══════════════════════════════════════ */
+var TITLES=['Pilih Tanggal','Pilih Jam','Lokasi & Menu','Konfirmasi'];
+
+function goStep(n, dir){
+  var prevEl = ge('st'+B.step) || ge('st-ok');
+  var nextEl = (n==='ok') ? ge('st-ok') : ge('st'+n);
+  if(prevEl){
+    prevEl.classList.remove('active');
+    prevEl.classList.add('out-l');
+    setTimeout(function(){ prevEl.classList.remove('out-l'); }, 300);
+  }
+  if(nextEl){
+    nextEl.style.transform = (dir==='fwd') ? 'translateX(32px)' : 'translateX(-32px)';
+    nextEl.style.opacity   = '0';
+    /* rAF untuk trigger transition */
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        nextEl.classList.add('active');
+      });
+    });
+  }
+  B.step = n;
+  var isOk = (n==='ok');
+  ge('prg').style.display = isOk ? 'none' : 'block';
+  ge('ftr').style.display = isOk ? 'none' : 'flex';
+  if(!isOk){
+    ge('prg-title').textContent = TITLES[n-1];
+    ge('prg-num').textContent   = n+' / 4';
+    ge('prg-fill').style.width  = (n/4*100)+'%';
+    ge('btn-back').style.display= n>1 ? 'flex' : 'none';
+    var nb=ge('btn-next');
+    nb.innerHTML = n===4 ?
+      '<i class="fas fa-check-circle"></i> Kirim Reservasi' :
+      'Lanjut <i class="fas fa-arrow-right"></i>';
+  }
+  /* Scroll top step */
+  if(nextEl) nextEl.scrollTop=0;
+  /* Render */
   if(n===1) renderStep1();
   if(n===2) renderStep2();
   if(n===3) renderStep3();
   if(n===4) renderStep4();
-
-  /* Scroll ke atas */
-  const wrap=$('bk-steps-wrap');
-  if(wrap) {
-    const activeEl=document.querySelector('.bk-step.active');
-    if(activeEl) activeEl.scrollTop=0;
-  }
 }
 
-window.nextStep = function() {
+function showErr(id, msg){
+  ge(id).innerHTML='<div class="err-box"><i class="fas fa-exclamation-circle"></i><span>'+esc(msg)+'</span></div>';
+  ge(id).scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function clearErr(){ ['e1','e2','e3','e4'].forEach(function(id){ ge(id).innerHTML=''; }); }
+
+/* Next / Prev */
+ge('btn-next').onclick = function(){
   clearErr();
-  if(B.step===1) {
-    if(!B.selDate) { showErr('step1-err','Pilih tanggal terlebih dahulu.'); return; }
-    goToStep(2,'forward');
-  } else if(B.step===2) {
-    if(!B.selSlot) { showErr('step2-err','Pilih jam terlebih dahulu.'); return; }
-    goToStep(3,'forward');
-  } else if(B.step===3) {
-    if(!B.selLocs.length) { showErr('step3-err', isTableMode()?'Pilih minimal 1 meja.':'Pilih lokasi terlebih dahulu.'); return; }
-    if(!B.jumlah||B.jumlah<1) { showErr('step3-err','Tentukan jumlah tamu.'); return; }
-    /* Validasi minGuests */
-    for(const locName of B.selLocs) {
-      const loc=B.locs.find(l=>l.name===locName);
-      if(loc&&B.jumlah<(parseInt(loc.minGuests)||1)) {
-        showErr('step3-err','Minimum tamu untuk '+loc.name+' adalah '+(loc.minGuests||1)+' orang.'); return;
+  if(B.step===1){
+    if(!B.date){ showErr('e1','Pilih tanggal terlebih dahulu.'); return; }
+    goStep(2,'fwd');
+  } else if(B.step===2){
+    if(!B.slot){ showErr('e2','Pilih jam terlebih dahulu.'); return; }
+    goStep(3,'fwd');
+  } else if(B.step===3){
+    if(!B.lsel.length){ showErr('e3', isTable()?'Pilih minimal 1 meja.':'Pilih lokasi terlebih dahulu.'); return; }
+    if(B.pax<1){ showErr('e3','Jumlah tamu minimal 1.'); return; }
+    for(var i=0;i<B.lsel.length;i++){
+      var ln=B.lsel[i], loc=null;
+      for(var j=0;j<B.locs.length;j++){ if(B.locs[j].name===ln){ loc=B.locs[j]; break; } }
+      if(loc && B.pax<(parseInt(loc.minGuests)||1)){
+        showErr('e3','Minimum tamu untuk '+ln+' adalah '+(loc.minGuests||1)+' orang.'); return;
       }
     }
-    if(B.jumlah>500) { showErr('step3-err','Jumlah tamu maksimum 500 orang.'); return; }
-    goToStep(4,'forward');
-  } else if(B.step===4) {
-    submitBooking();
+    if(B.pax>500){ showErr('e3','Jumlah tamu maksimum 500.'); return; }
+    goStep(4,'fwd');
+  } else if(B.step===4){
+    doSubmit();
   }
 };
-
-window.prevStep = function() {
-  if(B.step<=1) return;
+ge('btn-back').onclick = function(){
   clearErr();
-  goToStep(B.step-1,'backward');
+  goStep(B.step-1,'bwd');
 };
 
-function showErr(id, msg) {
-  const el=$(id); if(!el) return;
-  el.innerHTML = '<div class="bk-err"><i class="fas fa-exclamation-circle"></i><span>'+esc(msg)+'</span></div>';
-  el.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-function clearErr() {
-  ['step1-err','step2-err','step3-err','step4-err'].forEach(id=>{
-    const el=$(id); if(el) el.innerHTML='';
-  });
-}
-
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════
    RENDER STEP 1 — KALENDER
-   ══════════════════════════════════════════════════ */
-async function renderStep1() {
-  const m=B.month,y=B.year;
-  $('cal-month-label').textContent = MONTHS[m]+' '+y;
-
-  /* Load data bulan ini jika belum ada */
-  const mk=mkStr(y,m);
-  if(!B.dayRes[mk]) {
-    await loadMonthRes(mk);
-    renderCalGrid(y,m);
+   ═══════════════════════════════════════ */
+function renderStep1(){
+  ge('cal-label').textContent = MONTHS[B.m]+' '+B.y;
+  var mk=mkStr(B.y,B.m);
+  if(B.res[mk]===undefined){
+    loadMonth(mk, function(){ renderCal(B.y,B.m); });
   } else {
-    renderCalGrid(y,m);
+    renderCal(B.y,B.m);
   }
 }
 
-function renderCalGrid(y,m) {
-  const grid=$('bk-cal-grid'); if(!grid) return;
-  const first=new Date(y,m,1).getDay();
-  const days=new Date(y,m+1,0).getDate();
-  const today=todayStr();
-  let html='';
-  for(let i=0;i<first;i++) html+='<div class="bk-cal-day empty"></div>';
-  for(let d=1;d<=days;d++){
-    const ds=y+'-'+pad2(m+1)+'-'+pad2(d);
-    const isToday=ds===today, isPast=ds<today, isClosed=isDateClosed(ds);
-    const isSel=ds===B.selDate;
-    let cls='bk-cal-day';
-    if(isSel)     cls+=' selected';
-    else if(isToday) cls+=' today';
-    if(isPast)    cls+=' past';
-    if(isClosed)  cls+=' closed';
-    else if(!isPast){
-      const status=getDateStatus(ds);
-      if(status==='full')   cls+=' full';
-      else if(status==='busy')  cls+=' busy';
+function renderCal(y,m){
+  var grid=ge('cal-grid'); if(!grid) return;
+  var first=new Date(y,m,1).getDay();
+  var days =new Date(y,m+1,0).getDate();
+  var td   =today();
+  var html='';
+  for(var i=0;i<first;i++) html+='<div class="cal-day empty"></div>';
+  for(var d=1;d<=days;d++){
+    var ds=y+'-'+pad2(m+1)+'-'+pad2(d);
+    var isSel=(ds===B.date), isTd=(ds===td), ip=isPast(ds), ic=isClosed(ds);
+    var cls='cal-day';
+    if(isSel) cls+=' sel';
+    else if(isTd) cls+=' today';
+    if(ip)  cls+=' past';
+    if(ic)  cls+=' closed';
+    else if(!ip){
+      var st=dateStatus(ds);
+      if(st==='full') cls+=' full';
+      else if(st==='busy') cls+=' busy';
     }
-    const hasRes=getResForDate(ds).length>0;
-    if(hasRes&&!isSel) cls+=' has-res';
-    const clickable=!isPast&&!isClosed;
-    html+='<div class="'+cls+'"'+(clickable?' onclick="selDate(\''+ds+'\')"':'')+'>'+d+'</div>';
+    var click=(ip||ic)?'':' onclick="pickDate(\''+ds+'\')"';
+    html+='<div class="'+cls+'"'+click+'>'+d+'</div>';
   }
   grid.innerHTML=html;
 }
 
-window.selDate = function(ds) {
-  B.selDate=ds; B.selSlot=null; B.selLocs=[]; B.menuQty={};
-  renderCalGrid(B.year,B.month);
+window.pickDate = function(ds){
+  B.date=ds; B.slot=null; B.lsel=[]; B.qty={};
+  renderCal(B.y,B.m);
 };
 
-window.navMonth = async function(d) {
-  B.month+=d;
-  if(B.month<0){B.month=11;B.year--;}
-  if(B.month>11){B.month=0;B.year++;}
-  const mk=mkStr(B.year,B.month);
-  if(!B.dayRes[mk]) await loadMonthRes(mk);
-  renderStep1();
+ge('cal-prev').onclick = function(){
+  B.m--; if(B.m<0){ B.m=11; B.y--; }
+  var mk=mkStr(B.y,B.m);
+  if(B.res[mk]===undefined){ loadMonth(mk, function(){ renderStep1(); }); }
+  else renderStep1();
+};
+ge('cal-next').onclick = function(){
+  B.m++; if(B.m>11){ B.m=0; B.y++; }
+  var mk=mkStr(B.y,B.m);
+  if(B.res[mk]===undefined){ loadMonth(mk, function(){ renderStep1(); }); }
+  else renderStep1();
 };
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════
    RENDER STEP 2 — JAM
-   ══════════════════════════════════════════════════ */
-function renderStep2() {
-  $('step2-date-label').textContent = formatDateFull(B.selDate);
-  const slots=getAllDaySlots(B.selDate);
-  const slotsEl=$('bk-slots'), emptyEl=$('step2-empty');
-  if(!slots.length){
-    slotsEl.innerHTML=''; slotsEl.style.display='none';
-    emptyEl.style.display='block'; return;
+   ═══════════════════════════════════════ */
+function renderStep2(){
+  ge('s2-date').textContent = fmtDate(B.date);
+  var sl=allSlots(B.date);
+  var sEl=ge('slots'), emEl=ge('s2-empty');
+  if(!sl.length){
+    sEl.innerHTML=''; sEl.style.display='none'; emEl.style.display='block'; return;
   }
-  emptyEl.style.display='none'; slotsEl.style.display='grid';
-  slotsEl.innerHTML=slots.map(s=>{
-    const isSel=s===B.selSlot;
-    return'<div class="bk-slot'+(isSel?' selected':'')+'" onclick="selSlot(\''+s+'\')">'+s+'</div>';
-  }).join('');
+  emEl.style.display='none'; sEl.style.display='grid';
+  var html='';
+  for(var i=0;i<sl.length;i++){
+    var s=sl[i], isSel=(s===B.slot);
+    html+='<div class="slot'+(isSel?' sel':'')+'" onclick="pickSlot(\''+s+'\')">'+s+'</div>';
+  }
+  sEl.innerHTML=html;
 }
 
-window.selSlot = function(s) {
-  B.selSlot=s; B.selLocs=[]; B.menuQty={};
-  /* Validasi min advance */
-  if(B.ops.minAdvance) {
-    const resTime=new Date(B.selDate+'T'+s).getTime();
-    const minMs=(B.ops.minAdvance||0)*3600000;
-    if(resTime-Date.now()<minMs) {
-      showErr('step2-err','Reservasi minimal '+B.ops.minAdvance+' jam sebelumnya. Pilih jam lain.');
-      B.selSlot=null; renderStep2(); return;
+window.pickSlot = function(s){
+  if(B.ops.minAdvance){
+    var rt=new Date(B.date+'T'+s).getTime();
+    if(rt-Date.now() < B.ops.minAdvance*3600000){
+      showErr('e2','Booking minimal '+B.ops.minAdvance+' jam sebelumnya. Pilih jam lain.'); return;
     }
   }
+  B.slot=s; B.lsel=[]; B.qty={};
   renderStep2();
 };
 
-/* ══════════════════════════════════════════════════
-   RENDER STEP 3 — LOKASI + JUMLAH + MENU
-   ══════════════════════════════════════════════════ */
-function renderStep3() {
-  $('step3-datetime-label').textContent = formatDateFull(B.selDate)+' · '+B.selSlot;
+/* ═══════════════════════════════════════
+   RENDER STEP 3 — LOKASI + TAMU + MENU
+   ═══════════════════════════════════════ */
+function renderStep3(){
+  ge('s3-dt').textContent = fmtDate(B.date)+' · '+B.slot;
+  var itable=isTable();
+  ge('s3-loctitle').innerHTML='<i class="fas fa-'+(itable?'chair':'map-marker-alt')+'"></i> Pilih '+(itable?'Meja':'Lokasi');
   renderLocs();
   renderMenus();
-  updatePaxUI();
-  updateCapSummary();
+  renderPax();
+  renderCapSum();
 }
 
-function renderLocs() {
-  const isTable=isTableMode();
-  $('step3-loc-title').innerHTML='<i class="fas fa-'+(isTable?'chair':'map-marker-alt')+'"></i> Pilih '+(isTable?'Meja':'Lokasi');
-  const el=$('bk-locs'); if(!el) return;
-  el.innerHTML=B.locs.map(function(loc){
-    var slots=getAvailableSlots(loc.name,B.selDate);
-    var isFull=!slots.includes(B.selSlot);
-    var isSel=B.selLocs.includes(loc.name);
+function renderLocs(){
+  var el=ge('locs'); if(!el) return;
+  var itable=isTable();
+  var html='';
+  for(var i=0;i<B.locs.length;i++){
+    var loc=B.locs[i];
+    var sl=availSlots(loc.name, B.date);
+    var full=!slotIn(sl,B.slot);
+    var sel=arrIn(B.lsel, loc.name);
     var cap=parseInt(loc.capacity)||0;
-    var safeName=esc(loc.name);
-    var cls='bk-loc-item'+(isFull?' full':isSel?' selected':'');
-    var iconType=isTable?'chair':'map-marker-alt';
-    var capInfo=cap+' orang'+(loc.minGuests?' · Min. '+loc.minGuests+' org':'')+(loc.openTime?' · '+loc.openTime+'-'+(loc.closeTime||'...'):'');
-    var html='<div class="'+cls+'"'+(isFull?'':' data-loc="'+safeName+'" onclick="toggleLoc(this)"')+'>'
-      +'<div class="bk-loc-left">'
-      +'<div class="bk-loc-icon"><i class="fas fa-'+iconType+'"></i></div>'
-      +'<div>'
-      +'<div class="bk-loc-name">'+safeName+'</div>'
-      +'<div class="bk-loc-cap">'+capInfo+'</div>'
-      +'</div></div>'
-      +'<div style="display:flex;align-items:center;gap:8px">'
-      +'<span class="bk-loc-badge '+(isFull?'full':'avail')+'">'+(isFull?'Penuh':'Tersedia')+'</span>'
-      +(isSel?'<i class="fas fa-check-circle bk-loc-check"></i>':'')
-      +'</div></div>';
-    return html;
-  }).join('');
+    var ci=cap+' orang';
+    if(loc.minGuests) ci+=' · Min. '+loc.minGuests;
+    if(loc.openTime) ci+=' · '+loc.openTime+'-'+(loc.closeTime||'...');
+    var cls='loc-item'+(full?' full':sel?' sel':'');
+    var click=full?'':' onclick="pickLoc(\''+esc(loc.name)+'\')"';
+    var badge=full?'<span class="loc-badge no">Penuh</span>':'<span class="loc-badge ok">Tersedia</span>';
+    var chk=sel?'<i class="fas fa-check-circle" style="color:var(--ac)"></i>':'';
+    html+='<div class="'+cls+'"'+click+'>'
+      +'<div class="loc-left">'
+      +'<div class="loc-ico"><i class="fas fa-'+(itable?'chair':'map-marker-alt')+'"></i></div>'
+      +'<div><div class="loc-name">'+esc(loc.name)+'</div><div class="loc-cap">'+esc(ci)+'</div></div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:7px">'+badge+chk+'</div>'
+      +'</div>';
+  }
+  el.innerHTML=html;
 }
 
-window.toggleLoc = function(el) {
-  var raw = el.getAttribute('data-loc');
-  var d=document.createElement('div'); d.innerHTML=raw;
-  var name=d.textContent;
-  if(isTableMode()) {
-    var idx=B.selLocs.indexOf(name);
-    if(idx>=0) B.selLocs.splice(idx,1);
-    else B.selLocs.push(name);
+function slotIn(arr,s){ for(var i=0;i<arr.length;i++) if(arr[i]===s) return true; return false; }
+function arrIn(arr,v){ for(var i=0;i<arr.length;i++) if(arr[i]===v) return true; return false; }
+
+window.pickLoc = function(name){
+  if(isTable()){
+    var idx=-1;
+    for(var i=0;i<B.lsel.length;i++) if(B.lsel[i]===name){ idx=i; break; }
+    if(idx>=0) B.lsel.splice(idx,1);
+    else B.lsel.push(name);
   } else {
-    B.selLocs=[name];
+    B.lsel=[name];
   }
-  updateCapSummary();
-  updatePaxUI();
   renderLocs();
+  renderPax();
+  renderCapSum();
 };
 
-function updateCapSummary() {
-  const el=$('step3-cap-summary'), txt=$('step3-cap-text');
-  if(!isTableMode()||!B.selLocs.length){if(el)el.style.display='none';return;}
-  const totalCap=B.selLocs.reduce((s,n)=>{
-    const l=B.locs.find(x=>x.name===n);
-    return s+(l?parseInt(l.capacity)||0:0);
-  },0);
-  const ok=B.jumlah===0||B.jumlah<=totalCap;
-  if(el) el.style.display='flex';
-  if(txt) txt.innerHTML='Kapasitas gabungan: <strong>'+totalCap+' orang</strong>'
-    +(B.jumlah>0?' · Tamu: '+B.jumlah+' '+(ok?'✅':'⚠️ Melebihi kapasitas'):'');
+function renderCapSum(){
+  var el=ge('cap-sum');
+  if(!isTable()||!B.lsel.length){ el.style.display='none'; return; }
+  var tot=0;
+  for(var i=0;i<B.lsel.length;i++){
+    for(var j=0;j<B.locs.length;j++){
+      if(B.locs[j].name===B.lsel[i]){ tot+=parseInt(B.locs[j].capacity)||0; break; }
+    }
+  }
+  var ok=(B.pax<=tot);
+  el.style.display='block';
+  el.innerHTML='Kapasitas gabungan: <strong>'+tot+' orang</strong> · Tamu: '+B.pax+' '+(ok?'✅':'⚠️ Melebihi kapasitas');
 }
 
-function renderMenus() {
-  const el=$('bk-menus'); if(!el) return;
-  const avail=B.menus.filter(m=>m.available!==false);
+function renderPax(){
+  ge('pax-val').textContent=B.pax;
+  var hEl=ge('pax-hint');
+  if(!B.lsel.length){ hEl.textContent=''; return; }
+  var ln=B.lsel[0], loc=null;
+  for(var i=0;i<B.locs.length;i++) if(B.locs[i].name===ln){ loc=B.locs[i]; break; }
+  if(!loc){ hEl.textContent=''; return; }
+  var cap=parseInt(loc.capacity)||0, mn=parseInt(loc.minGuests)||1;
+  if(B.pax>cap) hEl.innerHTML='<span style="color:var(--err)">⚠️ Melebihi kapasitas '+cap+' orang</span>';
+  else if(B.pax<mn) hEl.innerHTML='<span style="color:var(--warn)">⚠️ Minimum '+mn+' orang</span>';
+  else hEl.innerHTML='<span style="color:var(--ok)">✅ Sesuai kapasitas</span>';
+}
+
+ge('pax-minus').onclick=function(){ B.pax=Math.max(1,B.pax-1); renderPax(); renderCapSum(); };
+ge('pax-plus' ).onclick=function(){ B.pax=Math.min(500,B.pax+1); renderPax(); renderCapSum(); };
+
+function renderMenus(){
+  var el=ge('menus'); if(!el) return;
+  var avail=[];
+  for(var i=0;i<B.menus.length;i++) if(B.menus[i].available!==false) avail.push(B.menus[i]);
   if(!avail.length){
-    el.innerHTML='<div style="font-size:.82rem;color:var(--ink-4);text-align:center;padding:12px">Belum ada menu tersedia.</div>';
+    el.innerHTML='<div style="font-size:.82rem;color:#94a3b8;text-align:center;padding:12px">Belum ada menu tersedia.</div>';
     return;
   }
-  el.innerHTML=avail.map(function(m){
-    var qty=B.menuQty[m.name]||0;
-    var details=(m.details||[]).join(', ');
-    var safeName=esc(m.name);
-    var html='<div class="bk-menu-item">'
-      +'<div class="bk-menu-info">'
-      +'<div class="bk-menu-name">'+safeName+'</div>'
-      +(m.price?'<div class="bk-menu-price">Rp '+formatRp(m.price)+'</div>':'')
-      +(details?'<div class="bk-menu-details">'+esc(details)+'</div>':'')
+  var html='';
+  for(var i=0;i<avail.length;i++){
+    var m=avail[i], q=B.qty[m.name]||0;
+    var det=(m.details||[]).join(', ');
+    html+='<div class="menu-row">'
+      +'<div class="menu-info">'
+      +'<div class="menu-name">'+esc(m.name)+'</div>'
+      +(m.price?'<div class="menu-price">Rp '+fmtRp(m.price)+'</div>':'')
+      +(det?'<div class="menu-det">'+esc(det)+'</div>':'')
       +'</div>'
-      +'<div class="bk-qty">'
-      +'<button class="bk-qty-btn" onclick="changeQty(this)" data-name="'+safeName+'" data-delta="-1"'+(qty<=0?' disabled':'')+'>'
-      +'<i class="fas fa-minus" style="font-size:.7rem"></i>'
-      +'</button>'
-      +'<div class="bk-qty-val">'+qty+'</div>'
-      +'<button class="bk-qty-btn" onclick="changeQty(this)" data-name="'+safeName+'" data-delta="1">'
-      +'<i class="fas fa-plus" style="font-size:.7rem"></i>'
-      +'</button>'
+      +'<div class="qty">'
+      +'<button class="qty-btn" onclick="adjQty(\''+esc(m.name)+'\',-1)"'+(q<=0?' disabled':'')+' style="font-size:.72rem"><i class="fas fa-minus"></i></button>'
+      +'<div class="qty-val">'+q+'</div>'
+      +'<button class="qty-btn" onclick="adjQty(\''+esc(m.name)+'\',1)" style="font-size:.72rem"><i class="fas fa-plus"></i></button>'
       +'</div>'
       +'</div>';
-    return html;
-  }).join('');
-  /* Update tampilan skip */
-  const skipBtn=$('btn-skip-menu');
-  if(skipBtn) skipBtn.className='bk-skip-menu'+(B.skipMenu?' active':'');
-}
-
-window.changeQty = function(btn) {
-  if(B.skipMenu) return;
-  var name = btn.getAttribute('data-name');
-  var delta = parseInt(btn.getAttribute('data-delta'))||0;
-  /* Decode HTML entities dari nama */
-  var d=document.createElement('div'); d.innerHTML=name;
-  var realName=d.textContent;
-  var cur=B.menuQty[realName]||0;
-  var next=Math.max(0,cur+delta);
-  if(next===0) delete B.menuQty[realName];
-  else B.menuQty[realName]=next;
-  renderMenus();
-};
-
-window.toggleSkipMenu = function() {
-  B.skipMenu=!B.skipMenu;
-  if(B.skipMenu) B.menuQty={};
-  renderMenus();
-};
-
-window.changePax = function(delta) {
-  B.jumlah=Math.max(1,Math.min(500,B.jumlah+delta));
-  updatePaxUI();
-  updateCapSummary();
-};
-
-function updatePaxUI() {
-  const val=$('pax-val'); if(val) val.textContent=B.jumlah;
-  /* Hint kapasitas lokasi terpilih */
-  const hintEl=$('pax-hint'); if(!hintEl) return;
-  if(B.selLocs.length===0) { hintEl.textContent=''; return; }
-  const loc=B.locs.find(l=>l.name===B.selLocs[0]);
-  if(!loc) return;
-  const cap=parseInt(loc.capacity)||0;
-  const mn=parseInt(loc.minGuests)||1;
-  if(B.jumlah>cap) hintEl.innerHTML='<span style="color:var(--danger)">⚠️ Melebihi kapasitas '+cap+' orang</span>';
-  else if(B.jumlah<mn) hintEl.innerHTML='<span style="color:var(--warning)">⚠️ Minimum '+mn+' orang</span>';
-  else hintEl.innerHTML='<span style="color:var(--success)">✅ Sesuai kapasitas</span>';
-}
-
-/* ══════════════════════════════════════════════════
-   RENDER STEP 4 — KONFIRMASI
-   ══════════════════════════════════════════════════ */
-function renderStep4() {
-  /* Sync nilai dari input jika sudah pernah diisi */
-  const namaEl=$('bk-nama'), hpEl=$('bk-hp'), catEl=$('bk-catatan');
-  if(namaEl&&B.nama) namaEl.value=B.nama;
-  if(hpEl&&B.hp) hpEl.value=B.hp;
-  if(catEl&&B.catatan) catEl.value=B.catatan;
-
-  /* Ringkasan */
-  const tempats=B.selLocs.join(', ');
-  const menuStr=B.skipMenu?'Tidak pesan menu'
-    :Object.entries(B.menuQty).filter(([,q])=>q>0).map(([n,q])=>q+'x '+n).join(', ')||'Tidak pesan menu';
-
-  $('bk-summary').innerHTML=''
-    +'<div class="bk-summary-row"><i class="fas fa-calendar-alt"></i><span class="bk-summary-val">'+esc(formatDateFull(B.selDate))+'</span></div>'
-    +'<div class="bk-summary-row"><i class="fas fa-clock"></i><span class="bk-summary-val">'+esc(B.selSlot)+'</span></div>'
-    +'<div class="bk-summary-row"><i class="fas fa-map-marker-alt"></i><span class="bk-summary-val">'+esc(tempats)+'</span></div>'
-    +'<div class="bk-summary-row"><i class="fas fa-users"></i><span class="bk-summary-val">'+B.jumlah+' orang</span></div>'
-    +'<div class="bk-summary-row"><i class="fas fa-utensils"></i><span class="bk-summary-val">'+esc(menuStr)+'</span></div>';
-
-  /* Billing */
-  const bill=calcBilling();
-  const billingEl=$('bk-billing-box');
-  if(bill.total>0&&!B.skipMenu) {
-    const p=B.payment;
-    let html='<div class="bk-billing-box">';
-    html+='<div class="bk-billing-row"><span>Subtotal</span><span>Rp '+formatRp(bill.subtotal)+'</span></div>';
-    if(p.serviceOn) html+='<div class="bk-billing-row"><span>Service ('+p.servicePct+'%)</span><span>Rp '+formatRp(bill.service)+'</span></div>';
-    if(p.ppnOn)     html+='<div class="bk-billing-row"><span>PPN ('+p.ppnPct+'%)</span><span>Rp '+formatRp(bill.ppn)+'</span></div>';
-    html+='<div class="bk-billing-row bk-billing-total"><span>Total</span><span>Rp '+formatRp(bill.total)+'</span></div>';
-    if(bill.dpRequested>0) {
-      const dpLabel=p.dpMode==='nominal'?'DP (nominal tetap)':'DP ('+(p.dpPersen||30)+'%)';
-      html+='<div class="bk-billing-row" style="color:var(--ac);font-weight:700"><span>'+dpLabel+'</span><span>Rp '+formatRp(bill.dpRequested)+'</span></div>';
-    }
-    if(p.bankName&&p.bankNo) {
-      html+='<div class="bk-billing-bank">Transfer DP ke: <strong>'+esc(p.bankName)+'</strong> · '+esc(p.bankNo)+(p.bankOwner?' · a.n. '+esc(p.bankOwner):'')+'</div>';
-    }
-    html+='</div>';
-    billingEl.innerHTML=html;
-  } else {
-    billingEl.innerHTML='';
   }
+  el.innerHTML=html;
+  ge('skip-btn').className='skip-btn'+(B.skip?' on':'');
 }
 
-/* ══════════════════════════════════════════════════
+window.adjQty = function(name, d){
+  if(B.skip) return;
+  var cur=B.qty[name]||0, next=Math.max(0,cur+d);
+  if(next===0) delete B.qty[name];
+  else B.qty[name]=next;
+  renderMenus();
+};
+
+ge('skip-btn').onclick=function(){
+  B.skip=!B.skip;
+  if(B.skip) B.qty={};
+  renderMenus();
+};
+
+/* ═══════════════════════════════════════
+   RENDER STEP 4 — KONFIRMASI
+   ═══════════════════════════════════════ */
+function renderStep4(){
+  var naEl=ge('f-nama'), hpEl=ge('f-hp'), caEl=ge('f-cat');
+  if(naEl&&B.nama) naEl.value=B.nama;
+  if(hpEl&&B.hp)   hpEl.value=B.hp;
+  if(caEl&&B.cat)  caEl.value=B.cat;
+  var tp=B.lsel.join(', ');
+  var ms=B.skip?'Tidak pesan menu':'';
+  if(!B.skip){
+    var parts=[];
+    var keys=Object.keys(B.qty);
+    for(var i=0;i<keys.length;i++) if(B.qty[keys[i]]>0) parts.push(B.qty[keys[i]]+'x '+keys[i]);
+    ms=parts.length?parts.join(', '):'Tidak pesan menu';
+  }
+  ge('sum').innerHTML=
+    '<div class="sum-row"><i class="fas fa-calendar-alt"></i><span class="sum-val">'+esc(fmtDate(B.date))+'</span></div>'
+   +'<div class="sum-row"><i class="fas fa-clock"></i><span class="sum-val">'+esc(B.slot)+'</span></div>'
+   +'<div class="sum-row"><i class="fas fa-map-marker-alt"></i><span class="sum-val">'+esc(tp)+'</span></div>'
+   +'<div class="sum-row"><i class="fas fa-users"></i><span class="sum-val">'+B.pax+' orang</span></div>'
+   +'<div class="sum-row"><i class="fas fa-utensils"></i><span class="sum-val">'+esc(ms)+'</span></div>';
+  var bill=calcBill();
+  var bEl=ge('bill-box');
+  if(bill.tot>0&&!B.skip){
+    var p=B.pay, h='<div class="bill">';
+    h+='<div class="bill-row"><span>Subtotal</span><span>Rp '+fmtRp(bill.sub)+'</span></div>';
+    if(p.serviceOn) h+='<div class="bill-row"><span>Service ('+p.servicePct+'%)</span><span>Rp '+fmtRp(bill.svc)+'</span></div>';
+    if(p.ppnOn)     h+='<div class="bill-row"><span>PPN ('+p.ppnPct+'%)</span><span>Rp '+fmtRp(bill.ppn)+'</span></div>';
+    h+='<div class="bill-row bill-tot"><span>Total</span><span>Rp '+fmtRp(bill.tot)+'</span></div>';
+    if(bill.dp>0){
+      var dl=p.dpMode==='nominal'?'DP (nominal tetap)':'DP ('+(p.dpPersen||30)+'%)';
+      h+='<div class="bill-row" style="color:var(--ac);font-weight:700"><span>'+dl+'</span><span>Rp '+fmtRp(bill.dp)+'</span></div>';
+    }
+    if(p.bankName&&p.bankNo){
+      h+='<div class="bill-bank">Transfer DP ke: <strong>'+esc(p.bankName)+'</strong> · '+esc(p.bankNo)+(p.bankOwner?' · a.n. '+esc(p.bankOwner):'')+'</div>';
+    }
+    h+='</div>';
+    bEl.innerHTML=h;
+  } else { bEl.innerHTML=''; }
+}
+
+/* ═══════════════════════════════════════
    SUBMIT
-   ══════════════════════════════════════════════════ */
-async function submitBooking() {
-  if(window._bkSubmitting) return;
-
-  /* Baca nilai form */
-  var _nama=$('bk-nama'); B.nama=(_nama?_nama.value:'').trim();
-  var _hp=$('bk-hp'); B.hp=(_hp?_hp.value:'').trim();
-  var _cat=$('bk-catatan'); B.catatan=(_cat?_cat.value:'').trim();
-
-  /* Validasi */
-  if(!B.nama) { showErr('step4-err','Nama wajib diisi.'); return; }
-  const hpClean=B.hp.replace(/[\s\-+()]/g,'').replace(/^\+/,'');
-  if(!B.hp||!/^\d{9,15}$/.test(hpClean)) { showErr('step4-err','Nomor WhatsApp tidak valid. Contoh: 08123456789'); return; }
-
-  window._bkSubmitting=true;
-  const nextBtn=$('btn-next');
-  if(nextBtn){nextBtn.disabled=true;nextBtn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Mengirim...';}
-
-  try {
-    /* Cek konflik live terakhir */
-    const mk=B.selDate.substring(0,7);
-    const freshRes = await loadMonthRes(mk);
-    B.dayRes[mk]=freshRes; /* update cache */
-    for(const locName of B.selLocs) {
-      const slots=getAvailableSlots(locName,B.selDate);
-      if(!slots.includes(B.selSlot)) {
-        showErr('step4-err','Maaf, slot '+B.selSlot+' di '+locName+' baru saja dipesan. Silakan pilih jam lain.');
-        window._bkSubmitting=false;
-        if(nextBtn){nextBtn.disabled=false;nextBtn.innerHTML='<i class="fas fa-check-circle"></i> Kirim Reservasi';}
-        /* Kembali ke step 2 */
-        B.selSlot=null; B.selLocs=[];
-        setTimeout(()=>goToStep(2,'backward'),1500);
-        return;
+   ═══════════════════════════════════════ */
+function doSubmit(){
+  if(window._sub) return;
+  var naEl=ge('f-nama'), hpEl=ge('f-hp'), caEl=ge('f-cat');
+  B.nama=(naEl?naEl.value:'').replace(/^\s+|\s+$/g,'');
+  B.hp  =(hpEl?hpEl.value:'').replace(/^\s+|\s+$/g,'');
+  B.cat =(caEl?caEl.value:'').replace(/^\s+|\s+$/g,'');
+  if(!B.nama){ showErr('e4','Nama wajib diisi.'); return; }
+  var hpc=B.hp.replace(/[\s\-\+\(\)]/g,'');
+  if(hpc.charAt(0)==='+') hpc=hpc.slice(1);
+  if(!hpc||!/^\d{9,15}$/.test(hpc)){ showErr('e4','Nomor WhatsApp tidak valid. Contoh: 08123456789'); return; }
+  window._sub=true;
+  var nb=ge('btn-next');
+  nb.disabled=true;
+  nb.innerHTML='<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+  /* Cek konflik live */
+  var mk=B.date.substring(0,7);
+  loadMonth(mk, function(){
+    var ok=true;
+    for(var i=0;i<B.lsel.length;i++){
+      var sl=availSlots(B.lsel[i],B.date);
+      if(!slotIn(sl,B.slot)){
+        showErr('e4','Slot '+B.slot+' di '+B.lsel[i]+' baru saja dipesan. Silakan pilih jam lain.');
+        window._sub=false; nb.disabled=false;
+        nb.innerHTML='<i class="fas fa-check-circle"></i> Kirim Reservasi';
+        B.slot=null; B.lsel=[];
+        goStep(2,'bwd');
+        ok=false; break;
       }
     }
-
-    /* Bentuk objek reservasi */
-    const menuArr=B.skipMenu?[]:Object.entries(B.menuQty).filter(([,q])=>q>0).map(([name,qty])=>({name,quantity:qty}));
-    const tempat=isTableMode()?B.selLocs:(B.selLocs[0]||'');
-    const resId=genId();
-    const resObj={
-      id:resId, date:B.selDate,
-      nama:B.nama,
-      nomorHp:'62'+hpClean.replace(/^0/,'').replace(/^62/,''),
-      jam:B.selSlot,
-      jumlah:B.jumlah,
-      tempat,
-      menus:menuArr,
-      tambahan:B.catatan,
+    if(!ok) return;
+    /* Buat objek reservasi */
+    var menuArr=[];
+    if(!B.skip){
+      var keys=Object.keys(B.qty);
+      for(var i=0;i<keys.length;i++) if(B.qty[keys[i]]>0) menuArr.push({name:keys[i],quantity:B.qty[keys[i]]});
+    }
+    var tempat=isTable()?B.lsel:(B.lsel[0]||'');
+    var rid=genId();
+    /* Normalisasi nomor */
+    var hn=hpc;
+    if(hn.charAt(0)==='0') hn='62'+hn.slice(1);
+    else if(hn.slice(0,2)!=='62') hn='62'+hn;
+    var obj={
+      id:rid, date:B.date,
+      nama:B.nama, nomorHp:hn,
+      jam:B.slot, jumlah:B.pax,
+      tempat:tempat, menus:menuArr,
+      tambahan:B.cat,
       dp:0, tipeDp:'',
       status:'pending',
       source:'customer',
@@ -1180,92 +950,88 @@ async function submitBooking() {
       createdAt:Date.now(),
       thankYouSent:false
     };
-
-    await setDoc(doc(db,'users',B.uid,'reservations',mk,'list',resId), resObj);
-    showSuccess(resObj);
-
-  } catch(e) {
-    window._bkSubmitting=false;
-    if(nextBtn){nextBtn.disabled=false;nextBtn.innerHTML='<i class="fas fa-check-circle"></i> Kirim Reservasi';}
-    showErr('step4-err','Gagal mengirim: '+(e.message||'Coba lagi atau hubungi restoran langsung.'));
-  }
+    db.collection('users/'+B.uid+'/reservations/'+mk+'/list').doc(rid).set(obj)
+      .then(function(){
+        window._sub=false;
+        showOk(obj);
+      })
+      .catch(function(e){
+        window._sub=false;
+        nb.disabled=false;
+        nb.innerHTML='<i class="fas fa-check-circle"></i> Kirim Reservasi';
+        showErr('e4','Gagal: '+(e.message||'Coba lagi atau hubungi restoran.'));
+      });
+  });
 }
 
-/* ══════════════════════════════════════════════════
-   SUCCESS SCREEN
-   ══════════════════════════════════════════════════ */
-function showSuccess(r) {
-  const tempats=normTempat(r.tempat);
-  const menuStr=r.menus.length?r.menus.map(m=>m.quantity+'x '+m.name).join(', '):'Tidak ada pesanan';
-
-  $('success-msg').innerHTML='Terima kasih, <strong>'+esc(r.nama)+'</strong>! 🎉<br>Permintaan reservasi kamu telah kami terima.';
-  $('success-detail').innerHTML=''
-    +'<div class="bk-success-row"><i class="fas fa-calendar-alt"></i><span>'+esc(formatDateFull(r.date))+'</span></div>'
-    +'<div class="bk-success-row"><i class="fas fa-clock"></i><span>'+esc(r.jam)+'</span></div>'
-    +'<div class="bk-success-row"><i class="fas fa-map-marker-alt"></i><span>'+esc(tempats.join(', '))+'</span></div>'
-    +'<div class="bk-success-row"><i class="fas fa-users"></i><span>'+r.jumlah+' orang</span></div>'
-    +(menuStr!=='Tidak ada pesanan'?'<div class="bk-success-row"><i class="fas fa-utensils"></i><span>'+esc(menuStr)+'</span></div>':'');
-
-  /* Transisi ke success */
-  const prev=$('step-4');
-  if(prev){prev.classList.remove('active');prev.classList.add('exit-left');}
-  const succ=$('step-success');
-  if(succ){
-    succ.style.transform='translateX(40px)';
-    succ.style.opacity='0';
-    requestAnimationFrame(()=>succ.classList.add('active'));
-  }
-  B.step='success';
-  $('bk-progress').style.display='none';
-  $('bk-footer').style.display='none';
+/* ═══════════════════════════════════════
+   SUCCESS
+   ═══════════════════════════════════════ */
+function showOk(r){
+  var tp=normT(r.tempat);
+  var ms=r.menus.length ? r.menus.map(function(m){ return m.quantity+'x '+m.name; }).join(', ') : 'Tidak ada pesanan';
+  ge('ok-msg').innerHTML='Terima kasih, <strong>'+esc(r.nama)+'</strong>! 🎉<br>Permintaan reservasi kamu kami terima.';
+  ge('ok-detail').innerHTML=
+    '<div class="suc-row"><i class="fas fa-calendar-alt"></i><span>'+esc(fmtDate(r.date))+'</span></div>'
+   +'<div class="suc-row"><i class="fas fa-clock"></i><span>'+esc(r.jam)+'</span></div>'
+   +'<div class="suc-row"><i class="fas fa-map-marker-alt"></i><span>'+esc(tp.join(', '))+'</span></div>'
+   +'<div class="suc-row"><i class="fas fa-users"></i><span>'+r.jumlah+' orang</span></div>'
+   +(ms!=='Tidak ada pesanan'?'<div class="suc-row"><i class="fas fa-utensils"></i><span>'+esc(ms)+'</span></div>':'');
+  goStep('ok','fwd');
 }
 
-/* ══════════════════════════════════════════════════
+/* ═══════════════════════════════════════
    INIT
-   ══════════════════════════════════════════════════ */
-async function init() {
-  const params=new URLSearchParams(window.location.search);
-  const uid=params.get('biz');
-  if(!uid){
-    $('bk-loading').style.display='none';
-    $('bk-error').style.display='flex';
-    $('bk-error-msg').textContent='Parameter bisnis tidak ditemukan. Minta link yang benar dari restoran.';
-    return;
-  }
+   ═══════════════════════════════════════ */
+function showSplashErr(msg){
+  ge('s-load').style.display='none';
+  ge('s-err').style.display='flex';
+  ge('s-err-msg').textContent=msg;
+}
+
+function init(){
+  var params=new URLSearchParams(window.location.search);
+  var uid=params.get('biz');
+  if(!uid){ showSplashErr('Parameter bisnis tidak ditemukan. Minta link yang benar dari restoran.'); return; }
   B.uid=uid;
+  try{ initFB(); } catch(e){ showSplashErr('Gagal inisialisasi: '+e.message); return; }
+  /* Load data bulan ini dulu */
+  var mk=mkStr(B.y,B.m);
+  loadBiz(uid, function(err){
+    if(err){ showSplashErr(err.message||'Bisnis tidak ditemukan.'); return; }
+    /* Apply header */
+    ge('h-logo').textContent  = B.biz.logo||'🍽️';
+    ge('h-name').textContent  = B.biz.name||'Restoran';
+    ge('h-sub').textContent   = B.biz.tagline||'Reservasi Online';
+    document.title='Reservasi - '+(B.biz.name||'Restoran');
+    /* Accent color */
+    var ac=B.biz.accent||'orange';
+    var MAP={orange:'#ea580c',blue:'#2563eb',teal:'#0d9488',violet:'#7c3aed',rose:'#e11d48',emerald:'#059669'};
+    var col=MAP[ac]||'#ea580c';
+    document.documentElement.style.setProperty('--ac',col);
+    document.documentElement.style.setProperty('--ach',col);
+    document.documentElement.style.setProperty('--acd','rgba('+hexToRgb(col)+',.1)');
+    document.documentElement.style.setProperty('--acg','rgba('+hexToRgb(col)+',.25)');
+    /* Load bulan */
+    loadMonth(mk, function(){
+      ge('s-load').style.display='none';
+      ge('s-app').style.display='flex';
+      goStep(1,'fwd');
+    });
+  });
+}
 
-  try {
-    await loadBizData(uid);
-  } catch(e) {
-    $('bk-loading').style.display='none';
-    $('bk-error').style.display='flex';
-    $('bk-error-msg').textContent=e.message||'Bisnis tidak ditemukan.';
-    return;
-  }
-
-  /* Load reservasi bulan ini langsung */
-  const curMk=mkStr(B.year,B.month);
-  await loadMonthRes(curMk);
-
-  /* Apply header */
-  $('bk-logo').textContent = B.biz.logo||'🍽️';
-  $('bk-biz-name').textContent = B.biz.name||'Restoran';
-  $('bk-biz-sub').textContent = B.biz.tagline||'Reservasi Online';
-  document.title = 'Reservasi — '+(B.biz.name||'Restoran');
-  document.documentElement.setAttribute('data-accent', B.biz.accent||'orange');
-
-  /* Tampilkan app */
-  $('bk-loading').style.display='none';
-  $('bk-app').style.display='flex';
-  $('bk-progress').style.display='block';
-  $('bk-steps-wrap').style.display='block';
-  $('bk-footer').style.display='flex';
-
-  /* Render step 1 */
-  goToStep(1,'forward');
+function hexToRgb(hex){
+  var r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  return r+','+g+','+b;
 }
 
 init();
 </script>
+
+<!-- Firebase Compat SDK (lebih kompatibel dari modular) -->
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
 </body>
 </html>
