@@ -619,7 +619,7 @@ const B = {
    HELPERS
    ══════════════════════════════════════════════════ */
 const $   = id => document.getElementById(id);
-function esc(s) { const d=document.createElement('div'); d.textContent=String(s??''); return d.innerHTML; }
+function esc(s) { var d=document.createElement('div'); d.textContent=String(s!=null?s:''); return d.innerHTML; }
 function pad2(n) { return n<10?'0'+n:''+n; }
 function toMins(t) { if(!t)return 0; const p=t.split(':'); return parseInt(p[0])*60+parseInt(p[1]); }
 function minsToTime(m) { return pad2(Math.floor(m/60))+':'+pad2(m%60); }
@@ -679,11 +679,11 @@ function isDateClosed(ds) { return B.closedDates.some(cd=>cd.date===ds); }
 function isDatePast(ds)   { return ds < todayStr(); }
 
 function getAvailableSlots(locName, dateStr) {
-  const loc    = B.locs.find(l=>l.name===locName);
-  const dur    = loc?.defaultDuration?parseInt(loc.defaultDuration):(B.ops.defaultDuration||120);
-  const buf    = (loc?.bufferTime!==undefined&&loc?.bufferTime!=='')?parseInt(loc.bufferTime):(B.ops.bufferTime||15);
-  const openM  = toMins(loc?.openTime||B.ops.openTime||'09:00');
-  const closeM = toMins(loc?.closeTime||B.ops.closeTime||'21:00');
+  var loc    = B.locs.find(function(l){return l.name===locName;});
+  var dur    = (loc&&loc.defaultDuration)?parseInt(loc.defaultDuration):(B.ops.defaultDuration||120);
+  var buf    = (loc&&loc.bufferTime!==undefined&&loc.bufferTime!=='')?parseInt(loc.bufferTime):(B.ops.bufferTime||15);
+  var openM  = toMins((loc&&loc.openTime)||B.ops.openTime||'09:00');
+  var closeM = toMins((loc&&loc.closeTime)||B.ops.closeTime||'21:00');
   const intvl  = B.ops.slotInterval||30;
   const busy = getResForDate(dateStr)
     .filter(r=>normTempat(r.tempat).includes(locName))
@@ -1129,9 +1129,9 @@ async function submitBooking() {
   if(window._bkSubmitting) return;
 
   /* Baca nilai form */
-  B.nama    = ($('bk-nama')?.value||'').trim();
-  B.hp      = ($('bk-hp')?.value||'').trim();
-  B.catatan = ($('bk-catatan')?.value||'').trim();
+  var _nama=$('bk-nama'); B.nama=(_nama?_nama.value:'').trim();
+  var _hp=$('bk-hp'); B.hp=(_hp?_hp.value:'').trim();
+  var _cat=$('bk-catatan'); B.catatan=(_cat?_cat.value:'').trim();
 
   /* Validasi */
   if(!B.nama) { showErr('step4-err','Nama wajib diisi.'); return; }
