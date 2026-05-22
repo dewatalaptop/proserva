@@ -949,38 +949,43 @@ function renderLocs() {
   const isTable=isTableMode();
   $('step3-loc-title').innerHTML='<i class="fas fa-'+(isTable?'chair':'map-marker-alt')+'"></i> Pilih '+(isTable?'Meja':'Lokasi');
   const el=$('bk-locs'); if(!el) return;
-  el.innerHTML=B.locs.map(loc=>{
-    const slots=getAvailableSlots(loc.name,B.selDate);
-    const isFull=!slots.includes(B.selSlot);
-    const isSel=B.selLocs.includes(loc.name);
-    const cap=parseInt(loc.capacity)||0;
-    return`<div class="bk-loc-item${isFull?' full':isSel?' selected':''}"
-      ${isFull?'':'onclick="toggleLoc(\''+esc(loc.name)+'\')"'}>
-      <div class="bk-loc-left">
-        <div class="bk-loc-icon"><i class="fas fa-${isTable?'chair':'map-marker-alt'}"></i></div>
-        <div>
-          <div class="bk-loc-name">${esc(loc.name)}</div>
-          <div class="bk-loc-cap">${cap} orang${loc.minGuests?' · Min. '+loc.minGuests+' org':''}${loc.openTime?' · '+loc.openTime+'-'+(loc.closeTime||'...'):''}
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="bk-loc-badge ${isFull?'full':'avail'}">${isFull?'Penuh':'Tersedia'}</span>
-        ${isSel?'<i class="fas fa-check-circle bk-loc-check"></i>':''}
-      </div>
-    </div>`;
+  el.innerHTML=B.locs.map(function(loc){
+    var slots=getAvailableSlots(loc.name,B.selDate);
+    var isFull=!slots.includes(B.selSlot);
+    var isSel=B.selLocs.includes(loc.name);
+    var cap=parseInt(loc.capacity)||0;
+    var safeName=esc(loc.name);
+    var cls='bk-loc-item'+(isFull?' full':isSel?' selected':'');
+    var iconType=isTable?'chair':'map-marker-alt';
+    var capInfo=cap+' orang'+(loc.minGuests?' · Min. '+loc.minGuests+' org':'')+(loc.openTime?' · '+loc.openTime+'-'+(loc.closeTime||'...'):'');
+    var html='<div class="'+cls+'"'+(isFull?'':' data-loc="'+safeName+'" onclick="toggleLoc(this)"')+'>'
+      +'<div class="bk-loc-left">'
+      +'<div class="bk-loc-icon"><i class="fas fa-'+iconType+'"></i></div>'
+      +'<div>'
+      +'<div class="bk-loc-name">'+safeName+'</div>'
+      +'<div class="bk-loc-cap">'+capInfo+'</div>'
+      +'</div></div>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<span class="bk-loc-badge '+(isFull?'full':'avail')+'">'+(isFull?'Penuh':'Tersedia')+'</span>'
+      +(isSel?'<i class="fas fa-check-circle bk-loc-check"></i>':'')
+      +'</div></div>';
+    return html;
   }).join('');
 }
 
-window.toggleLoc = function(name) {
+window.toggleLoc = function(el) {
+  var raw = el.getAttribute('data-loc');
+  var d=document.createElement('div'); d.innerHTML=raw;
+  var name=d.textContent;
   if(isTableMode()) {
-    const idx=B.selLocs.indexOf(name);
+    var idx=B.selLocs.indexOf(name);
     if(idx>=0) B.selLocs.splice(idx,1);
     else B.selLocs.push(name);
   } else {
     B.selLocs=[name];
   }
   updateCapSummary();
+  updatePaxUI();
   renderLocs();
 };
 
@@ -1004,37 +1009,44 @@ function renderMenus() {
     el.innerHTML='<div style="font-size:.82rem;color:var(--ink-4);text-align:center;padding:12px">Belum ada menu tersedia.</div>';
     return;
   }
-  el.innerHTML=avail.map(m=>{
-    const qty=B.menuQty[m.name]||0;
-    const details=(m.details||[]).join(', ');
-    return`<div class="bk-menu-item">
-      <div class="bk-menu-info">
-        <div class="bk-menu-name">${esc(m.name)}</div>
-        ${m.price?'<div class="bk-menu-price">Rp '+formatRp(m.price)+'</div>':''}
-        ${details?'<div class="bk-menu-details">'+esc(details)+'</div>':''}
-      </div>
-      <div class="bk-qty">
-        <button class="bk-qty-btn" onclick="changeQty('${esc(m.name)}',-1)" ${qty<=0?'disabled':''}>
-          <i class="fas fa-minus" style="font-size:.7rem"></i>
-        </button>
-        <div class="bk-qty-val">${qty}</div>
-        <button class="bk-qty-btn" onclick="changeQty('${esc(m.name)}',1)">
-          <i class="fas fa-plus" style="font-size:.7rem"></i>
-        </button>
-      </div>
-    </div>`;
+  el.innerHTML=avail.map(function(m){
+    var qty=B.menuQty[m.name]||0;
+    var details=(m.details||[]).join(', ');
+    var safeName=esc(m.name);
+    var html='<div class="bk-menu-item">'
+      +'<div class="bk-menu-info">'
+      +'<div class="bk-menu-name">'+safeName+'</div>'
+      +(m.price?'<div class="bk-menu-price">Rp '+formatRp(m.price)+'</div>':'')
+      +(details?'<div class="bk-menu-details">'+esc(details)+'</div>':'')
+      +'</div>'
+      +'<div class="bk-qty">'
+      +'<button class="bk-qty-btn" onclick="changeQty(this)" data-name="'+safeName+'" data-delta="-1"'+(qty<=0?' disabled':'')+'>'
+      +'<i class="fas fa-minus" style="font-size:.7rem"></i>'
+      +'</button>'
+      +'<div class="bk-qty-val">'+qty+'</div>'
+      +'<button class="bk-qty-btn" onclick="changeQty(this)" data-name="'+safeName+'" data-delta="1">'
+      +'<i class="fas fa-plus" style="font-size:.7rem"></i>'
+      +'</button>'
+      +'</div>'
+      +'</div>';
+    return html;
   }).join('');
   /* Update tampilan skip */
   const skipBtn=$('btn-skip-menu');
   if(skipBtn) skipBtn.className='bk-skip-menu'+(B.skipMenu?' active':'');
 }
 
-window.changeQty = function(name, delta) {
+window.changeQty = function(btn) {
   if(B.skipMenu) return;
-  const cur=B.menuQty[name]||0;
-  const next=Math.max(0,cur+delta);
-  if(next===0) delete B.menuQty[name];
-  else B.menuQty[name]=next;
+  var name = btn.getAttribute('data-name');
+  var delta = parseInt(btn.getAttribute('data-delta'))||0;
+  /* Decode HTML entities dari nama */
+  var d=document.createElement('div'); d.innerHTML=name;
+  var realName=d.textContent;
+  var cur=B.menuQty[realName]||0;
+  var next=Math.max(0,cur+delta);
+  if(next===0) delete B.menuQty[realName];
+  else B.menuQty[realName]=next;
   renderMenus();
 };
 
