@@ -529,7 +529,7 @@ input,select,textarea { font-family:var(--font) }
             <i class="fas fa-phone"></i>
             <input class="bk-input" id="bk-hp" type="tel" placeholder="08xx-xxxx-xxxx" maxlength="20" autocomplete="tel"/>
           </div>
-          <div class="bk-form-hint">Format apapun diterima - kami akan hubungi via WhatsApp</div>
+          <div class="bk-form-hint">Format apapun diterima — kami akan hubungi via WhatsApp</div>
         </div>
 
         <div class="bk-form-group">
@@ -843,7 +843,7 @@ function clearErr() {
 }
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 1 - KALENDER
+   RENDER STEP 1 — KALENDER
    ══════════════════════════════════════════════════ */
 async function renderStep1() {
   const m=B.month,y=B.year;
@@ -903,7 +903,7 @@ window.navMonth = async function(d) {
 };
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 2 - JAM
+   RENDER STEP 2 — JAM
    ══════════════════════════════════════════════════ */
 function renderStep2() {
   $('step2-date-label').textContent = formatDateFull(B.selDate);
@@ -935,7 +935,7 @@ window.selSlot = function(s) {
 };
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 3 - LOKASI + JUMLAH + MENU
+   RENDER STEP 3 — LOKASI + JUMLAH + MENU
    ══════════════════════════════════════════════════ */
 function renderStep3() {
   $('step3-datetime-label').textContent = formatDateFull(B.selDate)+' · '+B.selSlot;
@@ -1077,7 +1077,7 @@ function updatePaxUI() {
 }
 
 /* ══════════════════════════════════════════════════
-   RENDER STEP 4 - KONFIRMASI
+   RENDER STEP 4 — KONFIRMASI
    ══════════════════════════════════════════════════ */
 function renderStep4() {
   /* Sync nilai dari input jika sudah pernah diisi */
@@ -1091,13 +1091,12 @@ function renderStep4() {
   const menuStr=B.skipMenu?'Tidak pesan menu'
     :Object.entries(B.menuQty).filter(([,q])=>q>0).map(([n,q])=>q+'x '+n).join(', ')||'Tidak pesan menu';
 
-  $('bk-summary').innerHTML=`
-    <div class="bk-summary-row"><i class="fas fa-calendar-alt"></i><span class="bk-summary-val">${esc(formatDateFull(B.selDate))}</span></div>
-    <div class="bk-summary-row"><i class="fas fa-clock"></i><span class="bk-summary-val">${esc(B.selSlot)}</span></div>
-    <div class="bk-summary-row"><i class="fas fa-map-marker-alt"></i><span class="bk-summary-val">${esc(tempats)}</span></div>
-    <div class="bk-summary-row"><i class="fas fa-users"></i><span class="bk-summary-val">${B.jumlah} orang</span></div>
-    <div class="bk-summary-row"><i class="fas fa-utensils"></i><span class="bk-summary-val">${esc(menuStr)}</span></div>
-  `;
+  $('bk-summary').innerHTML=''
+    +'<div class="bk-summary-row"><i class="fas fa-calendar-alt"></i><span class="bk-summary-val">'+esc(formatDateFull(B.selDate))+'</span></div>'
+    +'<div class="bk-summary-row"><i class="fas fa-clock"></i><span class="bk-summary-val">'+esc(B.selSlot)+'</span></div>'
+    +'<div class="bk-summary-row"><i class="fas fa-map-marker-alt"></i><span class="bk-summary-val">'+esc(tempats)+'</span></div>'
+    +'<div class="bk-summary-row"><i class="fas fa-users"></i><span class="bk-summary-val">'+B.jumlah+' orang</span></div>'
+    +'<div class="bk-summary-row"><i class="fas fa-utensils"></i><span class="bk-summary-val">'+esc(menuStr)+'</span></div>';
 
   /* Billing */
   const bill=calcBilling();
@@ -1200,13 +1199,12 @@ function showSuccess(r) {
   const menuStr=r.menus.length?r.menus.map(m=>m.quantity+'x '+m.name).join(', '):'Tidak ada pesanan';
 
   $('success-msg').innerHTML='Terima kasih, <strong>'+esc(r.nama)+'</strong>! 🎉<br>Permintaan reservasi kamu telah kami terima.';
-  $('success-detail').innerHTML=`
-    <div class="bk-success-row"><i class="fas fa-calendar-alt"></i><span>${esc(formatDateFull(r.date))}</span></div>
-    <div class="bk-success-row"><i class="fas fa-clock"></i><span>${esc(r.jam)}</span></div>
-    <div class="bk-success-row"><i class="fas fa-map-marker-alt"></i><span>${esc(tempats.join(', '))}</span></div>
-    <div class="bk-success-row"><i class="fas fa-users"></i><span>${r.jumlah} orang</span></div>
-    ${menuStr!=='Tidak ada pesanan'?'<div class="bk-success-row"><i class="fas fa-utensils"></i><span>'+esc(menuStr)+'</span></div>':''}
-  `;
+  $('success-detail').innerHTML=''
+    +'<div class="bk-success-row"><i class="fas fa-calendar-alt"></i><span>'+esc(formatDateFull(r.date))+'</span></div>'
+    +'<div class="bk-success-row"><i class="fas fa-clock"></i><span>'+esc(r.jam)+'</span></div>'
+    +'<div class="bk-success-row"><i class="fas fa-map-marker-alt"></i><span>'+esc(tempats.join(', '))+'</span></div>'
+    +'<div class="bk-success-row"><i class="fas fa-users"></i><span>'+r.jumlah+' orang</span></div>'
+    +(menuStr!=='Tidak ada pesanan'?'<div class="bk-success-row"><i class="fas fa-utensils"></i><span>'+esc(menuStr)+'</span></div>':'');
 
   /* Transisi ke success */
   const prev=$('step-4');
@@ -1253,7 +1251,7 @@ async function init() {
   $('bk-logo').textContent = B.biz.logo||'🍽️';
   $('bk-biz-name').textContent = B.biz.name||'Restoran';
   $('bk-biz-sub').textContent = B.biz.tagline||'Reservasi Online';
-  document.title = 'Reservasi - '+(B.biz.name||'Restoran');
+  document.title = 'Reservasi — '+(B.biz.name||'Restoran');
   document.documentElement.setAttribute('data-accent', B.biz.accent||'orange');
 
   /* Tampilkan app */
