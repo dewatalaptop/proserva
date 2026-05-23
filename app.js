@@ -1629,7 +1629,9 @@ async function wzFinish() {
   if(backBtn) backBtn.disabled=true;
   setText('wz-err-3','');
   try {
-    S.biz={name:S.wizData.bizName,type:S.wizData.bizType,tagline:'',logo:'🍽️',locMode:S.wizData.locMode||'area'};
+    var wzPhone = gval('wz-notif-phone').trim();
+  if(wzPhone){ var n=wzPhone.replace(/[\s\-\(\)]/g,''); if(n.charAt(0)==='+')n=n.slice(1); if(n.charAt(0)==='0')n='62'+n.slice(1); else if(n.slice(0,2)!=='62')n='62'+n; wzPhone=n; }
+  S.biz={name:S.wizData.bizName,type:S.wizData.bizType,tagline:'',logo:'🍽️',locMode:S.wizData.locMode||'area',notifPhone:wzPhone||''};
     await saveBizFS();
     var locTasks =S.wizData.locs.map(function(l){return saveLocFS(genId(),{name:l.name,capacity:l.capacity,minGuests:1,defaultDuration:'',bufferTime:'',openTime:'',closeTime:''}); });
     var menuTasks=S.wizData.menus.map(function(m){return saveMenuFS(genId(),{name:m.name,price:m.price,details:m.details});});
