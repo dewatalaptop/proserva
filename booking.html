@@ -313,6 +313,15 @@ input,textarea{font-family:inherit}
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
 <script>
+window.onerror=function(msg,src,line,col,err){
+  var el=document.getElementById('errMsg');
+  var vl=document.getElementById('vLoad');
+  var ve=document.getElementById('vErr');
+  if(vl)vl.style.display='none';
+  if(ve)ve.style.display='flex';
+  if(el)el.textContent='Error: '+msg+' ('+line+':'+col+')';
+  return true;
+};
 /* ============================================================
    PROSERVA BOOKING v2 — ES5, Firebase v8 compat
    Kompatibel: Chrome, Safari iOS 12+, Firefox, Samsung
@@ -813,7 +822,13 @@ function start(){
     db=firebase.firestore();
   }catch(e){errScreen('Gagal init Firebase: '+e.message);return;}
 
+  /* Timeout 15 detik jika Firestore tidak merespons */
+  var loadTimer=setTimeout(function(){
+    errScreen('Koneksi lambat atau Firestore bermasalah. Coba refresh halaman.');
+  },15000);
+
   loadBiz(uid,function(err){
+    clearTimeout(loadTimer);
     if(err){errScreen(err.message||'Bisnis tidak ditemukan.');return;}
     /* Apply bisnis */
     g('hLogo').textContent=B.biz.logo||'🍽️';
@@ -838,8 +853,15 @@ function start(){
   });
 }
 
-/* Tunggu semua script selesai load */
-window.onload=function(){start();};
+/* Tunggu DOM + Firebase siap */
+function tryStart(){
+  if(typeof firebase!=='undefined'&&typeof firebase.firestore==='function'){
+    start();
+  } else {
+    setTimeout(tryStart,100);
+  }
+}
+document.addEventListener('DOMContentLoaded',function(){tryStart();});
 </script>
 </body>
 </html>
