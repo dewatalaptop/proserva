@@ -171,6 +171,9 @@ input,select,textarea{font-family:inherit}
 .spin{width:38px;height:38px;border:3px solid var(--bor2);border-top-color:var(--ac);border-radius:50%;animation:rot .8s linear infinite;margin-bottom:16px}
 @keyframes rot{to{transform:rotate(360deg)}}
 </style>
+<!-- Firebase Compat SDK — harus dimuat SEBELUM script utama -->
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
@@ -1028,10 +1031,6 @@ function hexToRgb(hex){
 
 init();
 </script>
-
-<!-- Firebase Compat SDK (lebih kompatibel dari modular) -->
-<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
 
 </body>
 </html>
