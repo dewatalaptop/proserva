@@ -229,36 +229,60 @@ button { cursor: pointer }
 
 /* ── Hero ── */
 .land-hero {
-  min-height: 100vh; padding: 120px 40px 80px;
-  display: flex; align-items: center; gap: 60px;
-  max-width: 1200px; margin: 0 auto; width: 100%; position: relative;
+  /* Desktop: gambar landscape IMG_0564 */
+  min-height: 520px;
+  padding: 0;
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
 }
-.land-hero-bg { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0 }
-.hero-orb {
-  position: absolute; border-radius: 50%;
-  filter: blur(80px); opacity: .5;
-  animation: orb-drift 14s ease-in-out infinite;
+/* Wrapper gambar — full bleed */
+.land-hero-img-wrap {
+  position: relative;
+  width: 100%;
+  display: block;
 }
-.hero-orb-1 {
-  width: 500px; height: 500px;
-  background: radial-gradient(circle, rgba(232,99,10,.10), transparent 70%);
-  top: -100px; right: -60px;
+.land-hero-img-wrap img {
+  width: 100%;
+  display: block;
+  height: auto;
+  max-height: 600px;
+  object-fit: cover;
+  object-position: center top;
 }
-.hero-orb-2 {
-  width: 400px; height: 400px;
-  background: radial-gradient(circle, rgba(15,23,42,.06), transparent 70%);
-  bottom: 100px; left: -80px;
-  animation-delay: 5s; animation-direction: reverse;
+/* Overlay tipis di bagian bawah agar transisi halus ke konten di bawahnya */
+.land-hero-img-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    transparent 60%,
+    rgba(255,255,255,0.55) 85%,
+    rgba(255,255,255,1) 100%
+  );
+  pointer-events: none;
 }
-.hero-grid {
-  position: absolute; inset: 0;
-  background-image:
-    linear-gradient(rgba(232,99,10,.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(232,99,10,.04) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 20%, transparent 80%);
+/* Hide lama orbs/grid — tidak dipakai lagi */
+.land-hero-bg,
+.hero-orb,
+.hero-orb-1,
+.hero-orb-2,
+.hero-grid { display: none !important; }
+/* Hero content dan mockup pindah ke bawah gambar */
+.land-hero-content-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 40px 80px;
+  display: flex;
+  align-items: center;
+  gap: 60px;
 }
+.land-hero-content { flex: 1; position: relative; z-index: 1; animation: fade-up .6s ease both }
 .land-hero-content { flex: 1; position: relative; z-index: 1; animation: fade-up .6s ease both }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
@@ -305,6 +329,8 @@ button { cursor: pointer }
 
 /* ── Mockup ── */
 .hero-mockup { flex: 0 0 480px; position: relative; z-index: 1; animation: fade-up .6s .15s ease both }
+/* Gambar hero mobile — hidden di desktop */
+.land-hero-img-mobile { display: none; }
 .mockup-window {
   background: #fff; border: 1px solid var(--border-2);
   border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-xl);
@@ -1696,10 +1722,20 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 @media (max-width: 900px) {
-  .land-hero { flex-direction: column; text-align: center; min-height: auto; padding-top: 100px }
+  /* Desktop image hidden, mobile image shown */
+  .land-hero-img-desktop { display: none; }
+  .land-hero-img-mobile  { display: block; }
+
+  .land-hero { min-height: auto; }
+  .land-hero-img-wrap img { max-height: none; object-position: center top; }
+
+  .land-hero-content-wrap {
+    flex-direction: column; text-align: center;
+    padding: 32px 20px 60px; gap: 32px;
+  }
   .hero-sub { max-width: 100%; margin-left: auto; margin-right: auto }
   .hero-actions, .hero-trust { justify-content: center }
-  .hero-mockup { flex: none; width: 100%; max-width: 480px }
+  .hero-mockup { flex: none; width: 100%; max-width: 420px }
   .mockup-float-1 { left: -10px }
   .mockup-float-2 { right: -10px }
   .auth-left   { display: none }
