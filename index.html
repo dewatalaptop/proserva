@@ -844,8 +844,14 @@ console.log('[Firebase] module loaded.');
       <div class="tb-btn icon-only" id="notif-btn" onclick="toggleNotif(event)" role="button" tabindex="0" aria-label="Notifikasi" style="position:relative">
         <i class="fas fa-bell" aria-hidden="true"></i>
         <span class="notif-dot" id="notif-dot" style="display:none" aria-hidden="true"></span>
-        <div id="notif-dd" role="dialog" aria-label="Pengingat Terima Kasih">
-          <div class="nd-head"><i class="fas fa-bell" aria-hidden="true"></i> Pengingat Terima Kasih</div>
+        <span class="notif-count" id="notif-count" style="display:none" aria-hidden="true"></span>
+        <div id="notif-dd" role="dialog" aria-label="Notifikasi">
+          <div class="nd-head"><i class="fas fa-bell" aria-hidden="true"></i> Notifikasi</div>
+          <div id="notif-new-section" style="display:none">
+            <div class="nd-section-title"><i class="fas fa-clock" style="color:#f59e0b"></i> Reservasi Baru — Perlu Dikonfirmasi</div>
+            <div id="notif-new-list"></div>
+          </div>
+          <div class="nd-section-title" id="nd-thanks-title"><i class="fas fa-heart" style="color:#10b981"></i> Kirim Ucapan Terima Kasih</div>
           <div id="notif-list"><div class="nd-empty">Semua sudah beres!</div></div>
         </div>
       </div>
@@ -1098,6 +1104,14 @@ console.log('[Firebase] module loaded.');
               <div class="form-group">
                 <label class="form-label" for="set-tagline">Tagline / Slogan</label>
                 <div class="input-wrap"><i class="fas fa-quote-left" aria-hidden="true"></i><input class="form-input" id="set-tagline" type="text" placeholder="Tempat makan terbaik di kota..."/></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="set-notif-phone">
+                  <i class="fab fa-whatsapp" style="color:#25d366"></i>
+                  Nomor WhatsApp Notifikasi
+                </label>
+                <div class="input-wrap"><i class="fas fa-phone" aria-hidden="true"></i><input class="form-input" id="set-notif-phone" type="tel" placeholder="08xx-xxxx-xxxx" maxlength="20"/></div>
+                <div class="form-hint">Nomor ini akan menerima notifikasi WA setiap ada reservasi masuk dari customer.</div>
               </div>
               <div class="form-group">
                 <label class="form-label" style="margin-bottom:10px">Warna Tema</label>
