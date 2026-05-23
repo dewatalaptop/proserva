@@ -150,7 +150,7 @@ input,textarea{font-family:inherit}
 
 <div id="vApp" class="wrap" style="display:none">
   <div class="hdr"><div class="hdr-r">
-    <div class="logo" id="hLogo">&#x1F37D;&#xFE0F;</div>
+    <div class="logo" id="hLogo">🍽️</div>
     <div><div class="biz-n" id="hName">-</div><div class="biz-s" id="hSub">Reservasi Online</div></div>
   </div></div>
   <div class="prg" id="prg">
@@ -451,12 +451,12 @@ function renderCal(y,m){
     if(ip)cls+=' past';
     if(ic)cls+=' clo';
     else if(!ip){var st=dateSt(ds);if(st==='full')cls+=' full';else if(st==='busy')cls+=' busy';}
-    var ck=(ip||ic)?'':' onclick="pickD(''+ds+'')"';
+    var ck=(ip||ic)?'':' onclick="pickD(this)" data-date="'+ds+'"';
     html+='<div class="'+cls+'"'+ck+'>'+d+'</div>';
   }
   grid.innerHTML=html;
 }
-window.pickD=function(ds){B.date=ds;B.slot=null;B.lsel=[];B.qty={};renderCal(B.y,B.m);};
+window.pickD=function(el){B.date=el.getAttribute('data-date');B.slot=null;B.lsel=[];B.qty={};renderCal(B.y,B.m);};
 g('cPrev').onclick=function(){B.m--;if(B.m<0){B.m=11;B.y--;}var mk=mkStr(B.y,B.m);if(B.res[mk]===undefined)loadMonth(mk,function(){renderS1();});else renderS1();};
 g('cNext').onclick=function(){B.m++;if(B.m>11){B.m=0;B.y++;}var mk=mkStr(B.y,B.m);if(B.res[mk]===undefined)loadMonth(mk,function(){renderS1();});else renderS1();};
 
@@ -465,10 +465,10 @@ function renderS2(){
   var sl=allSlots(B.date),sEl=g('slotBox'),nEl=g('noSlot');
   if(!sl.length){sEl.innerHTML='';sEl.style.display='none';nEl.style.display='block';return;}
   nEl.style.display='none';sEl.style.display='grid';
-  var html='';for(var i=0;i<sl.length;i++){var s=sl[i];html+='<div class="sl'+(s===B.slot?' sel':'')+'" onclick="pickS(''+s+'')">'+s+'</div>';}
+  var html='';for(var i=0;i<sl.length;i++){var s=sl[i];html+='<div class="sl'+(s===B.slot?' sel':'')+'" onclick="pickS(this)" data-slot="'+s+'">'+s+'</div>';}
   sEl.innerHTML=html;
 }
-window.pickS=function(s){
+window.pickS=function(el){var s=el.getAttribute('data-slot');
   if(B.ops.minAdvance){var rt=new Date(B.date+'T'+s).getTime();if(rt-Date.now()<B.ops.minAdvance*3600000){showErr('e2','Booking minimal '+B.ops.minAdvance+' jam sebelumnya.');return;}}
   B.slot=s;B.lsel=[];B.qty={};renderS2();
 };
@@ -508,10 +508,11 @@ window.pickL=function(el){
 function renderPax(){
   g('paxV').textContent=B.pax;
   var hEl=g('paxH');if(!B.lsel.length){hEl.textContent='';return;}
-  var l=getLoc(B.lsel[0]);if(!l){hEl.textContent='';return;}
-  var cap=parseInt(l.capacity)||0,mn=parseInt(l.minGuests)||1;
-  if(B.pax>cap)hEl.innerHTML='<span style="color:var(--er)">Melebihi kapasitas '+cap+' orang</span>';
-  else if(B.pax<mn)hEl.innerHTML='<span style="color:var(--wa)">Minimum '+mn+' orang</span>';
+  var totalCap=0,minG=999;
+  for(var ci=0;ci<B.lsel.length;ci++){var lc=getLoc(B.lsel[ci]);if(lc){totalCap+=parseInt(lc.capacity)||0;minG=Math.min(minG,parseInt(lc.minGuests)||1);}}
+  if(minG===999)minG=1;
+  if(B.pax>totalCap&&totalCap>0)hEl.innerHTML='<span style="color:var(--er)">Melebihi kapasitas '+totalCap+' orang</span>';
+  else if(B.pax<minG)hEl.innerHTML='<span style="color:var(--wa)">Minimum '+minG+' orang</span>';
   else hEl.innerHTML='<span style="color:var(--ok)">Sesuai kapasitas</span>';
 }
 g('paxM').onclick=function(){B.pax=Math.max(1,B.pax-1);renderPax();};
@@ -562,8 +563,8 @@ function renderS4(){
   if(bill.tot>0&&!B.skip){
     var p=B.pay,h='<div class="bill">';
     h+='<div class="br"><span>Subtotal</span><span>Rp '+fmtRp(bill.sub)+'</span></div>';
-    if(p.serviceOn)h+='<div class="br"><span>Service ('+p.servicePct+'%)</span><span>Rp '+fmtRp(bill.svc)+'</span></div>';
-    if(p.ppnOn)h+='<div class="br"><span>PPN ('+p.ppnPct+'%)</span><span>Rp '+fmtRp(bill.ppn)+'</span></div>';
+    if(p.serviceOn)h+='<div class="br"><span>Service ('+esc(p.servicePct)+'%)</span><span>Rp '+fmtRp(bill.svc)+'</span></div>';
+    if(p.ppnOn)h+='<div class="br"><span>PPN ('+esc(p.ppnPct)+'%)</span><span>Rp '+fmtRp(bill.ppn)+'</span></div>';
     h+='<div class="br bt"><span>Total</span><span>Rp '+fmtRp(bill.tot)+'</span></div>';
     if(bill.dp>0)h+='<div class="br" style="color:var(--c);font-weight:700"><span>DP</span><span>Rp '+fmtRp(bill.dp)+'</span></div>';
     if(p.bankName&&p.bankNo)h+='<div class="bbank">Transfer ke: <strong>'+esc(p.bankName)+'</strong> - '+esc(p.bankNo)+(p.bankOwner?' - a.n. '+esc(p.bankOwner):'')+'</div>';
@@ -578,7 +579,7 @@ function doSubmit(){
   B.hp  =(hp?hp.value:'').replace(/^\s+|\s+$/g,'');
   B.cat =(ca?ca.value:'').replace(/^\s+|\s+$/g,'');
   if(!B.nama){showErr('e4','Nama wajib diisi.');return;}
-  var hpc=B.hp.replace(/[\s\-\+\(\)]/g,'');
+  var hpc=B.hp.replace(/[\s\-\(\)]/g,'');
   if(hpc.charAt(0)==='+')hpc=hpc.slice(1);
   if(!hpc||!/^\d{9,15}$/.test(hpc)){showErr('e4','Nomor WhatsApp tidak valid. Contoh: 08123456789');return;}
   submitting=true;
@@ -603,7 +604,7 @@ function doSubmit(){
     if(hn.charAt(0)==='0')hn='62'+hn.slice(1);else if(hn.slice(0,2)!=='62')hn='62'+hn;
     var obj={id:rid,date:B.date,nama:B.nama,nomorHp:hn,jam:B.slot,jumlah:B.pax,
       tempat:tempat,menus:menuArr,tambahan:B.cat,dp:0,tipeDp:'',
-      status:'pending',source:'customer',duration:null,createdAt:Date.now(),thankYouSent:false};
+      status:'pending',source:'customer',duration:locDur(B.lsel.length?getLoc(B.lsel[0]):null),createdAt:Date.now(),thankYouSent:false};
     fsSetDoc('users/'+B.uid+'/reservations/'+mk+'/list/'+rid,obj)
       .then(function(){submitting=false;showOK(obj);})
       .catch(function(e){
