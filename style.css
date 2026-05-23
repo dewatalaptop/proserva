@@ -245,6 +245,7 @@ button { cursor: pointer }
   width: 100%;
   display: block;
 }
+.land-hero-img-wrap picture,
 .land-hero-img-wrap img {
   width: 100%;
   display: block;
@@ -330,7 +331,7 @@ button { cursor: pointer }
 /* ── Mockup ── */
 .hero-mockup { flex: 0 0 480px; position: relative; z-index: 1; animation: fade-up .6s .15s ease both }
 /* Gambar hero mobile — hidden di desktop */
-.land-hero-img-mobile { display: none; }
+/* .land-hero-img-mobile handled by <picture> element */
 .mockup-window {
   background: #fff; border: 1px solid var(--border-2);
   border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-xl);
@@ -1722,11 +1723,8 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 @media (max-width: 900px) {
-  /* Desktop image hidden, mobile image shown */
-  .land-hero-img-desktop { display: none; }
-  .land-hero-img-mobile  { display: block; }
-
   .land-hero { min-height: auto; }
+  .land-hero-img-wrap picture,
   .land-hero-img-wrap img { max-height: none; object-position: center top; }
 
   .land-hero-content-wrap {
