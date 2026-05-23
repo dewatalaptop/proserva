@@ -231,7 +231,7 @@ button { cursor: pointer }
 .land-hero {
   /* Desktop: gambar landscape IMG_0564 */
   min-height: 520px;
-  padding: 0;
+  padding-top: 64px; /* tinggi navbar */
   display: block;
   max-width: 100%;
   margin: 0;
@@ -283,7 +283,6 @@ button { cursor: pointer }
   align-items: center;
   gap: 60px;
 }
-.land-hero-content { flex: 1; position: relative; z-index: 1; animation: fade-up .6s ease both }
 .land-hero-content { flex: 1; position: relative; z-index: 1; animation: fade-up .6s ease both }
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
@@ -346,25 +345,115 @@ button { cursor: pointer }
   margin-left: 8px; font-size: .68rem; color: var(--ink-4);
   font-family: var(--font-mono); background: var(--bg-3); padding: 3px 10px; border-radius: 99px;
 }
-.mockup-body { display: flex; height: 240px }
+.mockup-body { display: flex; height: 310px }
 .mockup-sidebar {
-  width: 52px; background: #111111;
-  padding: 12px 8px; display: flex; flex-direction: column; gap: 8px;
+  width: 58px; background: #0f172a;
+  padding: 14px 9px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
 }
-.mockup-sb-logo { width: 36px; height: 36px; border-radius: 10px; background: #e8630a; margin-bottom: 8px }
-.mockup-sb-item { width: 36px; height: 28px; border-radius: 7px; background: rgba(255,255,255,.08) }
-.mockup-sb-item.active { background: rgba(255,255,255,.18) }
-.mockup-content { flex: 1; padding: 14px; background: var(--bg) }
-.mockup-stats { display: flex; gap: 8px; margin-bottom: 12px }
-.mockup-stat { flex: 1; background: #fff; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 8px }
-.mockup-stat-val { height: 14px; background: var(--bg-3); border-radius: 4px; margin-bottom: 5px; width: 60% }
-.mockup-stat-lbl { height: 8px; background: var(--bg-3); border-radius: 4px; width: 80%; opacity: .5 }
-.mockup-cal { display: flex; flex-direction: column; gap: 5px }
-.mockup-cal-row { display: flex; gap: 5px }
-.mockup-cal-day { flex: 1; height: 28px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border) }
-.mockup-cal-day.has-res { border-color: var(--ac-border); background: var(--ac-dim) }
-.mockup-cal-day.busy  { border-color: rgba(245,158,11,.30); background: rgba(245,158,11,.08) }
-.mockup-cal-day.today { border-color: var(--ac); background: var(--ac); box-shadow: 0 2px 8px var(--ac-glow) }
+.mockup-sb-logo {
+  width: 38px; height: 38px; border-radius: 10px; background: #e8630a;
+  margin-bottom: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #fff; font-weight: 900;
+}
+.mockup-sb-item {
+  width: 38px; height: 30px; border-radius: 7px;
+  background: rgba(255,255,255,.07); position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.mockup-sb-item::before {
+  content: ''; width: 14px; height: 3px;
+  background: rgba(255,255,255,.25); border-radius: 2px;
+  box-shadow: 0 5px 0 rgba(255,255,255,.15), 0 -5px 0 rgba(255,255,255,.15);
+}
+.mockup-sb-item.active {
+  background: rgba(232,99,10,.25); border: 1px solid rgba(232,99,10,.4);
+}
+.mockup-sb-item.active::before { background: #e8630a; box-shadow: 0 5px 0 rgba(232,99,10,.5), 0 -5px 0 rgba(232,99,10,.5) }
+.mockup-content { flex: 1; padding: 12px; background: #f8fafc; overflow: hidden }
+
+/* Topbar dalam mockup */
+.mockup-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;
+}
+.mockup-topbar-title { height: 9px; width: 90px; background: #1e293b; border-radius: 4px; opacity: .7 }
+.mockup-topbar-dot {
+  width: 22px; height: 22px; border-radius: 50%; background: #e8630a;
+  position: relative;
+}
+.mockup-topbar-dot::after {
+  content: '3'; position: absolute; top: -4px; right: -4px;
+  width: 13px; height: 13px; border-radius: 50%; background: #dc2626;
+  font-size: 7px; color: #fff; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; line-height: 13px; text-align: center;
+}
+
+/* Stat cards */
+.mockup-stats { display: flex; gap: 6px; margin-bottom: 10px }
+.mockup-stat {
+  flex: 1; background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 8px; padding: 7px 8px;
+}
+.mockup-stat-val {
+  height: 13px; border-radius: 3px; margin-bottom: 4px; width: 55%;
+  background: linear-gradient(90deg, #e8630a, #fb923c);
+}
+.mockup-stat-val.blue { background: linear-gradient(90deg, #2563eb, #60a5fa) }
+.mockup-stat-val.green { background: linear-gradient(90deg, #059669, #34d399) }
+.mockup-stat-lbl { height: 7px; background: #e2e8f0; border-radius: 3px; width: 85% }
+
+/* Kalender dalam mockup */
+.mockup-cal-header {
+  display: flex; gap: 4px; margin-bottom: 4px;
+}
+.mockup-cal-wday {
+  flex: 1; height: 8px; background: #94a3b8; border-radius: 2px; opacity: .5;
+}
+.mockup-cal { display: flex; flex-direction: column; gap: 4px }
+.mockup-cal-row { display: flex; gap: 4px }
+.mockup-cal-day {
+  flex: 1; height: 24px; border-radius: 5px;
+  background: #fff; border: 1px solid #e2e8f0;
+  position: relative;
+}
+.mockup-cal-day.has-res { border-color: rgba(232,99,10,.35); background: rgba(232,99,10,.08) }
+.mockup-cal-day.has-res::after {
+  content: ''; position: absolute; top: 3px; right: 3px;
+  width: 5px; height: 5px; border-radius: 50%; background: #e8630a;
+}
+.mockup-cal-day.busy { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.1) }
+.mockup-cal-day.busy::after {
+  content: ''; position: absolute; top: 3px; right: 3px;
+  width: 5px; height: 5px; border-radius: 50%; background: #f59e0b;
+}
+.mockup-cal-day.today {
+  border-color: #e8630a; background: #e8630a;
+  box-shadow: 0 2px 6px rgba(232,99,10,.4);
+}
+.mockup-cal-day.full { background: #fee2e2; border-color: rgba(220,38,38,.25) }
+.mockup-cal-day.empty { background: transparent; border-color: transparent }
+
+/* Reservasi list di mockup */
+.mockup-res-list { margin-top: 8px; display: flex; flex-direction: column; gap: 4px }
+.mockup-res-item {
+  background: #fff; border: 1px solid #e2e8f0;
+  border-left: 3px solid #e8630a; border-radius: 5px;
+  padding: 5px 7px; display: flex; align-items: center; gap: 6px;
+}
+.mockup-res-item.confirmed { border-left-color: #059669 }
+.mockup-res-item.pending   { border-left-color: #f59e0b }
+.mockup-res-avatar {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: linear-gradient(135deg, #e8630a, #fb923c); flex-shrink: 0;
+}
+.mockup-res-info { flex: 1 }
+.mockup-res-name { height: 7px; background: #1e293b; border-radius: 3px; width: 60%; margin-bottom: 3px; opacity: .7 }
+.mockup-res-time { height: 6px; background: #94a3b8; border-radius: 3px; width: 45% }
+.mockup-res-badge {
+  height: 14px; width: 36px; border-radius: 99px; flex-shrink: 0;
+}
+.mockup-res-badge.ok  { background: #dcfce7 }
+.mockup-res-badge.wa  { background: #fef9c3 }
 .mockup-float {
   position: absolute; background: #fff; border: 1px solid var(--border);
   border-radius: var(--r-lg); padding: 10px 14px;
@@ -1724,7 +1813,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 @media (max-width: 900px) {
-  .land-hero { min-height: auto; }
+  .land-hero { min-height: auto; padding-top: 60px; }
   .land-hero-img-wrap picture,
   .land-hero-img-wrap img { max-height: none; object-position: center top; }
 
