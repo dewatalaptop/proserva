@@ -2575,14 +2575,14 @@ var NOTIF = {
   _toastShown: false,
 
   getNewRes: function() {
-    var cutoff = new Date(Date.now()-30*86400000).toISOString().split('T')[0];
+    /* Semua reservasi customer dengan status pending, tanpa batas waktu */
     var all = [];
     Object.keys(S.res).forEach(function(mk){
-      if(mk >= cutoff.substring(0,7)) S.res[mk].forEach(function(r){ all.push(r); });
+      S.res[mk].forEach(function(r){ all.push(r); });
     });
     return all.filter(function(r){
-      return r.source === 'customer' && r.status === 'pending' && r.date >= cutoff;
-    });
+      return r.source === 'customer' && r.status === 'pending';
+    }).sort(function(a,b){ return (a.date+a.jam).localeCompare(b.date+b.jam); });
   },
 
   getPending: function() {
@@ -2670,13 +2670,44 @@ var NOTIF = {
     showToast(msg, 'warning', 5000);
   },
 
+  /* Load bulan yang relevan dari Firestore, lalu render */
+  loadAndRender: function(cb) {
+    var self = this;
+    if (!_UID || !window._FB) { self.render(); if(cb)cb(); return; }
+    var now   = new Date();
+    var months = [];
+    /* Load 2 bulan ke belakang untuk tangkap semua pending */
+    for (var i = 0; i <= 2; i++) {
+      var d  = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      var mk = d.getFullYear() + '-' + (d.getMonth()<9?'0':'') + (d.getMonth()+1);
+      months.push(mk);
+    }
+    /* Juga bulan mendatang (reservasi bisa di-booking jauh hari) */
+    for (var j = 1; j <= 2; j++) {
+      var d2  = new Date(now.getFullYear(), now.getMonth() + j, 1);
+      var mk2 = d2.getFullYear() + '-' + (d2.getMonth()<9?'0':'') + (d2.getMonth()+1);
+      months.push(mk2);
+    }
+    var tasks = months.map(function(mk){ return _syncMonthFromFS(mk); });
+    Promise.all(tasks).then(function(){
+      self.render();
+      self.showToastIfNew();
+      if (cb) cb();
+    }).catch(function(){
+      self.render();
+      self.showToastIfNew();
+      if (cb) cb();
+    });
+  },
+
   start: function() {
     var self = this;
-    self.render();
-    self.showToastIfNew();
+    /* Load fresh dari Firestore sebelum render pertama */
+    self.loadAndRender();
     if (self.handle) clearInterval(self.handle);
+    /* Refresh setiap 2 menit: sync ulang dari Firestore */
     self.handle = setInterval(function(){
-      if (!document.hidden) self.render();
+      if (!document.hidden) self.loadAndRender();
     }, 2 * 60 * 1000);
   }
 };
