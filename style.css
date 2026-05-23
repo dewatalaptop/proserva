@@ -278,7 +278,7 @@ button { cursor: pointer }
 .land-hero-content-wrap {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 48px 40px 80px;
+  padding: 40px 40px 72px;
   display: flex;
   align-items: center;
   gap: 60px;
@@ -309,6 +309,7 @@ button { cursor: pointer }
 }
 .hero-sub { font-size: 1.05rem; color: var(--ink-3); max-width: 480px; line-height: 1.75; margin-bottom: 36px }
 .hero-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 36px }
+.hero-cta-wrap { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px }
 .hero-btn-primary {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 13px 28px; background: var(--ac); border: none;
@@ -1805,6 +1806,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 }
 
 /* ── Print ───────────────────────────────────────────────────── */
+.wz-hint { font-size: .75rem; color: var(--ink-3); margin-top: 4px }
 @media print {
   #topbar, #sidebar, #trial-banner, #readonly-banner,
   .topbar-actions, .detail-actions, .back-btn, .rc-footer { display: none !important }
