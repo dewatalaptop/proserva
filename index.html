@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="mobile-web-app-capable" content="yes"/>
-<meta name="theme-color" content="#ffffff"/>
+<meta name="theme-color" content="#ea580c"/>
 <meta name="description" content="Proserva — Sistem manajemen reservasi untuk restoran, café, dan agritourism."/>
 <title>Proserva — Reservation Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -269,12 +269,9 @@ console.log('[Firebase] module loaded.');
     <!-- Konten teks + mockup di bawah gambar -->
     <div class="land-hero-content-wrap">
     <div class="land-hero-content">
-      <div class="hero-badge"><span class="hero-badge-dot"></span>Platform Reservasi untuk Bisnis Indonesia</div>
-      <h1 class="hero-h1">Kelola Reservasi<br/><span class="hero-accent">Lebih Cerdas,</span><br/>Lebih Efisien</h1>
-      <p class="hero-sub">Sistem manajemen reservasi berbasis cloud untuk restoran, café, dan agritourism. Tersimpan aman, real-time, bisa diakses dari mana saja.</p>
-      <div class="hero-actions">
-        <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')"><i class="fas fa-rocket"></i> Mulai Trial 14 Hari Gratis</button>
-        <button type="button" class="hero-btn-ghost" onclick="document.getElementById('land-features').scrollIntoView({behavior:'smooth'})">Lihat Fitur <i class="fas fa-arrow-down"></i></button>
+      <div class="hero-cta-wrap">
+        <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')"><i class="fas fa-rocket"></i> Coba Gratis 14 Hari</button>
+        <button type="button" class="hero-btn-ghost" onclick="showAuthTab('login')"><i class="fas fa-sign-in-alt"></i> Masuk</button>
       </div>
       <div class="hero-trust">
         <div class="hero-trust-item"><i class="fas fa-check"></i> Tanpa kartu kredit</div>
@@ -290,7 +287,7 @@ console.log('[Firebase] module loaded.');
           <span class="mockup-dot" style="background:#ff5f57"></span>
           <span class="mockup-dot" style="background:#febc2e"></span>
           <span class="mockup-dot" style="background:#28c840"></span>
-          <span class="mockup-url">proserva.app/dashboard</span>
+          <span class="mockup-url">proserva.id/dashboard</span>
         </div>
         <div class="mockup-body">
           <div class="mockup-sidebar">
@@ -402,7 +399,7 @@ console.log('[Firebase] module loaded.');
         <img src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/80A2FA57-9942-4893-A49B-59FC9DA47723.png" alt="Proserva" onerror="this.style.display='none'"/>
         <span>Proserva</span>
       </div>
-      <div class="land-footer-copy">&copy; 2025 Proserva &middot; Reservation Engine v6.0</div>
+      <div class="land-footer-copy">&copy; 2026 Proserva &middot; Reservation Engine</div>
     </div>
   </footer>
 </div><!-- /screen-landing -->
@@ -639,6 +636,14 @@ console.log('[Firebase] module loaded.');
           </select>
         </div>
       </div>
+      <div class="wz-field">
+        <label for="wz-notif-phone"><i class="fab fa-whatsapp" style="color:#25d366"></i> Nomor WhatsApp Admin <span style="font-weight:400;opacity:.6;font-size:.8em">(opsional)</span></label>
+        <div class="wz-input-wrap">
+          <i class="fas fa-phone" aria-hidden="true"></i>
+          <input class="wz-input" id="wz-notif-phone" type="tel" placeholder="08xx-xxxx-xxxx" maxlength="20"/>
+        </div>
+        <div class="wz-hint">Untuk menerima notifikasi saat ada reservasi masuk.</div>
+      </div>
       <div class="wz-err" id="wz-err-1" role="alert"></div>
       <button type="button" class="wz-btn" onclick="window.wzNext?.(2)">
         Lanjutkan <i class="fas fa-arrow-right"></i>
@@ -780,7 +785,7 @@ console.log('[Firebase] module loaded.');
     <i class="fas fa-clock" aria-hidden="true"></i>
     <!-- Teks + tanggal dalam 1 wrapper agar tidak wrap di mobile -->
     <span class="tb-text-wrap">
-      <span id="trial-banner-text">Trial berakhir dalam X hari</span><span id="trial-banner-date" style="opacity:.85;font-size:.75rem"></span>
+      <span id="trial-banner-text">Memuat info trial...</span><span id="trial-banner-date" style="opacity:.85;font-size:.75rem"></span>
     </span>
     <button type="button" class="tb-upgrade" onclick="window.showScreen('paywall')" aria-label="Upgrade ke Pro">
       <i class="fas fa-crown"></i> <span class="tb-upgrade-label">Upgrade</span>
@@ -847,7 +852,7 @@ console.log('[Firebase] module loaded.');
       <button type="button" class="btn-signout" onclick="doSignOut()">
         <i class="fas fa-sign-out-alt"></i> Keluar
       </button>
-      <div class="sidebar-ver">Proserva v6.0 &middot; Firebase</div>
+      <div class="sidebar-ver">Proserva &middot; Reservation Engine</div>
     </div>
   </aside>
 
