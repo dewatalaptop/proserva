@@ -781,6 +781,18 @@ button { cursor: pointer }
 .tb-btn-accent:hover { background: var(--ac-h); border-color: var(--ac-h); color: #fff }
 .tb-btn.icon-only { padding: 8px 10px; position: relative }
 .notif-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); border: 2px solid rgba(255,255,255,.96) }
+.notif-count { position: absolute; top: 3px; right: 3px; min-width: 17px; height: 17px; border-radius: 99px; background: var(--danger); border: 2px solid rgba(255,255,255,.96); color: #fff; font-size: .62rem; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1 }
+.nd-section-title { padding: 8px 14px 4px; font-size: .68rem; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .5px; display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--border) }
+#notif-new-list { padding: 6px 8px 2px; }
+.notif-new-item { background: #fff7ed; border: 1px solid #fed7aa; border-left: 3px solid #f59e0b; border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 6px }
+.nni-name { font-weight: 700; font-size: .85rem; color: var(--ink) }
+.nni-info { font-size: .72rem; color: var(--ink-3); margin: 3px 0 8px }
+.nni-actions { display: flex; gap: 6px }
+.nni-btn { flex: 1; padding: 6px 8px; border-radius: 6px; border: none; font-size: .75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: .15s }
+.nni-btn-ok  { background: #dcfce7; color: #166534 }
+.nni-btn-ok:hover  { background: #bbf7d0 }
+.nni-btn-no  { background: #fee2e2; color: #991b1b }
+.nni-btn-no:hover  { background: #fecaca }
 #notif-dd { display: none; position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); z-index: 999; overflow: hidden; animation: fadeSlideDown .16s ease both }
 #notif-dd.open { display: block }
 .nd-head { padding: 12px 14px; background: var(--bg-2); border-bottom: 1px solid var(--border); font-size: .78rem; font-weight: 600; color: var(--ink-2); display: flex; align-items: center; gap: 7px }
