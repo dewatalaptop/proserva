@@ -402,7 +402,15 @@ function calcBill(){
 function goStep(n,dir){
   var pEl=g('s'+B.step),nEl=(n==='OK')?g('sOK'):g('s'+n);
   if(pEl){pEl.classList.remove('on');pEl.classList.add('out');setTimeout(function(){pEl.classList.remove('out');},260);}
-  if(nEl){nEl.style.transform=dir==='fw'?'translateX(28px)':'translateX(-28px)';nEl.style.opacity='0';setTimeout(function(){nEl.classList.add('on');},10);}
+  if(nEl){
+    nEl.style.transform=dir==='fw'?'translateX(28px)':'translateX(-28px)';
+    nEl.style.opacity='0';
+    setTimeout(function(){
+      nEl.style.transform='';
+      nEl.style.opacity='';
+      nEl.classList.add('on');
+    },10);
+  }
   B.step=n;
   var ok=(n==='OK');
   g('prg').style.display=ok?'none':'block';
@@ -456,14 +464,27 @@ function renderCal(y,m){
   }
   grid.innerHTML=html;
 }
-window.pickD=function(el){B.date=el.getAttribute('data-date');B.slot=null;B.lsel=[];B.qty={};renderCal(B.y,B.m);};
+window.pickD=function(el){
+  var ds=el.getAttribute('data-date');
+  if(!ds)return;
+  B.date=ds;B.slot=null;B.lsel=[];B.qty={};
+  renderCal(B.y,B.m);
+};
 g('cPrev').onclick=function(){B.m--;if(B.m<0){B.m=11;B.y--;}var mk=mkStr(B.y,B.m);if(B.res[mk]===undefined)loadMonth(mk,function(){renderS1();});else renderS1();};
 g('cNext').onclick=function(){B.m++;if(B.m>11){B.m=0;B.y++;}var mk=mkStr(B.y,B.m);if(B.res[mk]===undefined)loadMonth(mk,function(){renderS1();});else renderS1();};
 
 function renderS2(){
-  g('s2d').textContent=fmtD(B.date);
+  g('s2d').textContent=fmtD(B.date)+' — '+allSlots(B.date).length+' slot tersedia';
   var sl=allSlots(B.date),sEl=g('slotBox'),nEl=g('noSlot');
-  if(!sl.length){sEl.innerHTML='';sEl.style.display='none';nEl.style.display='block';return;}
+  if(!sl.length){
+    sEl.innerHTML='';sEl.style.display='none';
+    nEl.style.display='block';
+    /* Debug: tampilkan info lokasi */
+    nEl.innerHTML='<i class="fas fa-calendar-times" style="font-size:1.4rem;display:block;margin-bottom:8px;color:#fca5a5"></i>'
+      +'Tidak ada slot tersedia.<br><span style="font-size:.72rem;color:#94a3b8">'
+      +B.locs.length+' lokasi terdaftar, ops: '+B.ops.openTime+'-'+B.ops.closeTime+'</span>';
+    return;
+  }
   nEl.style.display='none';sEl.style.display='grid';
   var html='';for(var i=0;i<sl.length;i++){var s=sl[i];html+='<div class="sl'+(s===B.slot?' sel':'')+'" onclick="pickS(this)" data-slot="'+s+'">'+s+'</div>';}
   sEl.innerHTML=html;
