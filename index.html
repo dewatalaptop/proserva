@@ -245,11 +245,29 @@ console.log('[Firebase] module loaded.');
   </nav>
 
   <section class="land-hero">
-    <div class="land-hero-bg">
-      <div class="hero-orb hero-orb-1"></div>
-      <div class="hero-orb hero-orb-2"></div>
-      <div class="hero-grid"></div>
+
+    <!-- Gambar hero: desktop/tablet = landscape, mobile = portrait -->
+    <div class="land-hero-img-wrap">
+      <img
+        class="land-hero-img-desktop"
+        src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/IMG_0564.png"
+        alt="Proserva — Solusi Reservasi Restoran Anda"
+        width="1440" height="450"
+        loading="eager"
+        fetchpriority="high"
+      />
+      <img
+        class="land-hero-img-mobile"
+        src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/IMG_0566.png"
+        alt="Proserva — Solusi Reservasi Restoran Anda"
+        width="960" height="720"
+        loading="eager"
+        fetchpriority="high"
+      />
     </div>
+
+    <!-- Konten teks + mockup di bawah gambar -->
+    <div class="land-hero-content-wrap">
     <div class="land-hero-content">
       <div class="hero-badge"><span class="hero-badge-dot"></span>Platform Reservasi untuk Bisnis Indonesia</div>
       <h1 class="hero-h1">Kelola Reservasi<br/><span class="hero-accent">Lebih Cerdas,</span><br/>Lebih Efisien</h1>
@@ -308,6 +326,7 @@ console.log('[Firebase] module loaded.');
       <div class="mockup-float mockup-float-1"><i class="fas fa-calendar-check" style="color:#e8630a"></i><span>12 Reservasi Hari Ini</span></div>
       <div class="mockup-float mockup-float-2"><i class="fas fa-users" style="color:#059669"></i><span>48 Tamu Bulan Ini</span></div>
     </div>
+    </div><!-- /land-hero-content-wrap -->
   </section>
 
   <section class="land-sect" id="land-features">
