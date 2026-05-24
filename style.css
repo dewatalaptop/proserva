@@ -1011,89 +1011,219 @@ button { cursor: pointer }
 .cal-month { font-family: var(--font-display); font-size: 1.15rem; color: var(--ink); min-width: 180px; text-align: center; font-style: italic; font-weight: 700 }
 .btn-today { padding: 7px 14px; background: var(--ac); color: #fff; border: none; border-radius: var(--r-sm); font-size: .78rem; font-weight: 700; transition: var(--t) }
 .btn-today:hover { background: var(--ac-h) }
-.cal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 22px; box-shadow: 0 2px 16px rgba(15,23,42,.08), 0 1px 4px rgba(15,23,42,.04); position: relative }
-.cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 8px }
-.cal-weekdays > div { text-align: center; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--ink-4); padding: 4px 0 }
-.cal-grid {
-  display: grid; grid-template-columns: repeat(7,1fr);
-  gap: 6px; transition: opacity .2s ease;
-}
-.cal-day {
+/* .cal-card defined in CALENDAR PREMIUM REDESIGN section above */
+/* .cal-weekdays defined in CALENDAR PREMIUM REDESIGN section above */
+/* ══════════════════════════════════════════════════════════════
+   CALENDAR - PREMIUM REDESIGN
+   Inspirasi: Fantastical, Notion Calendar, Linear
+   ══════════════════════════════════════════════════════════════ */
+
+/* Container kalender - card dengan depth */
+.cal-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  min-height: 92px; padding: 10px;
-  cursor: pointer;
-  transition: all .18s cubic-bezier(.4,0,.2,1);
-  position: relative; overflow: hidden;
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--r-xl);
+  padding: 20px;
+  box-shadow: 0 2px 16px rgba(15,23,42,.07), 0 1px 4px rgba(15,23,42,.04);
+  position: relative;
+  /* Subtle gradient background */
+  background-image: linear-gradient(180deg, var(--surface) 0%, #f9fafb 100%);
 }
+
+/* Header hari - lebih premium */
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  gap: 4px; margin-bottom: 6px;
+}
+.cal-weekdays > div {
+  text-align: center;
+  font-size: .68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: 1.2px;
+  color: var(--ink-4); padding: 6px 0;
+}
+
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  gap: 4px; transition: opacity .2s ease;
+}
+
+/* ── BASE CELL ── */
+.cal-day {
+  background: var(--surface);
+  border: 1px solid rgba(15,23,42,.06);
+  border-radius: 10px;
+  min-height: 96px;
+  padding: 8px 9px;
+  cursor: pointer;
+  transition: all .16s cubic-bezier(.4,0,.2,1);
+  position: relative; overflow: hidden;
+}
+/* Subtle inner shadow untuk depth */
+.cal-day::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 9px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+  pointer-events: none;
+}
+
 .cal-day:hover {
   border-color: var(--ac);
-  background: var(--surface);
-  box-shadow: 0 4px 16px var(--ac-glow);
-  transform: translateY(-2px);
-  z-index: 1;
+  background: rgba(234,88,12,.03);
+  box-shadow: 0 4px 20px var(--ac-glow), 0 1px 4px rgba(15,23,42,.06);
+  transform: translateY(-2px) scale(1.01);
+  z-index: 2;
 }
-/* Sel kosong - benar-benar transparan */
+
+/* ── EMPTY CELL ── */
 .cal-day.empty {
   background: transparent; border-color: transparent;
   box-shadow: none; cursor: default; pointer-events: none;
 }
-/* Sel dengan reservasi - subtle tint */
+.cal-day.empty::after { display: none }
+
+/* ── PAST DAYS - lebih pudar ── */
+.cal-day.cal-day-past {
+  background: rgba(248,250,252,.6);
+  border-color: rgba(15,23,42,.04);
+}
+.cal-day.cal-day-past .cal-day-num { opacity: .45 }
+.cal-day.cal-day-past .cal-mini    { opacity: .5 }
+
+/* ── HAS RESERVATION - visual yang jelas ── */
 .cal-day.has-res {
-  background: rgba(234,88,12,.04);
-  border-color: rgba(234,88,12,.18);
+  background: linear-gradient(145deg,
+    rgba(234,88,12,.05) 0%,
+    rgba(234,88,12,.02) 100%);
+  border-color: rgba(234,88,12,.22);
   border-left: 3px solid var(--ac);
 }
 .cal-day.has-res:hover {
-  background: rgba(234,88,12,.08);
-  box-shadow: 0 6px 20px var(--ac-glow);
+  background: linear-gradient(145deg,
+    rgba(234,88,12,.10) 0%,
+    rgba(234,88,12,.06) 100%);
+  box-shadow: 0 6px 24px var(--ac-glow);
 }
-/* Today - solid dan menonjol */
+
+/* ── TODAY - paling menonjol ── */
 .cal-day.today {
-  background: var(--ac);
+  background: linear-gradient(145deg, var(--ac) 0%, var(--ac-h) 100%);
   border-color: var(--ac);
-  box-shadow: 0 4px 16px var(--ac-glow);
+  box-shadow:
+    0 6px 20px var(--ac-glow),
+    0 2px 8px rgba(234,88,12,.25),
+    inset 0 1px 0 rgba(255,255,255,.2);
+}
+.cal-day.today::after {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
 }
 .cal-day.today .cal-day-num {
-  color: #fff; font-weight: 800;
+  color: #fff; font-weight: 900;
+  background: rgba(255,255,255,.2);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.35);
 }
 .cal-day.today .cal-res-pill {
-  background: rgba(255,255,255,.25); color: #fff;
+  background: rgba(255,255,255,.22);
+  color: #fff; border: 1px solid rgba(255,255,255,.3);
 }
-.cal-day.today .cal-mini { color: rgba(255,255,255,.75) }
+.cal-day.today .cal-mini        { color: rgba(255,255,255,.75) }
+.cal-day.today .cal-avail       { box-shadow: 0 0 0 2px rgba(255,255,255,.4) }
 .cal-day.today:hover {
-  background: var(--ac-h);
-  box-shadow: 0 8px 24px var(--ac-glow);
-  transform: translateY(-2px);
+  background: linear-gradient(145deg, var(--ac-h) 0%, #b93a0a 100%);
+  box-shadow: 0 10px 28px var(--ac-glow), 0 3px 10px rgba(234,88,12,.3);
+  transform: translateY(-2px) scale(1.02);
 }
-/* Nomor tanggal */
+
+/* ── BUSY - amber warning ── */
+.cal-day.cal-day-busy {
+  background: linear-gradient(145deg,
+    rgba(245,158,11,.07) 0%,
+    rgba(245,158,11,.03) 100%);
+  border-color: rgba(245,158,11,.28);
+}
+
+/* ── FULL - merah subtle ── */
+.cal-day.cal-day-full {
+  background: linear-gradient(145deg,
+    rgba(220,38,38,.06) 0%,
+    rgba(220,38,38,.02) 100%);
+  border-color: rgba(220,38,38,.20);
+}
+
+/* ── NOMOR TANGGAL ── */
 .cal-day-num {
-  width: 26px; height: 26px;
+  width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: .82rem; color: var(--ink-2);
-  margin-bottom: 6px; border-radius: 50%;
+  font-weight: 700; font-size: .84rem; color: var(--ink);
+  margin-bottom: 5px; border-radius: 50%;
+  transition: all .15s ease;
+  letter-spacing: -.01em;
 }
-/* Dot ketersediaan */
+/* Hari Minggu - sedikit merah */
+.cal-day:nth-child(7n+1) .cal-day-num { color: var(--danger) }
+.cal-day.today:nth-child(7n+1) .cal-day-num { color: #fff }
+
+/* ── AVAILABILITY DOT ── */
 .cal-avail {
-  position: absolute; top: 9px; right: 9px;
-  width: 8px; height: 8px; border-radius: 50%;
+  position: absolute; top: 8px; right: 9px;
+  width: 7px; height: 7px; border-radius: 50%;
+  transition: transform .15s ease;
 }
-.avail-free { background: var(--success); box-shadow: 0 0 6px rgba(5,150,105,.5) }
-.avail-busy { background: var(--warning); box-shadow: 0 0 6px rgba(217,119,6,.5) }
-.avail-full { background: var(--danger);  box-shadow: 0 0 6px rgba(220,38,38,.5) }
-/* Pill reservasi */
+.cal-day:hover .cal-avail { transform: scale(1.3) }
+.avail-free { background: #22c55e; box-shadow: 0 0 0 2px rgba(34,197,94,.2) }
+.avail-busy { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.2) }
+.avail-full { background: #ef4444; box-shadow: 0 0 0 2px rgba(239,68,68,.2) }
+
+/* ── RESERVATION PILL ── */
 .cal-res-pill {
   display: inline-flex; align-items: center; gap: 3px;
-  background: var(--ac-dim); color: var(--ac);
-  padding: 2px 7px; border-radius: 99px;
-  font-size: .66rem; font-weight: 700; margin-bottom: 3px;
+  background: var(--ac-dim);
+  color: var(--ac);
+  border: 1px solid var(--ac-border);
+  padding: 2px 8px; border-radius: 99px;
+  font-size: .65rem; font-weight: 800;
+  margin-bottom: 3px; letter-spacing: .2px;
 }
+
+/* ── MINI TEXT (nama tamu) ── */
 .cal-mini {
-  font-size: .63rem; color: var(--ink-4);
+  font-size: .62rem; color: var(--ink-3);
   white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; line-height: 1.4;
+  text-overflow: ellipsis; line-height: 1.45;
+  font-weight: 500;
+}
+
+/* ── TANGGAL TUTUP ── */
+.cal-day.cal-closed,
+.cal-day.cal-day-closed {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(220,38,38,.03) 0px, rgba(220,38,38,.03) 4px,
+    transparent 4px, transparent 10px
+  );
+  border-color: rgba(220,38,38,.18); cursor: not-allowed;
+}
+.cal-day.cal-closed .cal-day-num,
+.cal-day.cal-day-closed .cal-day-num { color: var(--danger); opacity: .55 }
+.cal-day.cal-closed:hover,
+.cal-day.cal-day-closed:hover {
+  transform: none; box-shadow: none; border-color: rgba(220,38,38,.25);
+}
+.cal-day.cal-closed::after,
+.cal-day.cal-day-closed::after { display: none }
+
+/* ── CLOSED-X ICON ── */
+.cal-closed-x {
+  position: absolute; top: 7px; right: 8px;
+  color: rgba(220,38,38,.4); font-size: .6rem;
+}
+
+/* ── MOBILE ── */
+@media (max-width: 860px) {
+  .cal-day       { min-height: 64px; padding: 6px 7px; border-radius: 8px; }
+  .cal-day-num   { width: 24px; height: 24px; font-size: .78rem; }
+  .cal-mini      { display: none }
+  .cal-avail     { width: 6px; height: 6px; top: 6px; right: 6px }
 }
 
 /* ══════════════════════════════════════════════════════════════
