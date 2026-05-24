@@ -1929,19 +1929,56 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 
 @media (max-width: 900px) {
   .land-hero { min-height: auto; padding-top: 60px; }
-  /* hero-img sudah contain, tidak perlu override */
 
   .land-hero-content-wrap {
     flex-direction: column; text-align: center;
-    padding: 32px 20px 60px; gap: 32px;
+    padding: 28px 20px 52px; gap: 28px;
   }
-  .hero-sub { max-width: 100%; margin-left: auto; margin-right: auto }
+  .land-hero-content { width: 100%; max-width: 100%; }
+  .hero-kicker { font-size: .68rem; padding: 5px 13px; }
+  .hero-h1 { font-size: clamp(1.7rem, 6vw, 2.6rem); margin-bottom: 14px; }
+  .hero-sub { max-width: 100%; margin: 0 auto 20px; font-size: .9rem; }
+  .hero-cta-wrap { justify-content: center; }
   .hero-actions, .hero-trust { justify-content: center }
-  .hero-mockup { flex: none; width: 100%; max-width: 420px }
-  .mockup-float-1 { left: -10px }
-  .mockup-float-2 { right: -10px }
+  .hero-mockup { flex: none; width: 100%; max-width: 380px; margin: 0 auto; }
+  .mockup-float-1 { left: -8px }
+  .mockup-float-2 { right: -8px }
   .auth-left   { display: none }
   .auth-right  { padding: 32px 24px }
+  /* Trust section */
+  .land-trust-inner { gap: 16px; }
+  .trust-item { min-width: 160px; flex: 1 1 40%; }
+  .trust-div  { display: none; }
+  /* Nav */
+  .land-nav { padding: 0 20px; }
+}
+
+@media (max-width: 640px) {
+  /* Hero */
+  .hero-h1 { font-size: clamp(1.55rem, 7vw, 2rem); line-height: 1.15; }
+  .hero-kicker { display: none; } /* terlalu panjang di HP kecil */
+  .hero-btn-primary, .hero-btn-ghost { width: 100%; justify-content: center; }
+  .hero-cta-wrap { flex-direction: column; }
+  .hero-trust { gap: 12px; flex-direction: column; align-items: center; }
+  .hero-trust-dot { display: none; }
+  /* Mockup — sembunyikan di HP kecil agar konten lebih fokus */
+  .hero-mockup { display: none; }
+  .mockup-float-1, .mockup-float-2 { display: none; }
+  /* Land sections */
+  .land-sect { padding: 52px 18px; }
+  .land-nav  { padding: 0 16px; }
+  .land-feat-grid { grid-template-columns: 1fr; gap: 12px; }
+  .pricing-grid { grid-template-columns: 1fr; padding: 0; gap: 12px; }
+  .pricing-card-featured { order: -1; }
+  .faq-grid { grid-template-columns: 1fr; gap: 10px; }
+  /* Trust */
+  .land-trust-section { padding: 20px 16px; }
+  .land-trust-inner { flex-direction: column; gap: 14px; }
+  .trust-item { min-width: 100%; flex: none; }
+  /* Pricing social proof */
+  .pricing-social-proof { flex-direction: column; gap: 8px; }
+  /* Topbar chips */
+  .topbar-chips { display: none !important; }
 }
 
 /* ── Mobile: sidebar drawer ──────────────────────────────────── */
@@ -1989,16 +2026,12 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
   .cal-day       { min-height: 62px }
   .cal-mini      { display: none }
   .btn-label     { display: none }
-  .land-nav      { padding: 0 20px }
-  .land-sect     { padding: 64px 20px }
-  .pricing-grid  { grid-template-columns: 1fr; padding: 0 20px }
+  .land-nav      { padding: 0 14px }
+  .land-sect     { padding: 44px 16px }
+  .pricing-grid  { grid-template-columns: 1fr; padding: 0 }
 }
 
-@media (max-width: 640px) {
-  .land-feat-grid { grid-template-columns: 1fr }
-  .paywall-plans  { grid-template-columns: 1fr }
-  .hero-h1        { font-size: 2.2rem }
-}
+/* land feat grid mobile: handled in 640px block above */
 
 @media (max-width: 560px) {
   .stats-row, .anl-stats { grid-template-columns: 1fr 1fr }
@@ -2137,14 +2170,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 /* ══════════════════════════════════════════════
    RESPONSIVE: Mobile adjustments
    ══════════════════════════════════════════════ */
-@media (max-width: 640px) {
-  .land-trust-section { padding: 24px 20px }
-  .trust-div { display: none }
-  .trust-item { min-width: 45% }
-  .faq-grid { grid-template-columns: 1fr }
-  .pricing-social-proof { flex-direction: column; gap: 8px }
-  .topbar-chips { display: none !important }
-}
+/* trust/faq/chips mobile: handled in 640px block above */
 
 @media print {
   #topbar, #sidebar, #trial-banner, #readonly-banner,
