@@ -245,29 +245,18 @@ button { cursor: pointer }
   width: 100%;
   display: block;
 }
-.land-hero-img-wrap picture,
 .land-hero-img-wrap img {
   width: 100%;
   display: block;
   height: auto;
-  max-height: 600px;
-  object-fit: cover;
-  object-position: center top;
+  /* contain: gambar tampil penuh tanpa terpotong apapun rasionya */
+  object-fit: contain;
+  background: #fff;
+  /* hapus max-height agar tinggi mengikuti gambar asli */
+  max-height: none;
 }
 /* Overlay tipis di bagian bawah agar transisi halus ke konten di bawahnya */
-.land-hero-img-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    transparent 60%,
-    rgba(255,255,255,0.55) 85%,
-    rgba(255,255,255,1) 100%
-  );
-  pointer-events: none;
-}
+/* overlay dihapus — gambar tampil penuh dengan object-fit:contain */
 /* Hide lama orbs/grid — tidak dipakai lagi */
 .land-hero-bg,
 .hero-orb,
@@ -1814,8 +1803,7 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
 
 @media (max-width: 900px) {
   .land-hero { min-height: auto; padding-top: 60px; }
-  .land-hero-img-wrap picture,
-  .land-hero-img-wrap img { max-height: none; object-position: center top; }
+  /* hero-img sudah contain, tidak perlu override */
 
   .land-hero-content-wrap {
     flex-direction: column; text-align: center;
