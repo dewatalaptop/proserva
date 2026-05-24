@@ -269,6 +269,12 @@ console.log('[Firebase] module loaded.');
     <!-- Konten teks + mockup di bawah gambar -->
     <div class="land-hero-content-wrap">
     <div class="land-hero-content">
+      <div class="hero-kicker">
+        <span class="hero-kicker-dot"></span>
+        Platform Reservasi #1 untuk Bisnis Indonesia
+      </div>
+      <h1 class="hero-h1">Reservasi, WhatsApp, dan<br/><span class="hero-accent">Manajemen Meja</span><br/>dalam Satu Dashboard</h1>
+      <p class="hero-sub">Kelola semua reservasi restoran tanpa ribet — kalender visual, notifikasi WA otomatis, laporan real-time. Setup dalam 2 menit.</p>
       <div class="hero-cta-wrap">
         <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')"><i class="fas fa-rocket"></i> Coba Gratis 14 Hari</button>
         <button type="button" class="hero-btn-ghost" onclick="showAuthTab('login')"><i class="fas fa-sign-in-alt"></i> Masuk</button>
@@ -412,11 +418,60 @@ console.log('[Firebase] module loaded.');
     </div>
   </section>
 
+  <!-- Trust Layer -->
+  <section class="land-trust-section">
+    <div class="land-trust-inner">
+      <div class="trust-item">
+        <div class="trust-icon"><i class="fas fa-shield-alt"></i></div>
+        <div class="trust-text">
+          <div class="trust-title">Data Aman & Terenkripsi</div>
+          <div class="trust-desc">Firebase Security Rules + SSL. Data tidak pernah dibagikan.</div>
+        </div>
+      </div>
+      <div class="trust-div"></div>
+      <div class="trust-item">
+        <div class="trust-icon" style="background:rgba(5,150,105,.1);color:#059669"><i class="fas fa-sync-alt"></i></div>
+        <div class="trust-text">
+          <div class="trust-title">Realtime Sync</div>
+          <div class="trust-desc">Perubahan tampil instan di semua perangkat tanpa refresh.</div>
+        </div>
+      </div>
+      <div class="trust-div"></div>
+      <div class="trust-item">
+        <div class="trust-icon" style="background:rgba(37,99,235,.1);color:#2563eb"><i class="fas fa-cloud-upload-alt"></i></div>
+        <div class="trust-text">
+          <div class="trust-title">Backup Otomatis</div>
+          <div class="trust-desc">Data tersimpan di cloud Google Firebase. Tidak perlu backup manual.</div>
+        </div>
+      </div>
+      <div class="trust-div"></div>
+      <div class="trust-item">
+        <div class="trust-icon" style="background:rgba(245,158,11,.1);color:#f59e0b"><i class="fas fa-bolt"></i></div>
+        <div class="trust-text">
+          <div class="trust-title">Tanpa Instalasi</div>
+          <div class="trust-desc">Buka di browser HP atau laptop. Tidak perlu download apapun.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="land-sect land-sect-gray" id="land-pricing">
     <div class="land-sect-header">
       <div class="land-sect-label">Harga Transparan</div>
       <h2 class="land-sect-title">Pilih paket yang sesuai</h2>
       <p class="land-sect-sub">Mulai gratis 14 hari, tidak perlu kartu kredit</p>
+      <div class="pricing-social-proof">
+        <div class="psp-avatars">
+          <div class="psp-av" style="background:linear-gradient(135deg,#e8630a,#fb923c)">R</div>
+          <div class="psp-av" style="background:linear-gradient(135deg,#2563eb,#60a5fa)">S</div>
+          <div class="psp-av" style="background:linear-gradient(135deg,#059669,#34d399)">W</div>
+          <div class="psp-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">D</div>
+        </div>
+        <div class="psp-text">
+          <div class="psp-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+          <div class="psp-label">Dipercaya pemilik restoran &amp; agritourism Indonesia</div>
+        </div>
+      </div>
     </div>
     <div class="pricing-grid">
       <div class="pricing-card">
@@ -460,6 +515,40 @@ console.log('[Firebase] module loaded.');
           <li><i class="fas fa-check"></i> Akses beta fitur</li>
         </ul>
         <button type="button" class="pricing-btn pricing-btn-ghost" onclick="showAuthTab('register')">Pilih Tahunan</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Mini -->
+  <section class="land-sect" style="padding-top:60px;padding-bottom:60px">
+    <div class="land-sect-header" style="margin-bottom:36px">
+      <div class="land-sect-label">FAQ</div>
+      <h2 class="land-sect-title" style="font-size:clamp(1.5rem,2.5vw,2rem)">Pertanyaan yang sering ditanya</h2>
+    </div>
+    <div class="faq-grid">
+      <div class="faq-item">
+        <div class="faq-q"><i class="fas fa-question-circle"></i> Apakah data saya aman?</div>
+        <div class="faq-a">Ya. Data disimpan di Firebase Google dengan enkripsi SSL. Hanya Anda yang bisa mengakses akun bisnis Anda.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><i class="fas fa-question-circle"></i> Bisa dipakai di HP?</div>
+        <div class="faq-a">Bisa. Proserva berjalan di browser HP manapun — iPhone, Android, atau tablet. Tanpa install aplikasi.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><i class="fas fa-question-circle"></i> Bagaimana cara customer reservasi?</div>
+        <div class="faq-a">Anda mendapat link unik (contoh: proserva.id/booking?biz=xxx) yang bisa dibagikan ke customer via WA, Instagram, atau website.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><i class="fas fa-question-circle"></i> Apakah ada biaya tersembunyi?</div>
+        <div class="faq-a">Tidak ada. Harga yang tertera sudah final. Trial 14 hari gratis penuh tanpa perlu kartu kredit.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><i class="fas fa-question-circle"></i> Bisa batal kapan saja?</div>
+        <div class="faq-a">Ya. Tidak ada kontrak jangka panjang. Anda bisa berhenti berlangganan kapan saja.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q"><i class="fas fa-question-circle"></i> Cocok untuk bisnis seperti apa?</div>
+        <div class="faq-a">Restoran, kafe, agritourism, vila, wedding venue, studio foto — semua bisnis yang butuh sistem reservasi berbasis lokasi &amp; waktu.</div>
       </div>
     </div>
   </section>
@@ -917,6 +1006,10 @@ console.log('[Firebase] module loaded.');
       <div class="nav-item" data-view="settings"  onclick="showView('settings')"  role="button" tabindex="0"><span class="nav-icon"><i class="fas fa-sliders" aria-hidden="true"></i></span><span class="nav-label">Pengaturan</span></div>
     </nav>
     <div class="sidebar-footer">
+      <div class="sb-sync-indicator" id="sb-sync-indicator">
+        <span class="sb-sync-dot"></span>
+        <span class="sb-sync-label">Sync realtime aktif</span>
+      </div>
       <button type="button" class="btn-upgrade" id="sb-upgrade-btn" onclick="window.showScreen('paywall')" style="display:none">
         <i class="fas fa-crown"></i> Upgrade ke Pro
       </button>
@@ -934,6 +1027,16 @@ console.log('[Firebase] module loaded.');
     </button>
     <div class="topbar-center">
       <span class="topbar-page" id="topbar-page">Kalender</span>
+    </div>
+    <div class="topbar-chips" id="topbar-chips" style="display:none">
+      <div class="topbar-chip" id="chip-today" title="Reservasi hari ini">
+        <i class="fas fa-calendar-check"></i>
+        <span id="chip-today-val">0</span>
+      </div>
+      <div class="topbar-chip topbar-chip-warn" id="chip-pending" title="Menunggu konfirmasi" style="display:none">
+        <i class="fas fa-clock"></i>
+        <span id="chip-pending-val">0</span>
+      </div>
     </div>
     <div class="topbar-actions">
       <div class="tb-btn icon-only" id="notif-btn" onclick="toggleNotif(event)" role="button" tabindex="0" aria-label="Notifikasi" style="position:relative">
