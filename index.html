@@ -248,22 +248,13 @@ console.log('[Firebase] module loaded.');
 
     <!-- Gambar hero: desktop/tablet = landscape, mobile = portrait -->
     <div class="land-hero-img-wrap">
-      <picture>
-        <!-- Mobile: portrait, max 900px -->
-        <source
-          media="(max-width: 900px)"
-          srcset="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/IMG_0566.png"
-        />
-        <!-- Desktop/tablet: landscape, default -->
-        <img
-          src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/IMG_0564.png"
-          alt="Proserva — Solusi Reservasi Restoran Anda"
-          width="1440" height="450"
-          loading="eager"
-          fetchpriority="high"
-          style="width:100%;display:block;height:auto;max-height:600px;object-fit:cover;object-position:center top"
-        />
-      </picture>
+      <img
+        id="hero-banner-img"
+        src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/IMG_0579.png"
+        alt="Proserva — Solusi Reservasi Restoran Anda"
+        loading="eager"
+        fetchpriority="high"
+      />
     </div>
 
     <!-- Konten teks + mockup di bawah gambar -->
