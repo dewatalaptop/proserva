@@ -454,6 +454,26 @@ async function loadAccount() {
   return _ACCOUNT;
 }
 
+function updateTopbarChips() {
+  var chips = document.getElementById('topbar-chips');
+  var chipToday = document.getElementById('chip-today');
+  var chipPending = document.getElementById('chip-pending');
+  var chipTodayVal = document.getElementById('chip-today-val');
+  var chipPendingVal = document.getElementById('chip-pending-val');
+  if (!chips) return;
+  var td = todayStr();
+  var mk = td.substring(0,7);
+  var res = S.res[mk] || [];
+  var todayRes = res.filter(function(r){ return r.date===td && r.status!=='batal'; });
+  var pending  = res.filter(function(r){ return r.source==='customer' && r.status==='pending'; });
+  chips.style.display = 'flex';
+  if (chipTodayVal) chipTodayVal.textContent = todayRes.length;
+  if (chipPending && chipPendingVal) {
+    chipPendingVal.textContent = pending.length;
+    chipPending.style.display = pending.length > 0 ? 'flex' : 'none';
+  }
+}
+
 function evaluateAccountStatus() {
   if (!_ACCOUNT) return 'trial';
   var status = _ACCOUNT.status || 'trial';
@@ -851,6 +871,7 @@ window._onAuthReady = async function (user) {
   var biz = S.biz.name || 'Usaha Saya';
   setText('cal-title',   'Dashboard — ' + biz);
   setText('cal-sub',     'Selamat datang kembali! Kelola reservasi dengan mudah.');
+  updateTopbarChips();
   setText('sb-biz-name', biz);
 
   if (!window._NOTIF_STARTED) { NOTIF.start(); window._NOTIF_STARTED=true; }
