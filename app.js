@@ -909,8 +909,13 @@ window._onAuthReady = async function (user) {
   requestAnimationFrame(async function(){
     applyAccountUI(accountStatus);
     await _renderCalendarWithLoad();
-    /* Init UX enhancements */
     _initKeyboardShortcuts();
+    /* v6.2: Morning Brief otomatis */
+    setTimeout(function(){ if(typeof _showMorningBrief!=='undefined') _showMorningBrief(); }, 900);
+    /* v6.2: Auto-complete reservasi lewat */
+    setTimeout(function(){ if(typeof _autoCompleteReservations!=='undefined') _autoCompleteReservations(); }, 2000);
+    /* v6.2: Populate qa-locs */
+    setTimeout(function(){ if(window.populateQaLocs) populateQaLocs(); }, 500);
   });
 };
 
@@ -1270,6 +1275,147 @@ window.handleExportCSV = handleExportCSV;
 /* ──────────────────────────────────────────────────────────────
    SIDEBAR - MINI TODAY SUMMARY
    ────────────────────────────────────────────────────────────── */
+/* ================================================================
+   v6.2 NEW FUNCTIONS
+   ================================================================ */
+
+/* MORNING BRIEF */
+function _showMorningBrief() {
+  var td=todayStr(), mk=td.substring(0,7);
+  var res=(S.res[mk]||[]).filter(function(r){ return r.date===td&&r.status!=='batal'; })
+    .sort(function(a,b){ return (a.jam||'').localeCompare(b.jam||''); });
+  if(!res.length) return;
+  var pending=res.filter(function(r){ return r.status==='pending'; });
+  var confirmed=res.filter(function(r){ return r.status==='confirmed'; });
+  var totalPax=res.reduce(function(s,r){ return s+(parseInt(r.jumlah)||0); },0);
+  var nowM=new Date().getHours()*60+new Date().getMinutes();
+  var nextRes=res.find(function(r){ return toMins(r.jam||'00:00')>=nowM; });
+  var scheduleRows=res.slice(0,4).map(function(r){
+    var stB=r.status==='confirmed'?'<span class="mb-badge mb-ok">✓ Confirmed</span>'
+           :r.status==='selesai'?'<span class="mb-badge mb-done">✓ Selesai</span>'
+           :'<span class="mb-badge mb-pend">⏳ Pending</span>';
+    var tp=Array.isArray(r.tempat)?r.tempat.join(', '):r.tempat||'-';
+    return '<div class="mb-row">'
+      +'<div class="mb-time">'+esc(r.jam||'?')+'</div>'
+      +'<div class="mb-info"><span class="mb-name">'+esc(r.nama||'-')+'</span>'
+      +'<span class="mb-loc"> · '+esc(tp)+' · '+r.jumlah+' org</span></div>'
+      +stB+'</div>';
+  }).join('');
+  if(res.length>4) scheduleRows+='<div class="mb-more">+'+(res.length-4)+' lainnya</div>';
+  var el=document.getElementById('modal-morning-brief'); if(!el) return;
+  var titleEl=document.getElementById('mb-title');
+  var statsEl=document.getElementById('mb-stats');
+  var schedEl=document.getElementById('mb-schedule');
+  var alertEl=document.getElementById('mb-alert-wrap');
+  var nextEl=document.getElementById('mb-next');
+  if(titleEl) titleEl.textContent='Selamat Pagi! Jadwal hari ini';
+  if(statsEl) statsEl.innerHTML=
+    '<div class="mb-stat"><div class="mb-stat-n">'+res.length+'</div><div class="mb-stat-l">Reservasi</div></div>'
+    +'<div class="mb-stat"><div class="mb-stat-n">'+totalPax+'</div><div class="mb-stat-l">Tamu</div></div>'
+    +'<div class="mb-stat"><div class="mb-stat-n">'+confirmed.length+'</div><div class="mb-stat-l">Confirmed</div></div>'
+    +'<div class="mb-stat" style="'+(pending.length?'color:var(--warning)':'')+'">'
+    +'<div class="mb-stat-n">'+pending.length+'</div><div class="mb-stat-l">Pending</div></div>';
+  if(schedEl) schedEl.innerHTML=scheduleRows;
+  if(alertEl) alertEl.innerHTML=pending.length
+    ?'<div class="mb-alert"><i class="fas fa-exclamation-triangle"></i> '
+    +pending.length+' reservasi belum dikonfirmasi / belum DP</div>':'';
+  if(nextEl){
+    if(nextRes){ nextEl.innerHTML='Berikutnya: <strong>'+esc(nextRes.jam)+'</strong> - '+esc(nextRes.nama); nextEl.style.display='flex'; }
+    else { nextEl.style.display='none'; }
+  }
+  el.classList.add('open');
+}
+window._showMorningBrief=_showMorningBrief;
+
+/* AUTO-COMPLETE */
+async function _autoCompleteReservations() {
+  if(isReadOnly()) return;
+  var now=Date.now(), toUpdate=[];
+  Object.keys(S.res).forEach(function(mk){
+    (S.res[mk]||[]).forEach(function(r){
+      if(r.status!=='confirmed'||!r.date||!r.jam) return;
+      var loc=getLocByName(Array.isArray(r.tempat)?r.tempat[0]:r.tempat);
+      var dur=r.duration?parseInt(r.duration):getEffectiveDuration(loc);
+      if(new Date(r.date+'T'+r.jam).getTime()+dur*60000 < now) toUpdate.push(r);
+    });
+  });
+  if(!toUpdate.length) return;
+  for(var i=0;i<toUpdate.length;i++) await saveResFS(Object.assign({},toUpdate[i],{status:'selesai'}));
+  showToast(toUpdate.length+' reservasi otomatis ditandai Selesai','info',3000);
+  _renderCalendarSync();
+  if(S.date) renderDetail(getResDate(S.date));
+  if(typeof NOTIF!=='undefined') NOTIF.render();
+}
+window._autoCompleteReservations=_autoCompleteReservations;
+
+/* WALK-IN CEPAT */
+window.openWalkIn=function(){
+  if(!guardWrite()) return;
+  var el=document.getElementById('modal-walkin'); if(!el) return;
+  val('wi-nama',''); val('wi-jumlah','2');
+  var sel=document.getElementById('wi-loc');
+  if(sel) sel.innerHTML='<option value="">Pilih lokasi...</option>'
+    +getLocsSorted().map(function(l){ return '<option value="'+esc(l.name)+'">'+esc(l.name)+' (maks.'+l.capacity+')</option>'; }).join('');
+  el.classList.add('open');
+};
+window.saveWalkIn=async function(){
+  if(!guardWrite()) return;
+  var nama=gval('wi-nama').trim(), loc=gval('wi-loc'), jumlah=parseInt(gval('wi-jumlah'))||1;
+  if(!nama){ showToast('Nama wajib diisi','error'); return; }
+  if(!loc){  showToast('Pilih lokasi','error');    return; }
+  var now=new Date(), jam=pad2(now.getHours())+':'+pad2(now.getMinutes()), ds=todayStr();
+  await saveResFS({id:genId(),date:ds,nama:nama,nomorHp:'',jam:jam,jumlah:jumlah,
+    tempat:loc,menus:[],tambahan:'Walk-in',catatanInternal:'',
+    dp:0,tipeDp:'',status:'confirmed',source:'walkin',duration:null,createdAt:Date.now(),thankYouSent:false});
+  closeModal('modal-walkin');
+  showToast('Walk-in '+nama+' dicatat!','success');
+  await selectDate(ds); _renderCalendarSync();
+};
+
+/* QUICK AVAILABILITY CHECKER */
+window.runQuickAvail=function(){
+  var dateEl=document.getElementById('qa-date');
+  var locEl=document.getElementById('qa-loc');
+  var resEl=document.getElementById('qa-result');
+  if(!dateEl||!locEl||!resEl) return;
+  var date=dateEl.value||todayStr(), loc=locEl.value;
+  if(!loc){ resEl.innerHTML='<span style="color:var(--ink-4)">Pilih lokasi dulu</span>'; return; }
+  var slots=findAvailableSlots(date,loc,null);
+  if(!slots.length){
+    resEl.innerHTML='<span style="color:var(--danger)"><i class="fas fa-times-circle"></i> Penuh / Tidak tersedia</span>';
+  } else {
+    resEl.innerHTML='<span style="color:var(--success)"><i class="fas fa-check-circle"></i> '+slots.length+' slot: </span>'
+      +slots.slice(0,5).map(function(s){
+        return '<span class="qa-slot" onclick="openAddResWithSlot(\''+date+'\',\''+loc+'\',\''+s+'\')">'
+          +s+'</span>';
+      }).join('');
+  }
+};
+window.openAddResWithSlot=function(date,loc,jam){
+  openAddRes();
+  setTimeout(function(){
+    val('res-date',date); val('res-jam',jam);
+    var sel=document.getElementById('res-tempat');
+    if(sel) sel.value=loc;
+    onResFieldChange();
+  },150);
+};
+window.populateQaLocs=function(){
+  var sel=document.getElementById('qa-loc'); if(!sel) return;
+  sel.innerHTML='<option value="">Pilih lokasi...</option>'
+    +getLocsSorted().map(function(l){ return '<option value="'+esc(l.name)+'">'+esc(l.name)+'</option>'; }).join('');
+};
+
+/* TOGGLE ADVANCED FIELDS */
+window.toggleAdvancedFields=function(){
+  var adv=document.getElementById('res-advanced-fields');
+  var btn=document.getElementById('res-toggle-advanced');
+  if(!adv) return;
+  var isHidden=adv.style.display==='none'||adv.style.display==='';
+  adv.style.display=isHidden?'block':'none';
+  if(btn) btn.textContent=isHidden?'▲ Sembunyikan Detail':'⋮ Detail Tambahan (DP, Durasi, Catatan)';
+};
+
 function _updateSbToday() {
   var el    = document.getElementById('sb-today');
   var stats = document.getElementById('sb-today-stats');
@@ -1918,11 +2064,16 @@ function buildResCard(r) {
   } else {
     var hubungiBtn='';
     if (r.nomorHp && st !== 'batal') {
-      var hubungiLabel='';
-      if      (st==='pending')   hubungiLabel='<i class="fab fa-whatsapp"></i> Kirim Tagihan';
-      else if (st==='confirmed') hubungiLabel='<i class="fab fa-whatsapp"></i> Konfirmasi DP';
-      else if (st==='selesai')   hubungiLabel='<i class="fab fa-whatsapp"></i> Ucapan';
-      hubungiBtn='<button class="btn btn-wa btn-sm" onclick="contactWA(\''+r.id+'\')">'+hubungiLabel+'</button>';
+      if (st==='pending') {
+        hubungiBtn='<button class="btn btn-confirm-send btn-sm" onclick="confirmAndSend(\''+r.id+'\')">'
+          +'<i class="fas fa-check"></i><i class="fab fa-whatsapp" style="margin-left:3px"></i> Konfirmasi &amp; Kirim'
+          +'</button>';
+      } else {
+        var hubungiLabel='';
+        if      (st==='confirmed') hubungiLabel='<i class="fab fa-whatsapp"></i> Kirim Pesan';
+        else if (st==='selesai')   hubungiLabel='<i class="fab fa-whatsapp"></i> Ucapan';
+        if(hubungiLabel) hubungiBtn='<button class="btn btn-wa btn-sm" onclick="contactWA(\''+r.id+'\')">'+hubungiLabel+'</button>';
+      }
     }
     var thankBtn='';
     if (st==='selesai'&&r.nomorHp) {
@@ -2010,6 +2161,11 @@ function openAddRes() {
   val('res-jam','');val('res-jumlah','');val('res-dp','0');val('res-duration','');
   selVal('res-tipe-dp','');selVal('res-status','pending');
   setText('res-cap-hint','');setText('res-dur-hint','');setText('res-dp-hint','');
+  /* v6.2: collapse field tidak wajib saat tambah baru */
+  var _adv=document.getElementById('res-advanced-fields');
+  if(_adv) _adv.style.display='none';
+  var _advBtn=document.getElementById('res-toggle-advanced');
+  if(_advBtn) _advBtn.textContent='⋮ Detail Tambahan (DP, Durasi, Catatan)';
   _applyTempatModeUI();
   if (isTableMode()) {
     /* Mode meja: kosongkan container meja */
@@ -2379,18 +2535,32 @@ function updateMrPrice(sel) {
   if(pr) pr.textContent=(m&&m.price?'Rp'+formatRp(m.price):'');
 }
 
-/* contactWA - tombol "Hubungi" memanggil fungsi ini, pesan sesuai status */
+/* ================================================================
+   PATCH v6.2 - CONFIRM + SEND (1-tap untuk status pending)
+   ================================================================ */
+async function confirmAndSend(id) {
+  var r=findRes(id); if(!r){showToast('Tidak ditemukan','error');return;}
+  if(!guardWrite()) return;
+  var updated=Object.assign({},r,{status:'confirmed'});
+  await saveResFS(updated);
+  showToast('✅ Dikonfirmasi!','success',2000);
+  setTimeout(function(){ openWA(updated.nomorHp, buildConfMsg(updated)); },300);
+  if(S.date) renderDetail(getResDate(S.date));
+  _renderCalendarSync();
+  if(typeof NOTIF!=='undefined') NOTIF.render();
+  updateTopbarChips();
+}
+window.confirmAndSend=confirmAndSend;
+
+/* contactWA - pending -> confirmAndSend, lainnya -> WA sesuai status */
 function contactWA(id) {
   var r=findRes(id);
   if(!r||!r.nomorHp){showToast('Nomor HP tidak ada','error');return;}
   var st=r.status||'pending';
-
-  /* Peringatan jika confirmed tapi DP belum diisi */
+  if(st==='pending'){ confirmAndSend(id); return; }
   if(st==='confirmed'&&(!r.dp||parseInt(r.dp)===0)){
-    /* FIX: ganti confirm() dengan toast warning - confirm tidak reliable di iOS */
-    showToast('⚠️ DP belum tercatat - mengirim pesan konfirmasi tanpa info DP','warning',3500);
+    showToast('⚠️ DP belum tercatat - mengirim tanpa info DP','warning',3000);
   }
-
   openWA(r.nomorHp, buildConfMsg(r));
 }
 
@@ -2737,8 +2907,12 @@ var NOTIF = {
     if (self.handle) clearInterval(self.handle);
     /* Refresh setiap 2 menit: sync ulang dari Firestore */
     self.handle = setInterval(function(){
-      if (!document.hidden) self.loadAndRender();
+      if (!document.hidden) {
+        self.loadAndRender();
+        if(typeof _autoCompleteReservations!=='undefined') _autoCompleteReservations();
+      }
     }, 2 * 60 * 1000);
+    setTimeout(function(){ if(typeof _autoCompleteReservations!=='undefined') _autoCompleteReservations(); }, 5000);
   }
 };
 
@@ -2906,8 +3080,23 @@ function runAnalysis() {
   /* Stats */
   var cnt=filtered.length,pax=filtered.reduce(function(s,r){return s+(parseInt(r.jumlah)||0);},0);
   var dp=filtered.reduce(function(s,r){return s+(parseInt(r.dp)||0);},0);
+  /* v6.2: Growth comparison vs bulan lalu */
+  var growthHtml='';
+  if(mv!=='all'){
+    var prevMv=parseInt(mv)-1, prevY=y;
+    if(prevMv<0){prevMv=11;prevY=y-1;}
+    var prevData=S.res[mkKey(prevY,prevMv)]||[];
+    var prevCnt=prevData.length;
+    if(prevCnt>0){
+      var diff=cnt-prevCnt, pct=Math.round(diff/prevCnt*100);
+      var arrow=diff>0?'▲':diff<0?'▼':'▬';
+      var color=diff>0?'var(--success)':diff<0?'var(--danger)':'var(--ink-4)';
+      growthHtml='<div style="font-size:.75rem;margin-top:4px;color:'+color+'">'
+        +arrow+' '+Math.abs(pct)+'% vs '+MONTHS_S[prevMv]+'</div>';
+    }
+  }
   var statsEl=document.getElementById('anl-stats');
-  if(statsEl) statsEl.innerHTML=anlCard(cnt,'Total Reservasi','fas fa-calendar-check')+anlCard(pax,'Total Tamu','fas fa-users')+anlCard('Rp'+formatRpK(dp),'Total DP','fas fa-money-bill-wave')+anlCard(cnt?Math.round(pax/cnt):0,'Rata-rata Tamu','fas fa-chart-line');
+  if(statsEl) statsEl.innerHTML=anlCard(cnt+(growthHtml?growthHtml:''),'Total Reservasi','fas fa-calendar-check')+anlCard(pax,'Total Tamu','fas fa-users')+anlCard('Rp'+formatRpK(dp),'Total DP','fas fa-money-bill-wave')+anlCard(cnt?Math.round(pax/cnt):0,'Rata-rata Tamu','fas fa-chart-line');
 
   /* Chart labels */
   var labels=[],data=[];
