@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="theme-color" content="#ea580c"/>
-<meta name="description" content="Proserva — Sistem manajemen reservasi untuk restoran, café, dan agritourism."/>
-<title>Proserva — Reservation Engine</title>
+<meta name="description" content="Proserva - Sistem manajemen reservasi untuk restoran, café, dan agritourism."/>
+<title>Proserva - Reservation Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=Geist:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
@@ -18,9 +18,9 @@
 
 <!-- ═══════════════════════════════════════════════════════════════
      FIREBASE MODULE
-     · browserLocalPersistence  — session tidak hilang tutup browser
+     · browserLocalPersistence  - session tidak hilang tutup browser
      · Guard _AUTH_HANDLER_RUNNING di onAuthStateChanged
-     · Auth UI helpers pakai querySelector('span') — icon tidak terhapus
+     · Auth UI helpers pakai querySelector('span') - icon tidak terhapus
      · Export window._FB dengan query helpers untuk lazy load reservasi
      ═══════════════════════════════════════════════════════════════ -->
 <script type="module">
@@ -155,7 +155,7 @@ if (!isConfigured) {
     }
   };
 
-  /* ── Export _FB ke global — query helpers wajib ada untuk lazy load ── */
+  /* ── Export _FB ke global - query helpers wajib ada untuk lazy load ── */
   window._FB = {
     auth, db, signOut, onAuthStateChanged,
     doc, getDoc, setDoc, deleteDoc,
@@ -181,7 +181,7 @@ if (!isConfigured) {
 
 } /* end isConfigured */
 
-/* ── Auth UI helpers — pakai querySelector('span') agar icon tidak terhapus ── */
+/* ── Auth UI helpers - pakai querySelector('span') agar icon tidak terhapus ── */
 window.showAuthErr = function (msg) {
   const el = document.getElementById('auth-error');
   if (!el) return;
@@ -251,7 +251,7 @@ console.log('[Firebase] module loaded.');
       <img
         id="hero-banner-img"
         src="https://raw.githubusercontent.com/dewatalaptop/testwebsite1/refs/heads/main/assets/images/IMG_0579.png"
-        alt="Proserva — Solusi Reservasi Restoran Anda"
+        alt="Proserva - Solusi Reservasi Restoran Anda"
         loading="eager"
         fetchpriority="high"
       />
@@ -265,7 +265,7 @@ console.log('[Firebase] module loaded.');
         Platform Reservasi #1 untuk Bisnis Indonesia
       </div>
       <h1 class="hero-h1">Reservasi, WhatsApp, dan<br/><span class="hero-accent">Manajemen Meja</span><br/>dalam Satu Dashboard</h1>
-      <p class="hero-sub">Kelola semua reservasi restoran tanpa ribet — kalender visual, notifikasi WA otomatis, laporan real-time. Setup dalam 2 menit.</p>
+      <p class="hero-sub">Kelola semua reservasi restoran tanpa ribet - kalender visual, notifikasi WA otomatis, laporan real-time. Setup dalam 2 menit.</p>
       <div class="hero-cta-wrap">
         <button type="button" class="hero-btn-primary" onclick="showAuthTab('register')"><i class="fas fa-rocket"></i> Coba Gratis 14 Hari</button>
         <button type="button" class="hero-btn-ghost" onclick="showAuthTab('login')"><i class="fas fa-sign-in-alt"></i> Masuk</button>
@@ -405,7 +405,7 @@ console.log('[Firebase] module loaded.');
       <div class="land-feat-card"><div class="lfc-icon" style="--ic:#f59e0b;--ic-bg:#fffbeb"><i class="fas fa-book-open"></i></div><div class="lfc-title">Menu &amp; Paket</div><div class="lfc-desc">Atur paket menu dengan harga dan detail. Tampil vertikal di pesan konfirmasi dan laporan tim operasional.</div></div>
       <div class="land-feat-card"><div class="lfc-icon" style="--ic:#25d366;--ic-bg:#f0fdf4"><i class="fab fa-whatsapp"></i></div><div class="lfc-title">Integrasi WhatsApp</div><div class="lfc-desc">Kirim tagihan, konfirmasi DP, dan laporan harian tim langsung via WhatsApp dengan satu klik.</div></div>
       <div class="land-feat-card"><div class="lfc-icon" style="--ic:#8b5cf6;--ic-bg:#f5f3ff"><i class="fas fa-chart-line"></i></div><div class="lfc-title">Analisis Bisnis</div><div class="lfc-desc">Chart reservasi, menu terlaris, pelanggan setia, dan insight otomatis untuk keputusan lebih cerdas.</div></div>
-      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#0ea5e9;--ic-bg:#f0f9ff"><i class="fas fa-cloud"></i></div><div class="lfc-title">Cloud Real-Time</div><div class="lfc-desc">Data tersinkron via Firebase. Buka di HP, laptop, atau tablet — selalu up-to-date dan aman.</div></div>
+      <div class="land-feat-card"><div class="lfc-icon" style="--ic:#0ea5e9;--ic-bg:#f0f9ff"><i class="fas fa-cloud"></i></div><div class="lfc-title">Cloud Real-Time</div><div class="lfc-desc">Data tersinkron via Firebase. Buka di HP, laptop, atau tablet - selalu up-to-date dan aman.</div></div>
     </div>
   </section>
 
@@ -523,7 +523,7 @@ console.log('[Firebase] module loaded.');
       </div>
       <div class="faq-item">
         <div class="faq-q"><i class="fas fa-question-circle"></i> Bisa dipakai di HP?</div>
-        <div class="faq-a">Bisa. Proserva berjalan di browser HP manapun — iPhone, Android, atau tablet. Tanpa install aplikasi.</div>
+        <div class="faq-a">Bisa. Proserva berjalan di browser HP manapun - iPhone, Android, atau tablet. Tanpa install aplikasi.</div>
       </div>
       <div class="faq-item">
         <div class="faq-q"><i class="fas fa-question-circle"></i> Bagaimana cara customer reservasi?</div>
@@ -539,7 +539,7 @@ console.log('[Firebase] module loaded.');
       </div>
       <div class="faq-item">
         <div class="faq-q"><i class="fas fa-question-circle"></i> Cocok untuk bisnis seperti apa?</div>
-        <div class="faq-a">Restoran, kafe, agritourism, vila, wedding venue, studio foto — semua bisnis yang butuh sistem reservasi berbasis lokasi &amp; waktu.</div>
+        <div class="faq-a">Restoran, kafe, agritourism, vila, wedding venue, studio foto - semua bisnis yang butuh sistem reservasi berbasis lokasi &amp; waktu.</div>
       </div>
     </div>
   </section>
@@ -728,7 +728,7 @@ console.log('[Firebase] module loaded.');
         </div>
       </div>
       <div class="paywall-actions">
-        <!-- Tampil hanya saat status masih trial — dikontrol applyAccountUI() di app.js -->
+        <!-- Tampil hanya saat status masih trial - dikontrol applyAccountUI() di app.js -->
         <button type="button" class="paywall-back-btn" id="paywall-back-btn"
           onclick="window.showScreen('app')" style="display:none">
           <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
@@ -817,25 +817,25 @@ console.log('[Firebase] module loaded.');
       <h2 class="wz-title" style="font-size:1.8rem">Tipe &amp; <em>Lokasi</em></h2>
       <p class="wz-sub">Pilih cara pengelolaan tempat, lalu tambah minimal 1 lokasi.</p>
 
-      <!-- Pilihan tipe lokasi — pilih dulu sebelum tambah -->
+      <!-- Pilihan tipe lokasi - pilih dulu sebelum tambah -->
       <div class="wz-loc-mode-pick">
         <div class="wz-loc-mode-opt active" id="wz-mode-area" onclick="window.wzSetMode?.('area')">
           <div class="wlmo-icon"><i class="fas fa-map-marker-alt"></i></div>
           <div class="wlmo-title">Per Area</div>
-          <div class="wlmo-desc">Gazebo, VIP Room, ruangan — satu reservasi satu area</div>
+          <div class="wlmo-desc">Gazebo, VIP Room, ruangan - satu reservasi satu area</div>
           <div class="wlmo-check"><i class="fas fa-check-circle"></i></div>
         </div>
         <div class="wz-loc-mode-opt" id="wz-mode-table" onclick="window.wzSetMode?.('table')">
           <div class="wlmo-icon"><i class="fas fa-chair"></i></div>
           <div class="wlmo-title">Per Meja</div>
-          <div class="wlmo-desc">Meja 1, Meja 2, dst — satu reservasi bisa pilih beberapa meja</div>
+          <div class="wlmo-desc">Meja 1, Meja 2, dst - satu reservasi bisa pilih beberapa meja</div>
           <div class="wlmo-check"><i class="fas fa-check-circle"></i></div>
         </div>
       </div>
 
       <!-- Placeholder input nama berubah sesuai mode (dikontrol wzSetMode) -->
       <div class="wz-list" id="wz-loc-list">
-        <div class="wz-empty-hint">Belum ada lokasi — tambah minimal 1</div>
+        <div class="wz-empty-hint">Belum ada lokasi - tambah minimal 1</div>
       </div>
       <div class="wz-inline">
         <div class="wz-input-wrap">
@@ -877,7 +877,7 @@ console.log('[Firebase] module loaded.');
       </div>
       <div class="wz-eyebrow">Langkah 3 dari 3</div>
       <h2 class="wz-title" style="font-size:1.8rem">Tambah Menu <em>&amp; Paket</em></h2>
-      <p class="wz-sub">Opsional — bisa ditambah kapan saja dari pengaturan.</p>
+      <p class="wz-sub">Opsional - bisa ditambah kapan saja dari pengaturan.</p>
       <div class="wz-list" id="wz-menu-list"></div>
       <div class="wz-field">
         <div class="wz-input-wrap">
@@ -924,10 +924,10 @@ console.log('[Firebase] module loaded.');
      ══════════════════════════════════════════════════════ -->
 <div id="app-shell" style="display:none" aria-hidden="true">
 
-  <!-- Banners — hanya satu yang tampil, dikontrol applyAccountUI() -->
+  <!-- Banners - hanya satu yang tampil, dikontrol applyAccountUI() -->
   <div id="readonly-banner" style="display:none" role="status">
     <i class="fas fa-lock" aria-hidden="true"></i>
-    <span>Mode Baca Saja — Trial telah berakhir.</span>
+    <span>Mode Baca Saja - Trial telah berakhir.</span>
     <button type="button" onclick="window.showScreen('paywall')">
       <i class="fas fa-crown"></i> Aktifkan Sekarang
     </button>
@@ -969,7 +969,7 @@ console.log('[Firebase] module loaded.');
     <div id="sb-account-status" class="sb-status" role="status"></div>
     <div class="sidebar-biz" id="sb-biz-name">-</div>
 
-    <!-- Tombol Link Reservasi — satu klik salin, selalu terlihat -->
+    <!-- Tombol Link Reservasi - satu klik salin, selalu terlihat -->
     <button type="button" class="sb-booking-link-btn" id="sb-booking-link-btn"
       onclick="copyBookingLink()" title="Salin link halaman reservasi customer">
       <i class="fas fa-link" aria-hidden="true"></i>
@@ -983,6 +983,21 @@ console.log('[Firebase] module loaded.');
       role="button" tabindex="0">
       <div class="sb-today-label"><i class="fas fa-calendar-day"></i> Hari Ini</div>
       <div class="sb-today-stats" id="sb-today-stats">-</div>
+    </div>
+
+    <!-- Quick Availability Checker - v6.2 -->
+    <div class="sb-quick-avail" id="sb-quick-avail">
+      <div class="sqa-title"><i class="fas fa-search"></i> Cek Ketersediaan</div>
+      <div class="sqa-row">
+        <input type="date" id="qa-date" class="sqa-input" />
+        <select id="qa-loc" class="sqa-input" onchange="">
+          <option value="">Lokasi...</option>
+        </select>
+      </div>
+      <button class="sqa-btn" onclick="runQuickAvail()">
+        <i class="fas fa-search"></i> Cek Slot
+      </button>
+      <div id="qa-result" class="sqa-result"></div>
     </div>
 
     <nav class="sidebar-nav">
@@ -1001,6 +1016,11 @@ console.log('[Firebase] module loaded.');
         <span class="sb-sync-dot"></span>
         <span class="sb-sync-label">Sync realtime aktif</span>
       </div>
+      <!-- Walk-in Cepat - v6.2 -->
+      <button type="button" class="btn-walkin" onclick="openWalkIn()">
+        <i class="fas fa-walking"></i> Walk-in Cepat
+      </button>
+
       <button type="button" class="btn-upgrade" id="sb-upgrade-btn" onclick="window.showScreen('paywall')" style="display:none">
         <i class="fas fa-crown"></i> Upgrade ke Pro
       </button>
@@ -1037,7 +1057,7 @@ console.log('[Firebase] module loaded.');
         <div id="notif-dd" role="dialog" aria-label="Notifikasi">
           <div class="nd-head"><i class="fas fa-bell" aria-hidden="true"></i> Notifikasi</div>
           <div id="notif-new-section" style="display:none">
-            <div class="nd-section-title"><i class="fas fa-clock" style="color:#f59e0b"></i> Reservasi Baru — Perlu Dikonfirmasi</div>
+            <div class="nd-section-title"><i class="fas fa-clock" style="color:#f59e0b"></i> Reservasi Baru - Perlu Dikonfirmasi</div>
             <div id="notif-new-list"></div>
           </div>
           <div class="nd-section-title" id="nd-thanks-title"><i class="fas fa-heart" style="color:#10b981"></i> Kirim Ucapan Terima Kasih</div>
@@ -1134,7 +1154,7 @@ console.log('[Firebase] module loaded.');
         <span>Memuat reservasi...</span>
       </div>
       <div id="detail-list" class="res-grid" aria-live="polite"></div>
-      <!-- UX #3: FAB tombol tambah — mudah dijangkau di mobile -->
+      <!-- UX #3: FAB tombol tambah - mudah dijangkau di mobile -->
       <button type="button" class="fab-add-res" id="fab-add-res" onclick="openAddRes()" aria-label="Tambah Reservasi">
         <i class="fas fa-plus" aria-hidden="true"></i>
       </button>
@@ -1390,7 +1410,7 @@ console.log('[Firebase] module loaded.');
             <div class="settings-card">
               <div class="settings-card-title"><i class="fas fa-chair" aria-hidden="true"></i> Tipe Manajemen Tempat</div>
               <p style="font-size:.84rem;color:var(--ink-3);margin-bottom:16px">
-                Pilih cara pengelolaan lokasi reservasi. Perubahan hanya mempengaruhi tampilan form — data lama tetap tersimpan.
+                Pilih cara pengelolaan lokasi reservasi. Perubahan hanya mempengaruhi tampilan form - data lama tetap tersimpan.
               </p>
               <div class="loc-mode-grid" id="set-loc-mode-grid">
                 <div class="loc-mode-card active" id="set-mode-area" onclick="setLocMode('area')">
@@ -1730,6 +1750,13 @@ console.log('[Firebase] module loaded.');
           </div>
         </div>
       </div>
+      <!-- v6.2: Toggle advanced fields -->
+      <button type="button" id="res-toggle-advanced" class="btn-toggle-advanced"
+        onclick="toggleAdvancedFields()">
+        ⋮ Detail Tambahan (DP, Durasi, Catatan)
+      </button>
+      <div id="res-advanced-fields" style="display:none">
+
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="res-dp">DP Diterima (Rp)</label>
@@ -1769,6 +1796,18 @@ console.log('[Firebase] module loaded.');
         <label class="form-label" for="res-tambahan">Catatan / Request Tambahan</label>
         <textarea class="form-textarea" id="res-tambahan" placeholder="Dekorasi ulang tahun, kursi bayi, alergi makanan..." maxlength="500"></textarea>
       </div>
+
+      <!-- v6.2: field catatan internal (admin only) -->
+      <div class="form-group">
+        <label class="form-label" for="res-catatan-internal">
+          <i class="fas fa-lock" style="font-size:.72rem;opacity:.55"></i> Catatan Internal <span style="font-size:.7rem;color:var(--ink-4)">(tidak masuk WA)</span>
+        </label>
+        <textarea class="form-textarea" id="res-catatan-internal" rows="2"
+          placeholder="Tamu langganan, permintaan khusus internal, dll..."></textarea>
+      </div>
+
+      </div><!-- /res-advanced-fields -->
+
     </div>
     <!-- UX #9: error summary di footer agar tidak terlewat -->
     <div class="modal-error-summary" id="modal-err-summary" style="display:none" role="alert"></div>
@@ -1798,7 +1837,7 @@ console.log('[Firebase] module loaded.');
         <div class="form-group">
           <label class="form-label" for="menu-price">Harga (Rp)</label>
           <div class="input-wrap"><span class="ip">Rp</span><input class="form-input" id="menu-price" type="number" min="0" placeholder="150000"/></div>
-          <p class="form-hint">Isi 0 jika gratis — tetap tampil di tagihan dan laporan.</p>
+          <p class="form-hint">Isi 0 jika gratis - tetap tampil di tagihan dan laporan.</p>
         </div>
       </div>
       <div class="form-group">
@@ -1806,7 +1845,7 @@ console.log('[Firebase] module loaded.');
         <textarea class="form-textarea" id="menu-details" placeholder="Nasi Putih, Ayam Bakar, Tahu Tempe, Es Teh Manis"></textarea>
         <p class="form-hint">Pisahkan dengan koma. Akan tampil <strong>vertikal</strong> di pesan konfirmasi customer dan laporan tim operasional.</p>
       </div>
-      <!-- Toggle ketersediaan menu — untuk halaman reservasi customer -->
+      <!-- Toggle ketersediaan menu - untuk halaman reservasi customer -->
       <div class="payment-toggle-row" style="margin-top:8px">
         <div>
           <div class="ptr-label">Status Ketersediaan</div>
@@ -1933,7 +1972,7 @@ console.log('[Firebase] module loaded.');
 
 <!-- ══════════════════════════════════════════════════════
      MODAL SHARE LAPORAN HARIAN
-     Preview teks sebelum kirim ke WA — scroll di mobile
+     Preview teks sebelum kirim ke WA - scroll di mobile
      ══════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="modal-share" role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
   <div class="modal modal-lg">
@@ -1960,6 +1999,77 @@ console.log('[Firebase] module loaded.');
   </div>
 </div>
 
+<!-- Modal Morning Brief - v6.2 -->
+<div class="modal-overlay" id="modal-morning-brief" role="dialog" aria-modal="true">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h3 class="modal-title" id="mb-title">Selamat Pagi!</h3>
+      <button class="modal-close" onclick="closeModal('modal-morning-brief')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <!-- Stat cards -->
+      <div class="mb-stats" id="mb-stats"></div>
+      <!-- Alert jika ada pending -->
+      <div id="mb-alert-wrap"></div>
+      <!-- Jadwal hari ini -->
+      <div style="font-size:.78rem;font-weight:700;color:var(--ink-4);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">Jadwal Hari Ini</div>
+      <div id="mb-schedule"></div>
+      <!-- Reservasi berikutnya -->
+      <div id="mb-next" class="mb-next" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-morning-brief')">
+        <i class="fas fa-check"></i> Siap!
+      </button>
+      <button class="btn btn-secondary" onclick="closeModal('modal-morning-brief');showView('calendar')">
+        <i class="fas fa-calendar"></i> Buka Kalender
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Walk-in Cepat - v6.2 -->
+<div class="modal-overlay" id="modal-walkin" role="dialog" aria-modal="true">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fas fa-walking"></i> Walk-in Cepat</h3>
+      <button class="modal-close" onclick="closeModal('modal-walkin')">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.82rem;color:var(--ink-4);margin-bottom:14px">
+        Tamu datang langsung? Catat dalam 3 field.
+        Status langsung <strong>Confirmed</strong>, jam = sekarang.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Nama Tamu <span class="req">*</span></label>
+        <input type="text" id="wi-nama" class="form-input" placeholder="Nama tamu walk-in..." autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Lokasi <span class="req">*</span></label>
+        <select id="wi-loc" class="form-select">
+          <option value="">Pilih lokasi...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jumlah Tamu</label>
+        <input type="number" id="wi-jumlah" class="form-input" value="2" min="1" max="999" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-walkin')">
+        Batal
+      </button>
+      <button class="btn btn-confirm-send" onclick="saveWalkIn()">
+        <i class="fas fa-walking"></i> Catat Walk-in
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Konfirmasi Hapus Custom -->
 <div class="modal-overlay" id="modal-confirm-delete" role="dialog" aria-modal="true">
   <div class="modal modal-sm">
@@ -1976,7 +2086,7 @@ console.log('[Firebase] module loaded.');
     <div class="modal-footer">
       <button type="button" class="btn btn-ghost" onclick="closeModal('modal-confirm-delete')">Batal</button>
       <button type="button" class="btn btn-danger" id="confirm-delete-btn">
-        <i class="fas fa-trash-alt"></i> Ya,Keluar
+        <i class="fas fa-trash-alt"></i> Ya, Hapus
       </button>
     </div>
   </div>
@@ -1993,20 +2103,20 @@ console.log('[Firebase] module loaded.');
 
 <!-- ══════════════════════════════════════════════════════
      BOOT GUARD
-     · showScreen()    — satu definisi global
-     · showAuthTab()   — router auth form
-     · togglePass()    — show/hide password
-     · onDpModeChange, onPpnToggle, onServiceToggle — settings payment UI
-     · _onAuthReady    — queue user sampai app.js siap
-     · initiatePayment — Midtrans Snap
-     · enterReadOnlyMode — hanya dipanggil dari paywall
-     · copyShareText / sendShareToWA — modal share
+     · showScreen()    - satu definisi global
+     · showAuthTab()   - router auth form
+     · togglePass()    - show/hide password
+     · onDpModeChange, onPpnToggle, onServiceToggle - settings payment UI
+     · _onAuthReady    - queue user sampai app.js siap
+     · initiatePayment - Midtrans Snap
+     · enterReadOnlyMode - hanya dipanggil dari paywall
+     · copyShareText / sendShareToWA - modal share
      ══════════════════════════════════════════════════════ -->
 <script>
 (function () {
 'use strict';
 
-/* ── showScreen — satu-satunya definisi, app.js pakai alias ── */
+/* ── showScreen - satu-satunya definisi, app.js pakai alias ── */
 window.showScreen = function (name) {
   try {
     var IDS = ['screen-loading','screen-landing','screen-auth','screen-wizard','screen-paywall'];
@@ -2093,7 +2203,7 @@ function _updateBillingPreview() {
 
 /* ── _onAuthReady bootstrap queue ──────────────────────────────
    HANYA menyimpan user dan set _AUTH_PROCESSING.
-   TIDAK set _AUTH_HANDLER_RUNNING — guard itu tugas app.js.
+   TIDAK set _AUTH_HANDLER_RUNNING - guard itu tugas app.js.
 
    Alur benar:
      1. Firebase onAuthStateChanged → versi ini dipanggil
@@ -2112,7 +2222,7 @@ window._onAuthReady = function (user) {
   console.log('[boot] user queued:', user ? user.email : 'null');
 };
 
-/* ── initiatePayment — redirect ke halaman pembayaran manual ── */
+/* ── initiatePayment - redirect ke halaman pembayaran manual ── */
 window.initiatePayment = function (planType) {
   if (!window._FBUSER) {
     window.showToast?.('Kamu harus login terlebih dahulu.', 'error'); return;
@@ -2124,7 +2234,7 @@ window.initiatePayment = function (planType) {
   window.location.href = base + '/payment.html';
 };
 
-/* ── enterReadOnlyMode — hanya dari tombol paywall ── */
+/* ── enterReadOnlyMode - hanya dari tombol paywall ── */
 window.enterReadOnlyMode = function () {
   window._READ_ONLY = true;
   window.showScreen('app');
@@ -2138,11 +2248,11 @@ window.enterReadOnlyMode = function () {
   if (shell)  shell.classList.add('has-banner');
   if (addBtn) addBtn.style.display = 'none';
   if (fab)    fab.style.display    = 'none';
-  /* Render kalender — data sudah ada dari _onAuthReady sebelum redirect ke paywall */
+  /* Render kalender - data sudah ada dari _onAuthReady sebelum redirect ke paywall */
   if (typeof window.renderCalendar === 'function') window.renderCalendar();
 };
 
-/* ── copyShareText & sendShareToWA — dipanggil dari modal share ── */
+/* ── copyShareText & sendShareToWA - dipanggil dari modal share ── */
 window.copyShareText = function () {
   var el = document.getElementById('share-preview-text');
   if (!el || !el.value) { window.showToast?.('Tidak ada teks', 'error'); return; }
@@ -2187,7 +2297,7 @@ document.addEventListener('DOMContentLoaded', function () {
       setTimeout(function () { loading.style.display = 'none'; }, 400);
     }, 1300);
   }
-  /* Fallback ke landing — diperpanjang ke 25 detik untuk koneksi lambat.
+  /* Fallback ke landing - diperpanjang ke 25 detik untuk koneksi lambat.
      Juga cek _FBUSER: jika Firebase sudah punya user, JANGAN redirect ke landing
      walaupun flags sudah clear (artinya app.js sedang load data). */
   setTimeout(function () {
@@ -2211,10 +2321,10 @@ window.showToast = window.showToast || function (msg, type) { console.log('[TOAS
 })();
 </script>
 
-<!-- app.js — defer, diload setelah HTML parse selesai -->
+<!-- app.js - defer, diload setelah HTML parse selesai -->
 <script defer src="./app.js?v=6.1" charset="utf-8"></script>
 
-<!-- BRIDGE: app.js siap — teruskan pending auth ke _onAuthReady (versi app.js).
+<!-- BRIDGE: app.js siap - teruskan pending auth ke _onAuthReady (versi app.js).
      KRITIS: reset _AUTH_PROCESSING SEBELUM memanggil _onAuthReady,
      bukan di .finally(). Ini mencegah race condition di mana _onAuthReady
      (versi app.js) melihat flag masih true dan langsung return. -->
