@@ -2315,3 +2315,61 @@ button:disabled { opacity: .45; cursor: not-allowed !important }
   .view { padding: 0 !important }
   .res-card { break-inside: avoid }
 }
+
+/* btn-confirm-send - v6.2: konfirmasi + kirim tagihan 1-tap */
+.btn-confirm-send {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 7px 14px;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all .15s ease;
+  box-shadow: 0 2px 8px rgba(5,150,105,.3);
+}
+.btn-confirm-send:hover {
+  background: linear-gradient(135deg, #047857 0%, #059669 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(5,150,105,.4);
+}
+.btn-confirm-send:active { transform: translateY(0); }
+
+/* Morning Brief Modal - v6.2 */
+.mb-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin: 14px 0; }
+.mb-stat { text-align: center; background: var(--surface-2,#f8fafc); border-radius: 10px; padding: 10px 6px; }
+.mb-stat-n { font-size: 1.4rem; font-weight: 800; color: var(--ink); line-height: 1; }
+.mb-stat-l { font-size: .68rem; color: var(--ink-4); margin-top: 3px; text-transform: uppercase; letter-spacing: .5px; }
+.mb-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.mb-row:last-child { border-bottom: none; }
+.mb-time { font-weight: 700; font-size: .84rem; color: var(--ac); min-width: 44px; }
+.mb-info { flex: 1; min-width: 0; }
+.mb-name { font-weight: 600; font-size: .84rem; color: var(--ink); }
+.mb-loc  { font-size: .75rem; color: var(--ink-4); }
+.mb-badge { padding: 2px 8px; border-radius: 99px; font-size: .65rem; font-weight: 700; }
+.mb-ok   { background: rgba(5,150,105,.1);  color: #059669; }
+.mb-done { background: rgba(37,99,235,.1);  color: #2563eb; }
+.mb-pend { background: rgba(245,158,11,.1); color: #d97706; }
+.mb-more { font-size: .75rem; color: var(--ink-4); padding: 6px 0; }
+.mb-alert { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.3); border-radius: 8px;
+  padding: 8px 12px; font-size: .8rem; color: #92400e; display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.mb-next { font-size: .8rem; color: var(--ink-3); gap: 7px; align-items: center; margin-top: 10px; }
+
+/* Walk-in Modal - v6.2 */
+.wi-field { margin-bottom: 12px; }
+
+/* Quick Avail Slots - v6.2 */
+.qa-slot { display: inline-block; background: var(--ac-dim); color: var(--ac); padding: 3px 10px;
+  border-radius: 6px; font-size: .78rem; font-weight: 600; margin: 2px; cursor: pointer;
+  transition: background .12s; border: 1px solid var(--ac-border,rgba(234,88,12,.2)); }
+.qa-slot:hover { background: var(--ac); color: #fff; }
+
+/* Form toggle advanced - v6.2 */
+.btn-toggle-advanced { background: none; border: 1px dashed var(--border); border-radius: 8px;
+  padding: 6px 14px; font-size: .78rem; color: var(--ink-4); cursor: pointer; width: 100%;
+  text-align: center; margin: 8px 0; transition: all .15s; }
+.btn-toggle-advanced:hover { border-color: var(--ac); color: var(--ac); }
